@@ -42,6 +42,6 @@ def test_get_geneMers():
     assert len(geneMers) == 0
     assert geneMers == []
 
-sys.stderr.write("Testing: get_geneMers\n")
+sys.stderr.write("Testing construct_read: get_geneMers\n")
 test_get_geneMers()
 sys.stderr.write("Test passed\n")
