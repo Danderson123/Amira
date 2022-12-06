@@ -44,7 +44,6 @@ class Gene:
         return GeneData
     def __eq__(self,
             otherGene) -> bool:
-        otherGeneName, otherGeneStrand = split_gene_and_strand(otherGene)
-        return self.get_name() == otherGeneName
+        return self.name == otherGene.get_name()
     def __hash__(self):
         return hash(self.name)
