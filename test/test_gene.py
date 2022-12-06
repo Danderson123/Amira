@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, "../amira_prototype")
 
-from gene import convert_string_strand_to_int, split_gene_and_strand, convert_int_strand_to_string, reverse_strand, define_hash, Gene
+from construct_gene import convert_string_strand_to_int, split_gene_and_strand, convert_int_strand_to_string, reverse_strand, Gene
 
 def test_convert_string_strand_to_int():
     # test input correct

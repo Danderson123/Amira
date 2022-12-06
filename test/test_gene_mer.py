@@ -1,8 +1,8 @@
 import sys
 sys.path.insert(0, "../amira_prototype")
 
-from gene_mer import define_rc_geneMer, sort_geneMers, choose_canonical_geneMer, define_geneMer, GeneMer
-from gene import Gene
+from construct_gene_mer import define_rc_geneMer, sort_geneMers, choose_canonical_geneMer, define_geneMer, GeneMer
+from construct_gene import Gene
 
 def test_define_rc_geneMer():
     # test all inputs correct
