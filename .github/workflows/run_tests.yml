@@ -38,7 +38,9 @@ jobs:
       run: |
         # enter the test directory
         cd test
-        # test gene.py
+        # test construct_gene.py
         python test_construct_gene.py
-        # test gene_mer.py
+        # test construct_gene_mer.py
         python test_construct_gene_mer.py
+        # test construct_read.py
+        python test_construct_read.py
