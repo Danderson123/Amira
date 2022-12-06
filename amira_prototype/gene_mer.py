@@ -12,9 +12,15 @@ def define_rc_geneMer(geneMer):
 
 def sort_geneMers(geneMer,
                 rcGeneMer):
+    """ return a list of hashes of each gene in the gene mer and rc gene mer and a sorted list of the two hash lists """
+    # get the list of hashes for the genes in this gene mer
     geneMerHashes = [g.__hash__() for g in geneMer]
+    # get the list of hashes for the genes in the reverse complement gene mer
     rcGeneMerHashes = [rc_g.__hash__() for rc_g in rcGeneMer]
+    # ensure that the hashes of the gene mer and rc gene mer are not the same
+    # this may require us to specify k must be even
     assert not (geneMerHashes == rcGeneMerHashes), "Gene-mer and reverse complement gene-mer are identical"
+    # sort the list of hash lists to ensure the canonical gene mer is consistent
     sortedGeneMerhashes = list(sorted([geneMerHashes, rcGeneMerHashes]))
     return geneMerHashes, rcGeneMerHashes, sortedGeneMerhashes
 
@@ -23,19 +29,25 @@ def choose_canonical_geneMer(geneMer,
                             rcGeneMer,
                             rcGeneMerHashes,
                             sortedGeneMerhashes):
+    """ returns the selected canonical gene mer and reverse complement as lists of Gene objects """
+    # select the gene mer at index 0 in the sorted list as the canonical gene mer
     if sortedGeneMerhashes[0] == geneMerHashes and sortedGeneMerhashes[1] == rcGeneMerHashes:
         return geneMer, rcGeneMer
     if sortedGeneMerhashes[0] == rcGeneMerHashes and sortedGeneMerhashes[1] == geneMerHashes:
         return rcGeneMer, geneMer
 
 def define_geneMer(geneMer):
+    """ returns the canonical gene mer and the reverse complement gene mer for this gene mer, ensuring consistency across reads """
     # ensure the gene-mer is a list
     assert type(geneMer) == list, "Gene-mer is not a list of Gene objects"
     # ensure the gene-mer is not an empty list
     assert not geneMer == [], "Gene-mer is empty"
+    # get the reverse complement gene mer of the seen gene mer
     rcGeneMer = define_rc_geneMer(geneMer)
+    # sort the gene mer and rc gene mer so the canonical gene mer is consistent
     geneMerHashes, rcGeneMerHashes, sortedGeneMerhashes = sort_geneMers(geneMer,
                                                                         rcGeneMer)
+    # choose the gene mer at index 0 in the sort as the canonical gene mer
     canonicalGeneMer, reverseCanonicalGeneMer = choose_canonical_geneMer(geneMer,
                                                                         geneMerHashes,
                                                                         rcGeneMer,
@@ -48,18 +60,18 @@ class GeneMer:
                 geneMer):
         self.canonicalGeneMer, self.rcGeneMer = define_geneMer(geneMer)
         self.geneMerSize = len(self.canonicalGeneMer)
-
-    def get_canonical_geneMer(self): # returns the canonical gene mer
+    def get_canonical_geneMer(self):
+        """ return the canonical gene mer (list of Gene objects) for this gene mer """
         return self.canonicalGeneMer
-    def get_rc_geneMer(self): # returns the reverse-complemented gene mer
+    def get_rc_geneMer(self):
+        """ return the rc gene mer (list of Gene objects) for this gene mer """
         return self.rcGeneMer
-    def get_geneMer_size(self) -> int: # returns the size of this gene mer
+    def get_geneMer_size(self) -> int:
+        """ return an integer for the number of gene objects in this gene mer """
         return self.geneMerSize
-    def assign_geneMerId(self,
-                        geneMerId):
-        self.geneMerId = geneMerId
     def __eq__ (self,
-            otherGeneMer): # equality comparison
+            otherGeneMer):
+        """ check if this gene mer is identical to another gene mer by checking the canonical and rc gene mer """
         geneMerGenes = [g.__hash__() for g in self.canonicalGeneMer]
         rcGeneMerGenes = [g.__hash__() for g in self.rcGeneMer]
         otherGeneMerGenes = [o.__hash__() for o in otherGeneMer.get_canonical_geneMer()]
