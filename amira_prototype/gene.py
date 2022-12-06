@@ -45,10 +45,17 @@ def convert_int_strand_to_string(intStrand: int) -> str:
         stringStrand = "+"
     return stringStrand
 
+def define_hash(geneName: str,
+            geneStrand: int):
+    """ return a hash of the gene name multiplied by the strand to compare against hashes of other Gene instances """
+    return hash(geneName) * geneStrand
+
 class Gene:
     def __init__(self,
                 gene: str):
         self.name, self.strand = split_gene_and_strand(gene)
+        self.hash = define_hash(self.name,
+                                self.strand)
     def get_name(self) -> str:
         """ return the name of the gene without strand information """
         return self.name
@@ -67,5 +74,4 @@ class Gene:
         """ return a bool to check if the gene names of two Gene objects are the same """
         return self.name == otherGene.get_name()
     def __hash__(self):
-        """ return a hash of the gene name to compare against hashes of other Gene instances """
-        return hash(self.name)
+        return self.hash
