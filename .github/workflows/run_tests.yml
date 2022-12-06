@@ -40,3 +40,5 @@ jobs:
         cd test
         # test gene.py
         python test_gene.py
+        # test gene_mer.py
+        python test_gene_mer.py
