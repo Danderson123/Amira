@@ -72,8 +72,8 @@ class GeneMer:
     def __eq__ (self,
             otherGeneMer):
         """ check if this gene mer is identical to another gene mer by checking the canonical and rc gene mer """
-        geneMerGenes = [g.__hash__() for g in self.canonicalGeneMer]
-        rcGeneMerGenes = [g.__hash__() for g in self.rcGeneMer]
-        otherGeneMerGenes = [o.__hash__() for o in otherGeneMer.get_canonical_geneMer()]
-        rcOtherGeneMerGenes = [o.__hash__() for o in otherGeneMer.get_rc_geneMer()]
-        return (geneMerGenes == otherGeneMerGenes and rcGeneMerGenes == rcOtherGeneMerGenes)
+        return self.canonicalGeneMer == otherGeneMer.get_canonical_geneMer() and self.rcGeneMer == otherGeneMer.get_rc_geneMer()
+    def __hash__(self):
+        """ return a hash of the gene mer to see if two gene mers are the same """
+        geneMerGenes = tuple([g.__hash__() for g in self.canonicalGeneMer])
+        return hash(geneMerGenes)

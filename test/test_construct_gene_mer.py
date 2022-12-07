@@ -112,6 +112,32 @@ def test_eq_geneMer():
     otherGeneMer = GeneMer(otherGenes)
     assert geneMer.__eq__(otherGeneMer) and otherGeneMer.__eq__(geneMer)
 
+def test_hash_geneMer():
+    # test gene mers the same
+    genes = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
+    otherGenes = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
+    geneMer = GeneMer(genes)
+    otherGeneMer = GeneMer(otherGenes)
+    assert geneMer.__hash__() == otherGeneMer.__hash__()
+    # test gene mers the rc
+    genes = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
+    otherGenes = [Gene("-gene3"), Gene("+gene2"), Gene("-gene1")]
+    geneMer = GeneMer(genes)
+    otherGeneMer = GeneMer(otherGenes)
+    assert geneMer.__hash__() == otherGeneMer.__hash__()
+    # test gene mers different but overlapping
+    genes = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
+    otherGenes = [Gene("+gene2"), Gene("-gene3"), Gene("+gene4")]
+    geneMer = GeneMer(genes)
+    otherGeneMer = GeneMer(otherGenes)
+    assert not geneMer.__hash__() == otherGeneMer.__hash__()
+    # test gene mers different and not overlapping
+    genes = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
+    otherGenes = [Gene("+gene4"), Gene("-gene5"), Gene("+gene6")]
+    geneMer = GeneMer(genes)
+    otherGeneMer = GeneMer(otherGenes)
+    assert not geneMer.__hash__() == otherGeneMer.__hash__()
+
 sys.stderr.write("Testing construct_gene_mer: define_rc_geneMer\n")
 test_define_rc_geneMer()
 sys.stderr.write("Test passed\n")
@@ -126,4 +152,7 @@ test_define_geneMer()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_gene_mer: GeneMer.__eq__\n")
 test_eq_geneMer()
+sys.stderr.write("Test passed\n")
+sys.stderr.write("Testing construct_gene_mer: GeneMer.__hash__\n")
+test_hash_geneMer()
 sys.stderr.write("Test passed\n")

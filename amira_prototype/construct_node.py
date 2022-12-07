@@ -42,3 +42,6 @@ class Node:
             otherNode):
         """ check if two nodes are identical """
         return self == otherNode
+    def __hash__(self):
+        """ return a hash of the node identifier to check if two nodes represent the same gene-mer """
+        return hash(self.nodeId)
