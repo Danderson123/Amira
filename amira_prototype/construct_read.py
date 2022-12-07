@@ -18,8 +18,7 @@ class Read:
         return self.readId
     def get_geneMers(self,
                     kmerSize: int):
-        """ return a list of GeneMer objects of length kmerSize for this read """
-        allGeneMers = []
+        """ return a generator to create GeneMer objects of length kmerSize for this read """
         # if the number of genes on the read is equal to or more than the kmerSize, get the gene-mers
         if self.numberOfGenes > kmerSize - 1:
             # iterate through the list of genes by index
@@ -29,5 +28,4 @@ class Read:
                 # convert the list of Gene objects to a GeneMer object
                 geneMer = GeneMer(geneMerGenes)
                 # add the geneMer to the list of gene mers for this read
-                allGeneMers.append(geneMer)
-        return allGeneMers
+                yield geneMer
