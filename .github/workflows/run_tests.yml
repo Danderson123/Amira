@@ -5,7 +5,7 @@ name: amira_prototype
 
 on:
   push:
-    branches: [ "dev", "refactor" ]
+    branches: [ "main", "dev", "refactor" ]
   pull_request:
     branches: [ "main" ]
 
