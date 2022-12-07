@@ -31,10 +31,10 @@ def define_source_and_target(firstNode,
 
 class Edge:
     def __init__(self,
-                firstNode,
-                secondNode):
-        self.sourceNode, self.targetNode = define_source_and_target(firstNode,
-                                                                    secondNode)
+                sourceNode,
+                targetNode):
+        self.sourceNode = sourceNode
+        self.targetNode = targetNode
         self.edgeCoverage = 0
     def get_sourceNode(self) -> Node:
         """ return the assigned source Node object """

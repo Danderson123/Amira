@@ -60,12 +60,25 @@ class GeneMer:
                 geneMer):
         self.canonicalGeneMer, self.rcGeneMer = define_geneMer(geneMer)
         self.geneMerSize = len(self.canonicalGeneMer)
+
+        def define_direction(canonicalGeneMer,
+                            geneMer):
+            if not canonicalGeneMer == geneMer:
+                return -1
+            else:
+                return 1
+
+        self.geneMerDirection = define_direction(self.canonicalGeneMer,
+                                                geneMer)
+
     def get_canonical_geneMer(self):
         """ return the canonical gene mer (list of Gene objects) for this gene mer """
         return self.canonicalGeneMer
     def get_rc_geneMer(self):
         """ return the rc gene mer (list of Gene objects) for this gene mer """
         return self.rcGeneMer
+    def get_geneMerDirection(self):
+        return self.geneMerDirection
     def get_geneMer_size(self) -> int:
         """ return an integer for the number of gene objects in this gene mer """
         return self.geneMerSize
