@@ -16,6 +16,9 @@ class Read:
     def get_readId(self) -> str:
         """ return a string identifier for this read """
         return self.readId
+    def get_genes(self) -> list:
+        """ return a list of Gene objects for this read """
+        return self.listOfGenes
     def get_geneMers(self,
                     kmerSize: int):
         """ return a generator to create GeneMer objects of length kmerSize for this read """
