@@ -46,3 +46,5 @@ jobs:
         python test_construct_read.py
         # test construct_node.py
         python test_construct_node.py
+        # test construct_edge.py
+        python test_construct_edge.py
