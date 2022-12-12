@@ -9,22 +9,6 @@ def convert_string_strand_to_int(stringStrand: str) -> int:
         intStrand = -1
     return intStrand
 
-def split_gene_and_strand(gene: str):
-    """ returns the separated string name and integer strand for an input gene with strand information """
-    # ensure the input gene is not an empty string
-    assert gene.replace(" ", "") != "", "Gene information is missing"
-    # isolate the strand
-    geneStringStrand = gene[0]
-    # isolate the gene name and replace any spaces with an underscore
-    geneName = gene[1:].replace(" ", "_")
-    # ensure the strand is only either "+" or "-"
-    assert geneStringStrand == "-" or geneStringStrand == "+", "Strand information missing for: " + gene
-    # ensure that the name of the gene is not missing
-    assert geneName != "", "Gene name information missing for: " + gene
-    # convert the string strand to an integer, either 1 or -1
-    geneStrand = convert_string_strand_to_int(geneStringStrand)
-    return geneName, geneStrand
-
 def reverse_strand(geneStrand: int) -> int:
     """ returns the reverse sign for an input integer strand """
     # ensure the integer strand input is only 1 or -1
@@ -48,6 +32,23 @@ def convert_int_strand_to_string(intStrand: int) -> str:
 class Gene:
     def __init__(self,
                 gene: str):
+
+        def split_gene_and_strand(gene: str):
+            """ returns the separated string name and integer strand for an input gene with strand information """
+            # ensure the input gene is not an empty string
+            assert gene.replace(" ", "") != "", "Gene information is missing"
+            # isolate the strand
+            geneStringStrand = gene[0]
+            # isolate the gene name and replace any spaces with an underscore
+            geneName = gene[1:].replace(" ", "_")
+            # ensure the strand is only either "+" or "-"
+            assert geneStringStrand == "-" or geneStringStrand == "+", "Strand information missing for: " + gene
+            # ensure that the name of the gene is not missing
+            assert geneName != "", "Gene name information missing for: " + gene
+            # convert the string strand to an integer, either 1 or -1
+            geneStrand = convert_string_strand_to_int(geneStringStrand)
+            return geneName, geneStrand
+
         self.name, self.strand = split_gene_and_strand(gene)
     def get_name(self) -> str:
         """ return the name of the gene without strand information """

@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, "../amira_prototype")
 
-from construct_gene import convert_string_strand_to_int, split_gene_and_strand, convert_int_strand_to_string, reverse_strand, Gene
+from construct_gene import convert_string_strand_to_int, convert_int_strand_to_string, reverse_strand, Gene
 
 def test_convert_string_strand_to_int():
     # test input correct
@@ -26,42 +26,62 @@ def test_convert_string_strand_to_int():
 
 def test_split_gene_and_strand():
     # test all inputs correct
-    returnName, returnStrand = split_gene_and_strand("+gene1")
+    gene = Gene("+gene1")
+    returnName = gene.name
+    returnStrand = gene.strand
     assert returnStrand == 1
     assert returnName == "gene1"
-    returnName, returnStrand = split_gene_and_strand("-gene2")
+    gene = Gene("-gene2")
+    returnName = gene.name
+    returnStrand = gene.strand
     assert returnStrand == -1
     assert returnName == "gene2"
     # test strand information missing, assert there is an assertionerror
     try:
-        split_gene_and_strand("gene1")
+        gene = Gene("gene1")
+        returnName = gene.name
+        returnStrand = gene.strand
     except Exception as e:
         assert isinstance(e, AssertionError)
     # test name information missing
     try:
-        returnName, returnStrand = split_gene_and_strand("+")
+        gene = Gene("+")
+        returnName = gene.name
+        returnStrand = gene.strand
     except Exception as e:
         assert isinstance(e, AssertionError)
     try:
-        returnName, returnStrand = split_gene_and_strand("-")
+        gene = Gene("-")
+        returnName = gene.name
+        returnStrand = gene.strand
     except Exception as e:
         assert isinstance(e, AssertionError)
     # test gene information missing
     try:
-        returnName, returnStrand = split_gene_and_strand("")
+        gene = Gene("")
+        returnName = gene.name
+        returnStrand = gene.strand
     except Exception as e:
         assert isinstance(e, AssertionError)
     # test behaviour when "+" and "-" characters in gene name
-    returnName, returnStrand = split_gene_and_strand("+gene+1")
+    gene = Gene("+gene+1")
+    returnName = gene.name
+    returnStrand = gene.strand
     assert returnStrand == 1
     assert returnName == "gene+1"
-    returnName, returnStrand = split_gene_and_strand("-gene+1")
+    gene = Gene("-gene+1")
+    returnName = gene.name
+    returnStrand = gene.strand
     assert returnStrand == -1
     assert returnName == "gene+1"
-    returnName, returnStrand = split_gene_and_strand("+gene-2")
+    gene = Gene("+gene-2")
+    returnName = gene.name
+    returnStrand = gene.strand
     assert returnStrand == 1
     assert returnName == "gene-2"
-    returnName, returnStrand = split_gene_and_strand("-gene-2")
+    gene = Gene("-gene-2")
+    returnName = gene.name
+    returnStrand = gene.strand
     assert returnStrand == -1
     assert returnName == "gene-2"
 
@@ -167,7 +187,7 @@ def test_hash_gene():
 sys.stderr.write("Testing construct_gene: convert_string_strand_to_int\n")
 test_convert_string_strand_to_int()
 sys.stderr.write("Test passed\n")
-sys.stderr.write("Testing construct_gene: split_gene_and_strand\n")
+sys.stderr.write("Testing construct_gene: Gene.split_gene_and_strand\n")
 test_split_gene_and_strand()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_gene: reverse_strand\n")
