@@ -1,0 +1,92 @@
+import sys
+sys.path.insert(0, "../amira_prototype")
+
+from construct_graph import GeneMerGraph
+from construct_read import Read
+
+def test_graph_increment_nodeId():
+    graph = GeneMerGraph([],
+                        3,
+                        1,
+                        1)
+    assert graph.currentNodeId == 0
+    assert graph.increment_nodeID() == 1 and graph.currentNodeId == 1
+
+def test_graph_determine_node_index():
+    # test gene mer in the graph
+    genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+    read1 = Read("read1",
+                genes)
+    geneMers = [x for x in read1.get_geneMers(2)]
+    graph = GeneMerGraph([],
+                        3,
+                        1,
+                        1)
+    graph.nodeHashes = [g.__hash__() for g in geneMers]
+    assert all(graph.determine_node_index(geneMers[i]) == i for i in range(len(geneMers)))
+    # test gene-mer not in graph
+    try:
+        graph.determine_node_index(1)
+    except Exception as e:
+        assert isinstance(e, AssertionError)
+
+def test_graph_add_node():
+    # add a node to an empty graph
+    genes = ["+gene1", "-gene2", "+gene3"]
+    read1 = Read("read1",
+                genes)
+    geneMer = [x for x in read1.get_geneMers(3)][0]
+    graph = GeneMerGraph([],
+                        3,
+                        1,
+                        1)
+    returnedNode = graph.add_node(geneMer,
+                                "read1")
+    # ensure node and gene mer hashes are the same
+    assert returnedNode.__hash__() == geneMer.__hash__()
+    # ensure the node id assignment is correct
+    assert returnedNode.get_nodeId() == 0 and graph.currentNodeId == 1
+    # ensure the returned node is identical to the node added to the graph
+    assert returnedNode.__hash__() == graph.graph[0].__hash__()
+    # ensure the read id is added to the Node
+    assert [x for x in returnedNode.get_reads()][0] == "read1"
+    # add a different node to a non-empty graph
+    genes2 = ["+gene4", "-gene3", "+gene2"]
+    read2 = Read("read2",
+                genes2)
+    geneMer2 = [x for x in read2.get_geneMers(3)][0]
+    returnedNode2 = graph.add_node(geneMer2,
+                                "read2")
+    # ensure node and gene mer hashes are the same
+    assert returnedNode2.__hash__() == geneMer2.__hash__()
+    # ensure the node id assignment is correct
+    assert returnedNode2.get_nodeId() == 1 and graph.currentNodeId == 2
+    # ensure the returned node is identical to the node added to the graph
+    assert returnedNode2.__hash__() == graph.graph[1].__hash__()
+    # ensure the read id is added to the Node
+    assert [x for x in returnedNode2.get_reads()][0] == "read2"
+    # add the same node to a non-empty graph
+    genes3 = ["-gene3", "+gene2", "-gene1"]
+    read3 = Read("read3",
+                genes3)
+    geneMer3 = [x for x in read3.get_geneMers(3)][0]
+    returnedNode3 = graph.add_node(geneMer3,
+                                "read3")
+    # ensure node and gene mer hashes are the same
+    assert returnedNode3.__hash__() == geneMer3.__hash__() and returnedNode3.__hash__() == geneMer.__hash__()
+    # ensure the node id assignment is correct
+    assert returnedNode3.get_nodeId() == 0 and graph.currentNodeId == 2
+    # ensure the returned node is identical to the node added to the graph
+    assert returnedNode3.__hash__() == graph.graph[0].__hash__()
+    # ensure the read id is added to the Node
+    assert [x for x in returnedNode3.get_reads()] == ["read1", "read3"] or [x for x in returnedNode3.get_reads()] == ["read3", "read1"]
+
+sys.stderr.write("Testing construct_graph: Graph.increment_nodeId\n")
+test_graph_increment_nodeId()
+sys.stderr.write("Test passed\n")
+sys.stderr.write("Testing construct_graph: Graph.determine_node_index\n")
+test_graph_determine_node_index()
+sys.stderr.write("Test passed\n")
+sys.stderr.write("Testing construct_graph: Graph.add_node\n")
+test_graph_add_node()
+sys.stderr.write("Test passed\n")
