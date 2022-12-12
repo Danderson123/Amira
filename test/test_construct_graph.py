@@ -113,6 +113,37 @@ def test_graph_get_node():
     except Exception as e:
         assert isinstance(e, AssertionError)
 
+def test_graph_get_nodes_containing():
+    graph = GeneMerGraph({"read1": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "-gene3", "+gene2", "-gene1"]},
+                        3,
+                        1,
+                        1)
+    allNodes = graph.graph
+    # select two random genes and check all nodes contain the genes
+    selectedGenes = ["gene2", "gene6"]
+    selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
+    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    assert all(any(g in ng for g in selectedGenes) for ng in nodeGenes)
+    # confirm all nodes are returned when all genes are specified
+    selectedGenes = ["gene1", "gene2", "gene3", "gene4", "gene5", "gene6", "gene3", "gene2", "gene1"]
+    selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
+    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    assert all(any(g in ng for g in selectedGenes) for ng in nodeGenes)
+    # confirm no nodes are returned when no genes in the graph are specified
+    selectedGenes = ["gene10"]
+    selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
+    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    assert nodeGenes == []
+    selectedGenes = []
+    selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
+    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    assert nodeGenes == []
+    # confirm there is an assertion error when the specified genes include strand information
+    selectedGenes = ["gene2", "+gene6"]
+    try:
+        [n for n in graph.get_nodes_containing(selectedGenes)]
+    except Exception as e:
+        assert isinstance(e, AssertionError)
 
 sys.stderr.write("Testing construct_graph: Graph.increment_nodeId\n")
 test_graph_increment_nodeId()
@@ -125,4 +156,7 @@ test_graph_add_node()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_graph: Graph.get_node\n")
 test_graph_get_node()
+sys.stderr.write("Test passed\n")
+sys.stderr.write("Testing construct_graph: Graph.get_nodes_containing\n")
+test_graph_get_nodes_containing()
 sys.stderr.write("Test passed\n")

@@ -4,25 +4,37 @@ from construct_node import Node
 from construct_edge import Edge
 from construct_gene_mer import GeneMer
 from construct_gene import Gene
-
+from construct_read import Read
 class GeneMerGraph:
+
     def __init__(self,
-                reads,
+                readDict,
                 kmerSize,
                 minGeneMerCoverage,
                 minEdgeCoverage):
-        self.reads = reads
+
+        self.readDict = readDict
         self.kmerSize = kmerSize
         self.minGeneMerCoverage = minGeneMerCoverage
         self.minEdgeCoverage = minEdgeCoverage
         self.graph = []
         self.nodeHashes = []
         self.currentNodeId = 0
-    def increment_nodeID(self):
+
+        for read in readDict:
+            this_read = Read(read,
+                            readDict[read])
+            for geneMer in this_read.get_geneMers(kmerSize):
+                self.add_node(geneMer,
+                            read)
+
+    def increment_nodeID(self) -> int:
+        """ increases the current node ID by 1 and returns an integer of the new value """
         self.currentNodeId += 1
         return self.currentNodeId
     def determine_node_index(self,
-                            geneMer):
+                            geneMer) -> int:
+        """ returns an integer of the index for this node in the list of nodes in the graph """
         geneMerHash = geneMer.__hash__()
         assert geneMerHash in self.nodeHashes, "This gene-mer is not in the graph"
         mask = self.nodeHashes.index(geneMerHash)
@@ -47,16 +59,22 @@ class GeneMerGraph:
         """ get a node given a GeneMer """
         mask = self.determine_node_index(geneMer)
         return self.graph[mask]
-    def get_nodes_containing_a_gene(self,
-                                    gene: Gene) -> list:
-        """ return all nodes that contain a given gene. Useful for later, when we want to get nodes that contain AMR genes, and build unitigs from them """
     def remove_node(self, node: Node):
-        """ remove a node from the graph"""
+        """ change the value of a Node to None by index """
         geneMerHash = Node.__hash__()
         assert geneMerHash in self.nodeHashes, "This node is not in the graph"
         mask = self.nodeHashes.index(geneMerHash)
-        del self.graph[mask]
-        del self.nodeHashes[mask]
+        self.graph[mask] = None
+        self.nodeHashes[mask] = None
+    def get_nodes_containing(self,
+                            listOfAMRGenes: list) -> list:
+        """ return all nodes that contain a given gene. Useful for later, when we want to get nodes that contain AMR genes, and build unitigs from them """
+        assert all(g[0] != "+" and g[0] != "-" for g in listOfAMRGenes), "Strand information cannot be present for specified genes"
+        for node in self.graph:
+            geneMer = node.get_geneMer().get_canonical_geneMer()
+            geneNames = [g.get_name() for g in geneMer]
+            if any(inputGene in geneNames for inputGene in listOfAMRGenes):
+                yield node
     def get_degree(self, node: Node) -> int:
         """ return an integer of the number of neighbours for this node """
         numberOfForwardEdges = len(Node.get_forward_edges())
