@@ -50,6 +50,8 @@ def test_graph_add_node():
     assert returnedNode.__hash__() == graph.graph[0].__hash__()
     # ensure the read id is added to the Node
     assert [x for x in returnedNode.get_reads()][0] == "read1"
+    # ensure the hash is in the list of nodeHashes exactly once
+    assert graph.nodeHashes.count(returnedNode.__hash__()) == 1
     # add a different node to a non-empty graph
     genes2 = ["+gene4", "-gene3", "+gene2"]
     read2 = Read("read2",
@@ -65,6 +67,8 @@ def test_graph_add_node():
     assert returnedNode2.__hash__() == graph.graph[1].__hash__()
     # ensure the read id is added to the Node
     assert [x for x in returnedNode2.get_reads()][0] == "read2"
+    # ensure the hash is in the list of nodeHashes exactly once
+    assert graph.nodeHashes.count(returnedNode2.__hash__()) == 1
     # add the same node to a non-empty graph
     genes3 = ["-gene3", "+gene2", "-gene1"]
     read3 = Read("read3",
@@ -80,6 +84,35 @@ def test_graph_add_node():
     assert returnedNode3.__hash__() == graph.graph[0].__hash__()
     # ensure the read id is added to the Node
     assert [x for x in returnedNode3.get_reads()] == ["read1", "read3"] or [x for x in returnedNode3.get_reads()] == ["read3", "read1"]
+    # ensure the hash is in the list of nodeHashes exactly once
+    assert graph.nodeHashes.count(returnedNode3.__hash__()) == 1
+
+def test_graph_get_node():
+    genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "-gene3", "+gene2", "-gene1"]
+    read1 = Read("read1",
+                genes)
+    geneMers = [x for x in read1.get_geneMers(3)]
+    graph = GeneMerGraph([],
+                        3,
+                        1,
+                        1)
+    for gmer in geneMers:
+        graph.add_node(gmer,
+                    "read1")
+    #test gene-mer is in the graph
+    ids = [0, 1, 2, 3, 4, 5, 0]
+    for gmer in range(len(geneMers)):
+        assert graph.get_node(geneMers[gmer]).get_nodeId() == ids[gmer]
+    # test gene-mer is not in the graph
+    genes2 = ["+gene7", "-gene8", "+gene9"]
+    read2 = Read("read2",
+                genes2)
+    geneMer2 = [x for x in read2.get_geneMers(3)][0]
+    try:
+        graph.get_node(geneMer2)
+    except Exception as e:
+        assert isinstance(e, AssertionError)
+
 
 sys.stderr.write("Testing construct_graph: Graph.increment_nodeId\n")
 test_graph_increment_nodeId()
@@ -89,4 +122,7 @@ test_graph_determine_node_index()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_graph: Graph.add_node\n")
 test_graph_add_node()
+sys.stderr.write("Test passed\n")
+sys.stderr.write("Testing construct_graph: Graph.get_node\n")
+test_graph_get_node()
 sys.stderr.write("Test passed\n")
