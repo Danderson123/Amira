@@ -5,7 +5,7 @@ class Node:
     def __init__(self,
                 geneMer: GeneMer):
         self.geneMer = geneMer
-        self.geneMerDirection = geneMer.get_direction()
+        self.geneMerDirection = geneMer.get_geneMerDirection()
         self.nodeCoverage = 0
         self.setOfReads = set()
         self.forwardEdgeHashes = set()

@@ -11,7 +11,7 @@ def test_node_increment_coverage():
                 genes1)
     nodes = []
     for g in [x for x in read1.get_geneMers(3)]:
-        node = Node(g, 1)
+        node = Node(g)
         nodes.append(node)
     for n in range(len(nodes) - 1):
         edge = Edge(nodes[n],
@@ -24,11 +24,11 @@ def get_two_read_edges(read1,
                     read2):
     nodes1 = []
     for g in [x for x in read1.get_geneMers(3)]:
-        node = Node(g, 1)
+        node = Node(g)
         nodes1.append(node)
     nodes2 = []
     for g in [x for x in read2.get_geneMers(3)]:
-        node = Node(g, 1)
+        node = Node(g)
         nodes2.append(node)
     edges1 = []
     for n in range(len(nodes1) - 1):

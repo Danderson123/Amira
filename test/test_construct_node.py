@@ -10,7 +10,7 @@ def test_node_increment_coverage():
                 genes)
     geneMers = [x for x in read.get_geneMers(3)]
     for g in geneMers:
-        node = Node(g, 1)
+        node = Node(g)
         for i in range(5):
             coverage = node.increment_coverage()
             assert coverage == i + 1
@@ -25,7 +25,7 @@ def test_add_read():
                 genes)
     geneMers = [x for x in read1.get_geneMers(3)]
     for g in geneMers:
-        node = Node(g, 1)
+        node = Node(g)
         readList = [read1, read1, read2, read3, read3]
         for read in readList:
             node.add_read(read)
@@ -43,7 +43,7 @@ def test_remove_read():
     geneMers = [x for x in read1.get_geneMers(3)]
     # test removing a read that is in the list
     for g in geneMers:
-        node = Node(g, 1)
+        node = Node(g)
         readList = [read1, read1, read2, read3, read3]
         for read in readList:
             node.add_read(read)
@@ -54,7 +54,7 @@ def test_remove_read():
     read4 = Read("read4",
                 genes)
     for g in geneMers:
-        node = Node(g, 1)
+        node = Node(g)
         readList = [read1, read1, read2, read3, read3]
         for read in readList:
             node.add_read(read)
