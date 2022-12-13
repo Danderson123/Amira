@@ -5,7 +5,7 @@ from construct_node import Node
 from construct_read import Read
 from construct_edge import Edge
 
-def test_node_increment_coverage():
+def test_node_increment_node_coverage():
     genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
     read = Read("read1",
                 genes)
@@ -13,8 +13,8 @@ def test_node_increment_coverage():
     for g in geneMers:
         node = Node(g)
         for i in range(5):
-            coverage = node.increment_coverage()
-            assert coverage == i + 2
+            coverage = node.increment_node_coverage()
+            assert coverage == i + 1
 
 def test_node_add_read():
     genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
@@ -140,7 +140,7 @@ def test_node_add_backward_edge():
         # ensure the coverage has been increased by 1
         assert returnedEdge.edgeCoverage == 2
 
-def test_node_add_edge():
+def test_node_add_edge_to_node():
     genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
     read1 = Read("read1",
                 genes)
@@ -157,7 +157,7 @@ def test_node_add_edge():
                     targetNode,
                     1,
                     geneMers[n+1].get_geneMerDirection())
-        sourceNode.add_edge(edge)
+        sourceNode.add_edge_to_node(edge)
         edges.append(edge)
         sourceNodes.append(sourceNode)
         targetNodes.append(targetNode)
@@ -170,7 +170,7 @@ def test_node_add_edge():
         assert forwardEdge.get_targetNodeDirection() == targetNodeDirections[n]
     # test adding a forward edge that has been added before
     for e in range(len(edges)):
-        returnedEdge = sourceNodes[e].add_edge(edges[e])
+        returnedEdge = sourceNodes[e].add_edge_to_node(edges[e])
         assert returnedEdge.get_sourceNode().__eq__(sourceNodes[e]) and sourceNodes[e].__eq__(returnedEdge.get_sourceNode())
         assert returnedEdge.get_targetNode().__eq__(targetNodes[e]) and targetNodes[e].__eq__(returnedEdge.get_targetNode())
         assert returnedEdge.get_sourceNodeDirection() == 1
@@ -189,7 +189,7 @@ def test_node_add_edge():
                     targetNode,
                     -1,
                     geneMers[n+1].get_geneMerDirection())
-        sourceNode.add_edge(edge)
+        sourceNode.add_edge_to_node(edge)
         edges.append(edge)
         sourceNodes.append(sourceNode)
         targetNodes.append(targetNode)
@@ -202,7 +202,7 @@ def test_node_add_edge():
         assert backwardEdge.get_targetNodeDirection() == targetNodeDirections[n]
     # test the edge has been added before
     for e in range(len(edges)):
-        returnedEdge = sourceNodes[e].add_edge(edges[e])
+        returnedEdge = sourceNodes[e].add_edge_to_node(edges[e])
         assert returnedEdge.get_sourceNode().__eq__(sourceNodes[e]) and sourceNodes[e].__eq__(returnedEdge.get_sourceNode())
         assert returnedEdge.get_targetNode().__eq__(targetNodes[e]) and targetNodes[e].__eq__(returnedEdge.get_targetNode())
         assert returnedEdge.get_sourceNodeDirection() == -1
@@ -210,8 +210,8 @@ def test_node_add_edge():
         # ensure the coverage has been increased by 1
         assert returnedEdge.edgeCoverage == 2
 
-sys.stderr.write("Testing construct_node: Node.increment_coverage\n")
-test_node_increment_coverage()
+sys.stderr.write("Testing construct_node: Node.increment_node_coverage\n")
+test_node_increment_node_coverage()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_node: Node.add_read\n")
 test_node_add_read()
@@ -225,6 +225,6 @@ sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_node: Node.add_backward_edge\n")
 test_node_add_backward_edge()
 sys.stderr.write("Test passed\n")
-sys.stderr.write("Testing construct_node: Node.add_edge\n")
-test_node_add_edge()
+sys.stderr.write("Testing construct_node: Node.add_edge_to_node\n")
+test_node_add_edge_to_node()
 sys.stderr.write("Test passed\n")

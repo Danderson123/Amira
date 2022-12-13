@@ -122,21 +122,21 @@ def test_graph_get_nodes_containing():
     # select two random genes and check all nodes contain the genes
     selectedGenes = ["gene2", "gene6"]
     selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    nodeGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in selectedNodes]
     assert all(any(g in ng for g in selectedGenes) for ng in nodeGenes)
     # confirm all nodes are returned when all genes are specified
     selectedGenes = ["gene1", "gene2", "gene3", "gene4", "gene5", "gene6", "gene3", "gene2", "gene1"]
     selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    nodeGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in selectedNodes]
     assert all(any(g in ng for g in selectedGenes) for ng in nodeGenes)
     # confirm no nodes are returned when no genes in the graph are specified
     selectedGenes = ["gene10"]
     selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    nodeGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in selectedNodes]
     assert nodeGenes == []
     selectedGenes = []
     selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-    nodeGenes = [[g.get_name() for g in n.get_geneMer().get_canonical_geneMer()] for n in selectedNodes]
+    nodeGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in selectedNodes]
     assert nodeGenes == []
     # confirm there is an assertion error when the specified genes include strand information
     selectedGenes = ["gene2", "+gene6"]
@@ -150,22 +150,47 @@ def test_graph_add_edge():
     read1 = Read("read1",
                 genes)
     geneMers = [x for x in read1.get_geneMers(3)]
+    # test adding edges between nodes not already in the graph
     graph = GeneMerGraph([],
                         3,
                         1,
                         1)
+    for g in range(len(geneMers) - 1):
+        graph.add_edge(geneMers[g],
+                    geneMers[g + 1],
+                    "read1")
+    # confirm the coverage of the first node is 1 and there are 2 edges
+    firstNode = [n for n in graph.all_nodes()][0]
+    assert firstNode.get_node_coverage() == 2
+    assert len(firstNode.get_forward_edges()) == 2
+    assert len(firstNode.get_backward_edges()) == 2
+    assert all(edge.get_sourceNodeDirection() == 1 for edge in firstNode.get_forward_edges())
+    assert all(edge.get_sourceNodeDirection() == -1 for edge in firstNode.get_backward_edges())
+    # confirm the coverage of all other nodes is 1 and there is 1 edge
+    otherNodes = [n for n in graph.all_nodes()][1:]
+    for o in otherNodes:
+        [print(g.get_name()) for g in o.get_canonical_geneMer()]
+        print(o.get_node_coverage())
+        assert o.get_node_coverage() == 1
+        assert len(o.get_forward_edges()) == 1
+        assert len(o.get_backward_edges()) == 1
+        assert all(edge.get_sourceNodeDirection() == 1 for edge in o.get_forward_edges())
+        assert all(edge.get_sourceNodeDirection() == -1 for edge in o.get_backward_edges())
+
     for gmer in geneMers:
         graph.add_node(gmer,
                     "read1")
     allGraphNodes = [n for n in graph.all_nodes()]
     for n in range(len(allGraphNodes) - 1):
-        startSourceCoverage = allGraphNodes[n].get_coverage()
-        startTargetCoverage = allGraphNodes[n+1].get_coverage()
+        startSourceCoverage = allGraphNodes[n].get_node_coverage()
+        startTargetCoverage = allGraphNodes[n+1].get_node_coverage()
         graph.add_edge(allGraphNodes[n],
-                    allGraphNodes[n + 1])
+                    allGraphNodes[n + 1],
+                    geneMers[n].get_geneMerDirection(),
+                    geneMers[n+1].get_geneMerDirection())
         # ensure the node coverage is not modified as the nodes already exist in the graph
-        assert allGraphNodes[n].get_coverage() == startSourceCoverage, "Source node coverage changed when an edge was added"
-        assert allGraphNodes[n+1].get_coverage() == startTargetCoverage, "Target node coverage changed when an edge was added"
+        assert allGraphNodes[n].get_node_coverage() == startSourceCoverage, "Source node coverage changed when an edge was added"
+        assert allGraphNodes[n+1].get_node_coverage() == startTargetCoverage, "Target node coverage changed when an edge was added"
 
 sys.stderr.write("Testing construct_graph: Graph.increment_nodeId\n")
 test_graph_increment_nodeId()

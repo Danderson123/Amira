@@ -52,13 +52,10 @@ class Edge:
     def get_targetNodeDirection(self) -> int:
         """ return an int of the direction of the target node """
         return self.targetNodeDirection
-    def reverse_edge(self):
-        self.sourceNode.geneMerDirection = self.sourceNode.get_geneMerDirection() * -1
-        self.targetNode.geneMerDirection = self.targetNode.get_geneMerDirection() * -1
-    def get_coverage(self) -> int:
+    def get_edge_coverage(self) -> int:
         """ return the number of time this edge is seen in the data """
         return self.edgeCoverage
-    def increment_coverage(self) -> int:
+    def increment_edge_coverage(self) -> int:
         """ increase the edge coverage by 1 and return the new edge coverage """
         self.edgeCoverage += 1
         return self.edgeCoverage

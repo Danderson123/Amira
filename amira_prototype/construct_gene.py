@@ -30,6 +30,7 @@ def convert_int_strand_to_string(intStrand: int) -> str:
     return stringStrand
 
 class Gene:
+
     def __init__(self,
                 gene: str):
 
@@ -50,6 +51,7 @@ class Gene:
             return geneName, geneStrand
 
         self.name, self.strand = split_gene_and_strand(gene)
+
     def get_name(self) -> str:
         """ return the name of the gene without strand information """
         return self.name

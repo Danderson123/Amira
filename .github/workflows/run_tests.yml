@@ -36,10 +36,10 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Script testing
       run: |
+        # run unit tests
+        pytest tests
         # enter the test directory
         cd test
-        # test construct_gene.py
-        python test_construct_gene.py
         # test construct_gene_mer.py
         python test_construct_gene_mer.py
         # test construct_read.py

@@ -21,18 +21,17 @@ class GeneMerGraph:
         self.nodeHashes = []
         self.currentNodeId = 0
 
-        for read in readDict:
-            this_read = Read(read,
-                            readDict[read])
-            readGeneMers = [g for g in this_read.get_geneMers(kmerSize)]
-            if len(readGeneMers) > 1:
-                for gmer in range(len(readGeneMers) - 1):
-                    print(readGeneMers[gmer])
-                    self.add_edge(readGeneMers[gmer],
-                                readGeneMers[gmer + 1],
-                                read)
-            if len(readGeneMers) == 1:
-                self.add_node(readGeneMers[0])
+        #for read in readDict:
+         #   this_read = Read(read,
+          #                  readDict[read])
+           # readGeneMers = [g for g in this_read.get_geneMers(kmerSize)]
+            #if len(readGeneMers) > 1:
+             #   for gmer in range(len(readGeneMers) - 1):
+              #      self.add_edge(readGeneMers[gmer],
+               #                 readGeneMers[gmer + 1],
+                #                read)
+            #if len(readGeneMers) == 1:
+             #   self.add_node(readGeneMers[0])
 
     def increment_nodeID(self) -> int:
         """ increases the current node ID by 1 and returns an integer of the new value """
@@ -60,7 +59,7 @@ class GeneMerGraph:
             self.nodeHashes.append(geneMerHash)
             self.increment_nodeID()
         mask = self.determine_node_index(geneMer)
-        self.graph[mask].increment_coverage()
+        self.graph[mask].increment_node_coverage()
         self.graph[mask].add_read(readId)
         return self.graph[mask]
     def get_node(self,
@@ -80,10 +79,35 @@ class GeneMerGraph:
         """ return all nodes that contain a given gene. Useful for later, when we want to get nodes that contain AMR genes, and build unitigs from them """
         assert all(g[0] != "+" and g[0] != "-" for g in listOfAMRGenes), "Strand information cannot be present for specified genes"
         for node in self.graph:
-            geneMer = node.get_geneMer().get_canonical_geneMer()
+            geneMer = node.get_canonical_geneMer()
             geneNames = [g.get_name() for g in geneMer]
             if any(inputGene in geneNames for inputGene in listOfAMRGenes):
                 yield node
+    def build_node_edges(self,
+                        sourceNode,
+                        targetNode,
+                        sourceNodeDirection,
+                        targetNodeDirection):
+        # create a source to target edge object between the two nodes
+        sourceToTargetEdge = Edge(sourceNode,
+                                targetNode,
+                                sourceNodeDirection,
+                                targetNodeDirection)
+        reverseSourceToTargetEdge = Edge(sourceNode,
+                                        targetNode,
+                                        sourceNodeDirection * -1,
+                                        targetNodeDirection * -1)
+        # create a target to source edge between the two nodes
+        targetToSourceEdge = Edge(targetNode,
+                                sourceNode,
+                                targetNodeDirection,
+                                sourceNodeDirection)
+        reverseTargetToSourceEdge = Edge(targetNode,
+                                        sourceNode,
+                                        targetNodeDirection * -1,
+                                        sourceNodeDirection * -1)
+        return sourceToTargetEdge, reverseSourceToTargetEdge, targetToSourceEdge, reverseTargetToSourceEdge
+
     def add_edge(self,
                 sourceGeneMer: GeneMer,
                 targetGeneMer: GeneMer,
@@ -95,40 +119,37 @@ class GeneMerGraph:
         # convert the gene-mers to nodes
         sourceNode = Node(sourceGeneMer)
         targetNode = Node(targetGeneMer)
-        # add the source node to the graph if it does not exist in the graph
-        sourceNodeHash = sourceNode.__hash__()
-        if not sourceNodeHash in self.nodeHashes:
-            self.add_node(sourceNode,
-                        read)
-        # add the target node to the graph if it does not exists in the graph
-        targetNodeHash = targetNode.__hash__()
-        if not targetNodeHash in self.nodeHashes:
-            self.add_node(targetNode,
-                        read)
-        # get the indices of the source and target node to add the edges in place
+        # build the edges we need to add to the source and target nodes
+        sourceToTargetEdge, reverseSourceToTargetEdge, targetToSourceEdge, reverseTargetToSourceEdge = self.build_node_edges(sourceNode,
+                                                                                                                            targetNode,
+                                                                                                                            sourceGeneMer.get_geneMerDirection(),
+                                                                                                                            targetGeneMer.get_geneMerDirection())
+        # if the source node is not in the graph then add it, else increment the coverage by 1
+        self.add_node(sourceNode,
+                    read)
+        # if the target node is not in the graph then add it, else increment the coverage by 1
+        self.add_node(targetNode,
+                    read)
+        # add an edge from source to target if it is not in the node, else increment the coverage by 1
         sourceMask = self.determine_node_index(sourceGeneMer)
+        self.graph[sourceMask].add_edge_to_node(sourceToTargetEdge)
+        self.graph[sourceMask].add_edge_to_node(reverseSourceToTargetEdge)
+        # add an edge from target to source if it is not in the node, else increment the coverage by 1
         targetMask = self.determine_node_index(targetGeneMer)
-        # create a source to target edge object between the two nodesmask
-        sourceToTargetEdge = Edge(sourceNode,
-                                targetNode)
-        reverseSourceToTargetEdge = sourceToTargetEdge.reverse_edge()
-        self.graph[sourceMask].add_edge(sourceToTargetEdge)
-        self.graph[sourceMask].add_edge(reverseSourceToTargetEdge)
-        # create a target to source edge between the two nodes
-        targetToSourceEdge = Edge(targetNode,
-                                sourceNode)
-        reverseTargetToSourceEdge = targetToSourceEdge.reverse_edge()
-        self.graph[targetMask].add_edge(targetToSourceEdge)
-        self.graph[targetMask].add_edge(reverseTargetToSourceEdge)
+        self.graph[targetMask].add_edge_to_node(targetToSourceEdge)
+        self.graph[targetMask].add_edge_to_node(reverseTargetToSourceEdge)
+
     def get_degree(self, node: Node) -> int:
         """ return an integer of the number of neighbours for this node """
         numberOfForwardEdges = len(Node.get_forward_edges())
         numberOfBackwardEdges = len(Node.get_backward_edges())
         return numberOfForwardEdges + numberOfBackwardEdges
-    def get_forward_edges(self, node: Node) -> list:
+    def get_forward_edges(self,
+                        node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a forward edge """
         return Node.get_forward_edges()
-    def get_backward_edges(self, node: Node) -> list:
+    def get_backward_edges(self,
+                        node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a backward edge """
         return Node.get_backward_edges()
     def remove_edge(self, edge: Edge):

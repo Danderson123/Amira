@@ -5,7 +5,7 @@ from construct_edge import Edge
 from construct_node import Node
 from construct_read import Read
 
-def test_node_increment_coverage():
+def test_node_increment_edge_coverage():
     genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
     read1 = Read("read1",
                 genes1)
@@ -21,7 +21,7 @@ def test_node_increment_coverage():
                     directions[n],
                     directions[n+1])
         for i in range(5):
-            coverage = edge.increment_coverage()
+            coverage = edge.increment_edge_coverage()
             assert coverage == i + 2
 
 def get_two_read_edges(read1,
@@ -86,8 +86,8 @@ def test_hash_edge():
                                         read2)
     assert all(edges2[i] != edges1[i] for i in range(len(edges1)))
 
-sys.stderr.write("Testing construct_edge: Edge.increment_coverage\n")
-test_node_increment_coverage()
+sys.stderr.write("Testing construct_edge: Edge.increment_edge_coverage\n")
+test_node_increment_edge_coverage()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_edge: Edge.__hash__\n")
 test_hash_edge()
