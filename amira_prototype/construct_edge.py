@@ -32,16 +32,29 @@ def define_source_and_target(firstNode,
 class Edge:
     def __init__(self,
                 sourceNode,
-                targetNode):
+                targetNode,
+                sourceNodeDirection,
+                targetNodeDirection):
         self.sourceNode = sourceNode
         self.targetNode = targetNode
-        self.edgeCoverage = 0
+        self.edgeCoverage = 1
+        self.sourceNodeDirection = sourceNodeDirection
+        self.targetNodeDirection = targetNodeDirection
     def get_sourceNode(self) -> Node:
         """ return the assigned source Node object """
         return self.sourceNode
     def get_targetNode(self) -> Node:
         """ return the assigned target Node object """
         return self.targetNode
+    def get_sourceNodeDirection(self) -> int:
+        """ return and int of the direction of the source node """
+        return self.sourceNodeDirection
+    def get_targetNodeDirection(self) -> int:
+        """ return an int of the direction of the target node """
+        return self.targetNodeDirection
+    def reverse_edge(self):
+        self.sourceNode.geneMerDirection = self.sourceNode.get_geneMerDirection() * -1
+        self.targetNode.geneMerDirection = self.targetNode.get_geneMerDirection() * -1
     def get_coverage(self) -> int:
         """ return the number of time this edge is seen in the data """
         return self.edgeCoverage

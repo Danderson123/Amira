@@ -3,8 +3,8 @@ import numpy as np
 from construct_node import Node
 from construct_edge import Edge
 from construct_gene_mer import GeneMer
-from construct_gene import Gene
 from construct_read import Read
+
 class GeneMerGraph:
 
     def __init__(self,
@@ -24,9 +24,15 @@ class GeneMerGraph:
         for read in readDict:
             this_read = Read(read,
                             readDict[read])
-            for geneMer in this_read.get_geneMers(kmerSize):
-                self.add_node(geneMer,
-                            read)
+            readGeneMers = [g for g in this_read.get_geneMers(kmerSize)]
+            if len(readGeneMers) > 1:
+                for gmer in range(len(readGeneMers) - 1):
+                    print(readGeneMers[gmer])
+                    self.add_edge(readGeneMers[gmer],
+                                readGeneMers[gmer + 1],
+                                read)
+            if len(readGeneMers) == 1:
+                self.add_node(readGeneMers[0])
 
     def increment_nodeID(self) -> int:
         """ increases the current node ID by 1 and returns an integer of the new value """
@@ -42,7 +48,10 @@ class GeneMerGraph:
     def add_node(self,
                 geneMer: GeneMer,
                 readId: str) -> Node:
-        """ add a gene mer to the graph if it does not exist, else increase the node coverage by 1. Returns the Node itself """
+        """
+        Add a gene mer to the graph if it does not exist, else increase the node coverage by 1.
+        Returns the Node itself
+        """
         geneMerHash = geneMer.__hash__()
         if not geneMerHash in self.nodeHashes:
             node = Node(geneMer)
@@ -75,6 +84,42 @@ class GeneMerGraph:
             geneNames = [g.get_name() for g in geneMer]
             if any(inputGene in geneNames for inputGene in listOfAMRGenes):
                 yield node
+    def add_edge(self,
+                sourceGeneMer: GeneMer,
+                targetGeneMer: GeneMer,
+                read):
+        """
+        Add a forward and backward edge if they do not exist, else increment the edge coverage by 1.
+        Also add the nodes to the graph if they are not present already
+        """
+        # convert the gene-mers to nodes
+        sourceNode = Node(sourceGeneMer)
+        targetNode = Node(targetGeneMer)
+        # add the source node to the graph if it does not exist in the graph
+        sourceNodeHash = sourceNode.__hash__()
+        if not sourceNodeHash in self.nodeHashes:
+            self.add_node(sourceNode,
+                        read)
+        # add the target node to the graph if it does not exists in the graph
+        targetNodeHash = targetNode.__hash__()
+        if not targetNodeHash in self.nodeHashes:
+            self.add_node(targetNode,
+                        read)
+        # get the indices of the source and target node to add the edges in place
+        sourceMask = self.determine_node_index(sourceGeneMer)
+        targetMask = self.determine_node_index(targetGeneMer)
+        # create a source to target edge object between the two nodesmask
+        sourceToTargetEdge = Edge(sourceNode,
+                                targetNode)
+        reverseSourceToTargetEdge = sourceToTargetEdge.reverse_edge()
+        self.graph[sourceMask].add_edge(sourceToTargetEdge)
+        self.graph[sourceMask].add_edge(reverseSourceToTargetEdge)
+        # create a target to source edge between the two nodes
+        targetToSourceEdge = Edge(targetNode,
+                                sourceNode)
+        reverseTargetToSourceEdge = targetToSourceEdge.reverse_edge()
+        self.graph[targetMask].add_edge(targetToSourceEdge)
+        self.graph[targetMask].add_edge(reverseTargetToSourceEdge)
     def get_degree(self, node: Node) -> int:
         """ return an integer of the number of neighbours for this node """
         numberOfForwardEdges = len(Node.get_forward_edges())
@@ -86,12 +131,6 @@ class GeneMerGraph:
     def get_backward_edges(self, node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a backward edge """
         return Node.get_backward_edges()
-    def add_edge(self, edge: Edge):
-        """ add a forward and backward edge if they do not exist, else increment the edge coverage by 1 """
-        sourceNode = edge.get_sourceNode()
-        sourceNodeHash = sourceNode.__hash__()
-        targetNode = edge.get_targetNode()
-        targetNodeHash = targetNode.__hash__()
     def remove_edge(self, edge: Edge):
         """ remove an edge """
     def get_total_number_of_nodes(self) -> int:

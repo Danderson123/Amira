@@ -10,35 +10,47 @@ def test_node_increment_coverage():
     read1 = Read("read1",
                 genes1)
     nodes = []
+    directions = []
     for g in [x for x in read1.get_geneMers(3)]:
         node = Node(g)
         nodes.append(node)
+        directions.append(g.get_geneMerDirection())
     for n in range(len(nodes) - 1):
         edge = Edge(nodes[n],
-                    nodes[n+1])
+                    nodes[n+1],
+                    directions[n],
+                    directions[n+1])
         for i in range(5):
             coverage = edge.increment_coverage()
-            assert coverage == i + 1
+            assert coverage == i + 2
 
 def get_two_read_edges(read1,
                     read2):
     nodes1 = []
+    directions1 = []
     for g in [x for x in read1.get_geneMers(3)]:
         node = Node(g)
         nodes1.append(node)
+        directions1.append(g.get_geneMerDirection())
     nodes2 = []
+    directions2 = []
     for g in [x for x in read2.get_geneMers(3)]:
         node = Node(g)
         nodes2.append(node)
+        directions2.append(g.get_geneMerDirection())
     edges1 = []
     for n in range(len(nodes1) - 1):
         edge = Edge(nodes1[n],
-                    nodes1[n+1])
+                    nodes1[n+1],
+                    directions1[n],
+                    directions1[n+1])
         edges1.append(edge.__hash__())
     edges2 = []
     for n in range(len(nodes2) - 1):
         edge = Edge(nodes2[n],
-                    nodes2[n+1])
+                    nodes2[n+1],
+                    directions2[n],
+                    directions2[n+1])
         edges2.append(edge.__hash__())
     return edges1, edges2
 

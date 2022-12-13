@@ -145,6 +145,28 @@ def test_graph_get_nodes_containing():
     except Exception as e:
         assert isinstance(e, AssertionError)
 
+def test_graph_add_edge():
+    genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "-gene3", "+gene2", "-gene1"]
+    read1 = Read("read1",
+                genes)
+    geneMers = [x for x in read1.get_geneMers(3)]
+    graph = GeneMerGraph([],
+                        3,
+                        1,
+                        1)
+    for gmer in geneMers:
+        graph.add_node(gmer,
+                    "read1")
+    allGraphNodes = [n for n in graph.all_nodes()]
+    for n in range(len(allGraphNodes) - 1):
+        startSourceCoverage = allGraphNodes[n].get_coverage()
+        startTargetCoverage = allGraphNodes[n+1].get_coverage()
+        graph.add_edge(allGraphNodes[n],
+                    allGraphNodes[n + 1])
+        # ensure the node coverage is not modified as the nodes already exist in the graph
+        assert allGraphNodes[n].get_coverage() == startSourceCoverage, "Source node coverage changed when an edge was added"
+        assert allGraphNodes[n+1].get_coverage() == startTargetCoverage, "Target node coverage changed when an edge was added"
+
 sys.stderr.write("Testing construct_graph: Graph.increment_nodeId\n")
 test_graph_increment_nodeId()
 sys.stderr.write("Test passed\n")
@@ -159,4 +181,7 @@ test_graph_get_node()
 sys.stderr.write("Test passed\n")
 sys.stderr.write("Testing construct_graph: Graph.get_nodes_containing\n")
 test_graph_get_nodes_containing()
+sys.stderr.write("Test passed\n")
+sys.stderr.write("Testing construct_graph: Graph.add_edge\n")
+test_graph_add_edge()
 sys.stderr.write("Test passed\n")

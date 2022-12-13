@@ -5,8 +5,7 @@ class Node:
     def __init__(self,
                 geneMer: GeneMer):
         self.geneMer = geneMer
-        self.geneMerDirection = geneMer.get_geneMerDirection()
-        self.nodeCoverage = 0
+        self.nodeCoverage = 1
         self.setOfReads = set()
         self.forwardEdgeHashes = set()
         self.forwardEdges = []
@@ -47,40 +46,45 @@ class Node:
             self.setOfReads = readList
     def add_forward_edge(self,
                         forwardEdge):
-        """ add a forward edge if it is not already in the forward edge list """
+        """ add a forward edge if it is not already in the forward edge list, return the edge """
         edgeHash = forwardEdge.__hash__()
         if not edgeHash in self.forwardEdgeHashes:
             self.forwardEdges.append(forwardEdge)
             self.forwardEdgeHashes.add(edgeHash)
+            return forwardEdge
         else:
             mask = list(self.forwardEdgeHashes).index(edgeHash)
             self.forwardEdges[mask].increment_coverage()
+            return self.forwardEdges[mask]
     def add_edge(self,
                 edge):
-        if self.geneMerDirection == -1:
-            self.add_forward_edge(edge)
+        """ add a forward or backward edge depending on the source node direction and return the edge """
+        if edge.sourceNodeDirection == 1:
+            return self.add_forward_edge(edge)
         else:
-            self.add_backward_edge(edge)
+            return self.add_backward_edge(edge)
     def get_forward_edges(self):
         """ return a list of integers of node identifiers connected to this node by a forward edge """
         return self.forwardEdges
     def add_backward_edge(self,
                         backwardEdge):
-        """ add a forward edge if it is not already in the forward edge list """
+        """ add a backward edge if it is not already in the backward edge list, return the edge """
         edgeHash = backwardEdge.__hash__()
         if not edgeHash in self.backwardEdgeHashes:
             self.backwardEdges.append(backwardEdge)
             self.backwardEdgeHashes.add(edgeHash)
+            return backwardEdge
         else:
             mask = list(self.backwardEdgeHashes).index(edgeHash)
-            self.backwardEdgeHashes[mask].increment_coverage()
+            self.backwardEdges[mask].increment_coverage()
+            return self.backwardEdges[mask]
     def get_backward_edges(self):
         """ return a list of integers of node identifiers connected to this node by a backward edge """
         return self.backwardEdges
     def __eq__(self,
             otherNode):
         """ check if two nodes are identical """
-        return self == otherNode
+        return self.__hash__() == otherNode.__hash__()
     def __hash__(self):
         """ return a hash of the canonical gene mer to check if two nodes represent the same gene-mer """
         return self.geneMer.__hash__()
