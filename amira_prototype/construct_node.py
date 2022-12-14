@@ -9,9 +9,7 @@ class Node:
         self.nodeCoverage = 0
         self.listOfReads = []
         self.forwardEdgeHashes = []
-        self.forwardEdges = []
         self.backwardEdgeHashes = []
-        self.backwardEdges = []
     def get_canonical_geneMer(self):
         """ return the GeneMer object represented by this node """
         return self.canonicalGeneMer
@@ -48,49 +46,24 @@ class Node:
         mask = readList.index(read)
         del readList[mask]
         self.listOfReads = readList
-    def add_forward_edge(self,
-                        forwardEdge):
-        """ add a forward edge if it is not already in the forward edge list, return the edge """
-        edgeHash = forwardEdge.__hash__()
-        if not edgeHash in self.forwardEdgeHashes:
-            self.forwardEdges.append(forwardEdge)
-            self.forwardEdgeHashes.append(edgeHash)
-            return forwardEdge
-        else:
-            mask = self.forwardEdgeHashes.index(edgeHash)
-            self.forwardEdges[mask].increment_edge_coverage()
-            return self.forwardEdges[mask]
-    def get_forward_edges(self):
-        """ return a list of integers of node identifiers connected to this node by a forward edge """
-        return self.forwardEdges
+    def add_forward_edge_hash(self,
+                        forwardEdgeHash):
+        """ add a forward edge hash if it is not already in the forward edge list, return the edge """
+        if not forwardEdgeHash in self.get_forward_edge_hashes():
+            self.forwardEdgeHashes.append(forwardEdgeHash)
+        return self.get_forward_edge_hashes()
     def get_forward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.forwardEdgeHashes
-    def add_backward_edge(self,
-                        backwardEdge):
+    def add_backward_edge_hash(self,
+                        backwardEdgeHash):
         """ add a backward edge if it is not already in the backward edge list, return the edge """
-        edgeHash = backwardEdge.__hash__()
-        if not edgeHash in self.backwardEdgeHashes:
-            self.backwardEdges.append(backwardEdge)
-            self.backwardEdgeHashes.append(edgeHash)
-            return backwardEdge
-        else:
-            mask = self.backwardEdgeHashes.index(edgeHash)
-            self.backwardEdges[mask].increment_edge_coverage()
-            return self.backwardEdges[mask]
-    def get_backward_edges(self):
-        """ return a list of integers of node identifiers connected to this node by a backward edge """
-        return self.backwardEdges
+        if not backwardEdgeHash in self.get_backward_edge_hashes():
+            self.backwardEdgeHashes.append(backwardEdgeHash)
+        return self.get_backward_edge_hashes()
     def get_backward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.backwardEdgeHashes
-    def add_edge_to_node(self,
-                    edge):
-        """ add a forward or backward edge depending on the source node direction and return the edge """
-        if edge.get_sourceNodeDirection() == 1:
-            return self.add_forward_edge(edge)
-        else:
-            return self.add_backward_edge(edge)
     def __eq__(self,
             otherNode):
         """ check if two nodes are identical """

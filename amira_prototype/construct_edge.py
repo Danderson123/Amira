@@ -37,7 +37,7 @@ class Edge:
                 targetNodeDirection):
         self.sourceNode = sourceNode
         self.targetNode = targetNode
-        self.edgeCoverage = 1
+        self.edgeCoverage = 0
         self.sourceNodeDirection = sourceNodeDirection
         self.targetNodeDirection = targetNodeDirection
     def get_sourceNode(self) -> Node:
@@ -67,5 +67,5 @@ class Edge:
         return sortedEdgeHash == otherSortedEdgeHash
     def __hash__(self):
         """ return a hash of a tuple of the source and target gene mer hashes """
-        nodeHashes = (self.get_sourceNode().__hash__(), self.get_targetNode().__hash__())
+        nodeHashes = (self.get_sourceNode().__hash__() * self.get_sourceNodeDirection(), self.get_targetNode().__hash__() * self.get_targetNodeDirection())
         return hash(nodeHashes)

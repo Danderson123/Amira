@@ -66,7 +66,6 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         actual_returned_node = graph.add_node(geneMer)
         actual_returned_node.add_read("read1")
-        actual_returned_node.increment_node_coverage()
         actual_node_read_list = [x for x in actual_returned_node.get_reads()]
         actual_node_hash = actual_returned_node.__hash__()
         actual_node_coverage = actual_returned_node.get_node_coverage()
@@ -96,7 +95,6 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         actual_returned_node2 = graph.add_node(geneMer2)
         actual_returned_node2.add_read("read2")
-        actual_returned_node2.increment_node_coverage()
         actual_node2_read_list = [x for x in actual_returned_node2.get_reads()]
         actual_node2_hash = actual_returned_node2.__hash__()
         actual_node2_coverage = actual_returned_node2.get_node_coverage()
@@ -123,7 +121,6 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         actual_returned_node = graph.add_node(geneMer)
         actual_returned_node.add_read("read1")
-        actual_returned_node.increment_node_coverage()
         actual_returned_node.add_read("read2")
         actual_returned_node.increment_node_coverage()
         actual_returned_node = graph.get_node(geneMer)
@@ -158,14 +155,12 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         actual_node1 = graph.get_node(geneMer1)
         actual_node1.add_read("read1")
-        actual_node1.increment_node_coverage()
         actual_node1 = graph.get_node(geneMer1)
         actual_node1_read_list = [x for x in actual_node1.get_reads()]
         actual_node1_hash = actual_node1.__hash__()
         actual_node1_coverage = actual_node1.get_node_coverage()
         actual_node2 = graph.get_node(geneMer2)
         actual_node2.add_read("read2")
-        actual_node2.increment_node_coverage()
         actual_node2 = graph.get_node(geneMer2)
         actual_node2_read_list = [x for x in actual_node2.get_reads()]
         actual_node2_hash = actual_node2.__hash__()
@@ -340,3 +335,510 @@ class TestGeneMerConstructor(unittest.TestCase):
         selectedGenes = ["gene2", "+gene6"]
         # assertion
         self.assertRaises(AssertionError, graph.get_nodes_containing, selectedGenes)
+
+    def test___create_edges_positive_to_positive(self):
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        # setup
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                                        mock_targetNode,
+                                                                                        mock_sourceDirection,
+                                                                                        mock_targetDirection)
+        actual_sourceToTargetEdge_sourceNode = actual_sourceToTargetEdge.get_sourceNode()
+        actual_sourceToTargetEdge_targetNode = actual_sourceToTargetEdge.get_targetNode()
+        actual_sourceToTargetEdge_sourceDirection = actual_sourceToTargetEdge.get_sourceNodeDirection()
+        actual_sourceToTargetEdge_targetDirection = actual_sourceToTargetEdge.get_targetNodeDirection()
+        actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
+        expected_sourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_sourceToTargetEdge_targetNode = mock_targetNode
+        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
+        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_coverage = 0
+
+        actual_reverseSourceToTargetEdge_sourceNode = actual_reverseSourceToTargetEdge.get_sourceNode()
+        actual_reverseSourceToTargetEdge_targetNode = actual_reverseSourceToTargetEdge.get_targetNode()
+        actual_reverseSourceToTargetEdge_sourceDirection = actual_reverseSourceToTargetEdge.get_sourceNodeDirection()
+        actual_reverseSourceToTargetEdge_targetDirection = actual_reverseSourceToTargetEdge.get_targetNodeDirection()
+        actual_reverseSourceToTargetEdge_coverage = actual_reverseSourceToTargetEdge.get_edge_coverage()
+        expected_reverseSourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_reverseSourceToTargetEdge_targetNode = mock_targetNode
+        expected_reverseSourceToTargetEdge_sourceDirection = mock_sourceDirection * -1
+        expected_reverseSourceToTargetEdge_targetDirection = mock_targetDirection * -1
+        expected_reverseSourceToTargetEdge_coverage = 0
+
+        actual_sourceToTargetEdge_hash = actual_sourceToTargetEdge.__hash__()
+        actual_reverseSourceToTargetEdge_hash = actual_reverseSourceToTargetEdge.__hash__()
+        # assertion
+        self.assertEqual(actual_sourceToTargetEdge_sourceNode, expected_sourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_sourceToTargetEdge_targetNode, expected_sourceToTargetEdge_targetNode)
+        self.assertEqual(actual_sourceToTargetEdge_sourceDirection, expected_sourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_sourceToTargetEdge_targetDirection, expected_sourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_sourceToTargetEdge_coverage, expected_sourceToTargetEdge_coverage)
+
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceNode, expected_reverseSourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetNode, expected_reverseSourceToTargetEdge_targetNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceDirection, expected_reverseSourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetDirection, expected_reverseSourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_coverage, expected_reverseSourceToTargetEdge_coverage)
+
+        self.assertNotEqual(actual_sourceToTargetEdge_hash, actual_reverseSourceToTargetEdge_hash)
+
+    def test___create_edges_negative_to_negative(self):
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        # setup
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(-1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                                        mock_targetNode,
+                                                                                        mock_sourceDirection,
+                                                                                        mock_targetDirection)
+        actual_sourceToTargetEdge_sourceNode = actual_sourceToTargetEdge.get_sourceNode()
+        actual_sourceToTargetEdge_targetNode = actual_sourceToTargetEdge.get_targetNode()
+        actual_sourceToTargetEdge_sourceDirection = actual_sourceToTargetEdge.get_sourceNodeDirection()
+        actual_sourceToTargetEdge_targetDirection = actual_sourceToTargetEdge.get_targetNodeDirection()
+        actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
+        expected_sourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_sourceToTargetEdge_targetNode = mock_targetNode
+        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
+        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_coverage = 0
+
+        actual_reverseSourceToTargetEdge_sourceNode = actual_reverseSourceToTargetEdge.get_sourceNode()
+        actual_reverseSourceToTargetEdge_targetNode = actual_reverseSourceToTargetEdge.get_targetNode()
+        actual_reverseSourceToTargetEdge_sourceDirection = actual_reverseSourceToTargetEdge.get_sourceNodeDirection()
+        actual_reverseSourceToTargetEdge_targetDirection = actual_reverseSourceToTargetEdge.get_targetNodeDirection()
+        actual_reverseSourceToTargetEdge_coverage = actual_reverseSourceToTargetEdge.get_edge_coverage()
+        expected_reverseSourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_reverseSourceToTargetEdge_targetNode = mock_targetNode
+        expected_reverseSourceToTargetEdge_sourceDirection = mock_sourceDirection * -1
+        expected_reverseSourceToTargetEdge_targetDirection = mock_targetDirection * -1
+        expected_reverseSourceToTargetEdge_coverage = 0
+
+        actual_sourceToTargetEdge_hash = actual_sourceToTargetEdge.__hash__()
+        actual_reverseSourceToTargetEdge_hash = actual_reverseSourceToTargetEdge.__hash__()
+        # assertion
+        self.assertEqual(actual_sourceToTargetEdge_sourceNode, expected_sourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_sourceToTargetEdge_targetNode, expected_sourceToTargetEdge_targetNode)
+        self.assertEqual(actual_sourceToTargetEdge_sourceDirection, expected_sourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_sourceToTargetEdge_targetDirection, expected_sourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_sourceToTargetEdge_coverage, expected_sourceToTargetEdge_coverage)
+
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceNode, expected_reverseSourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetNode, expected_reverseSourceToTargetEdge_targetNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceDirection, expected_reverseSourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetDirection, expected_reverseSourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_coverage, expected_reverseSourceToTargetEdge_coverage)
+
+        self.assertNotEqual(actual_sourceToTargetEdge_hash, actual_reverseSourceToTargetEdge_hash)
+
+    def test___create_edges_positive_to_negative(self):
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        # setup
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(1)
+        mock_targetNode = fakeNode(-1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                                        mock_targetNode,
+                                                                                        mock_sourceDirection,
+                                                                                        mock_targetDirection)
+        actual_sourceToTargetEdge_sourceNode = actual_sourceToTargetEdge.get_sourceNode()
+        actual_sourceToTargetEdge_targetNode = actual_sourceToTargetEdge.get_targetNode()
+        actual_sourceToTargetEdge_sourceDirection = actual_sourceToTargetEdge.get_sourceNodeDirection()
+        actual_sourceToTargetEdge_targetDirection = actual_sourceToTargetEdge.get_targetNodeDirection()
+        actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
+        expected_sourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_sourceToTargetEdge_targetNode = mock_targetNode
+        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
+        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_coverage = 0
+
+        actual_reverseSourceToTargetEdge_sourceNode = actual_reverseSourceToTargetEdge.get_sourceNode()
+        actual_reverseSourceToTargetEdge_targetNode = actual_reverseSourceToTargetEdge.get_targetNode()
+        actual_reverseSourceToTargetEdge_sourceDirection = actual_reverseSourceToTargetEdge.get_sourceNodeDirection()
+        actual_reverseSourceToTargetEdge_targetDirection = actual_reverseSourceToTargetEdge.get_targetNodeDirection()
+        actual_reverseSourceToTargetEdge_coverage = actual_reverseSourceToTargetEdge.get_edge_coverage()
+        expected_reverseSourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_reverseSourceToTargetEdge_targetNode = mock_targetNode
+        expected_reverseSourceToTargetEdge_sourceDirection = mock_sourceDirection * -1
+        expected_reverseSourceToTargetEdge_targetDirection = mock_targetDirection * -1
+        expected_reverseSourceToTargetEdge_coverage = 0
+
+        actual_sourceToTargetEdge_hash = actual_sourceToTargetEdge.__hash__()
+        actual_reverseSourceToTargetEdge_hash = actual_reverseSourceToTargetEdge.__hash__()
+        # assertion
+        self.assertEqual(actual_sourceToTargetEdge_sourceNode, expected_sourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_sourceToTargetEdge_targetNode, expected_sourceToTargetEdge_targetNode)
+        self.assertEqual(actual_sourceToTargetEdge_sourceDirection, expected_sourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_sourceToTargetEdge_targetDirection, expected_sourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_sourceToTargetEdge_coverage, expected_sourceToTargetEdge_coverage)
+
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceNode, expected_reverseSourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetNode, expected_reverseSourceToTargetEdge_targetNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceDirection, expected_reverseSourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetDirection, expected_reverseSourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_coverage, expected_reverseSourceToTargetEdge_coverage)
+
+        self.assertNotEqual(actual_sourceToTargetEdge_hash, actual_reverseSourceToTargetEdge_hash)
+
+    def test___create_edges_negative_to_positive(self):
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        # setup
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                                        mock_targetNode,
+                                                                                        mock_sourceDirection,
+                                                                                        mock_targetDirection)
+        actual_sourceToTargetEdge_sourceNode = actual_sourceToTargetEdge.get_sourceNode()
+        actual_sourceToTargetEdge_targetNode = actual_sourceToTargetEdge.get_targetNode()
+        actual_sourceToTargetEdge_sourceDirection = actual_sourceToTargetEdge.get_sourceNodeDirection()
+        actual_sourceToTargetEdge_targetDirection = actual_sourceToTargetEdge.get_targetNodeDirection()
+        actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
+        expected_sourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_sourceToTargetEdge_targetNode = mock_targetNode
+        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
+        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_coverage = 0
+
+        actual_reverseSourceToTargetEdge_sourceNode = actual_reverseSourceToTargetEdge.get_sourceNode()
+        actual_reverseSourceToTargetEdge_targetNode = actual_reverseSourceToTargetEdge.get_targetNode()
+        actual_reverseSourceToTargetEdge_sourceDirection = actual_reverseSourceToTargetEdge.get_sourceNodeDirection()
+        actual_reverseSourceToTargetEdge_targetDirection = actual_reverseSourceToTargetEdge.get_targetNodeDirection()
+        actual_reverseSourceToTargetEdge_coverage = actual_reverseSourceToTargetEdge.get_edge_coverage()
+        expected_reverseSourceToTargetEdge_sourceNode = mock_sourceNode
+        expected_reverseSourceToTargetEdge_targetNode = mock_targetNode
+        expected_reverseSourceToTargetEdge_sourceDirection = mock_sourceDirection * -1
+        expected_reverseSourceToTargetEdge_targetDirection = mock_targetDirection * -1
+        expected_reverseSourceToTargetEdge_coverage = 0
+
+        actual_sourceToTargetEdge_hash = actual_sourceToTargetEdge.__hash__()
+        actual_reverseSourceToTargetEdge_hash = actual_reverseSourceToTargetEdge.__hash__()
+        # assertion
+        self.assertEqual(actual_sourceToTargetEdge_sourceNode, expected_sourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_sourceToTargetEdge_targetNode, expected_sourceToTargetEdge_targetNode)
+        self.assertEqual(actual_sourceToTargetEdge_sourceDirection, expected_sourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_sourceToTargetEdge_targetDirection, expected_sourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_sourceToTargetEdge_coverage, expected_sourceToTargetEdge_coverage)
+
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceNode, expected_reverseSourceToTargetEdge_sourceNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetNode, expected_reverseSourceToTargetEdge_targetNode)
+        self.assertEqual(actual_reverseSourceToTargetEdge_sourceDirection, expected_reverseSourceToTargetEdge_sourceDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_targetDirection, expected_reverseSourceToTargetEdge_targetDirection)
+        self.assertEqual(actual_reverseSourceToTargetEdge_coverage, expected_reverseSourceToTargetEdge_coverage)
+
+        self.assertNotEqual(actual_sourceToTargetEdge_hash, actual_reverseSourceToTargetEdge_hash)
+
+    def test___add_missing_edge_to_edges(self):
+        # setup
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        sourceToTargetEdge, reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                        mock_targetNode,
+                                                                        mock_sourceDirection,
+                                                                        mock_targetDirection)
+        # execution
+        actual_edge = graph.add_edge_to_edges(sourceToTargetEdge)
+        actual_reverse_edge = graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        actual_graph_edges = graph.get_edges()
+        actual_number_of_edges = len(actual_graph_edges)
+        actual_edge_coverage = actual_edge.get_edge_coverage()
+        actual_reverse_edge_coverage = actual_reverse_edge.get_edge_coverage()
+        # assertion
+        expected_number_of_edges = 2
+        expected_edge = actual_graph_edges[sourceToTargetEdge.__hash__()]
+        expected_reverse_edge = actual_graph_edges[reverseSourceToTargetEdge.__hash__()]
+        expected_edge_coverage = 1
+        self.assertEqual(actual_number_of_edges, expected_number_of_edges)
+        self.assertEqual(actual_edge, expected_edge)
+        self.assertEqual(actual_reverse_edge, expected_reverse_edge)
+        self.assertEqual(actual_edge_coverage, expected_edge_coverage)
+        self.assertEqual(actual_reverse_edge_coverage, expected_edge_coverage)
+
+    def test___add_duplicate_edge_to_edges(self):
+        # setup
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        sourceToTargetEdge, reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                        mock_targetNode,
+                                                                        mock_sourceDirection,
+                                                                        mock_targetDirection)
+        graph.add_edge_to_edges(sourceToTargetEdge)
+        graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        # execution
+        actual_edge = graph.add_edge_to_edges(sourceToTargetEdge)
+        actual_reverse_edge = graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        actual_graph_edges = graph.get_edges()
+        actual_number_of_edges = len(actual_graph_edges)
+        actual_edge_coverage = actual_edge.get_edge_coverage()
+        actual_reverse_edge_coverage = actual_reverse_edge.get_edge_coverage()
+        # assertion
+        expected_number_of_edges = 2
+        expected_edge = actual_graph_edges[sourceToTargetEdge.__hash__()]
+        expected_reverse_edge = actual_graph_edges[reverseSourceToTargetEdge.__hash__()]
+        expected_edge_coverage = 2
+        self.assertEqual(actual_number_of_edges, expected_number_of_edges)
+        self.assertEqual(actual_edge, expected_edge)
+        self.assertEqual(actual_reverse_edge, expected_reverse_edge)
+        self.assertEqual(actual_edge_coverage, expected_edge_coverage)
+        self.assertEqual(actual_reverse_edge_coverage, expected_edge_coverage)
+
+    def test___add_third_edge_to_edges(self):
+        # setup
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        sourceToTargetEdge, reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                        mock_targetNode,
+                                                                        mock_sourceDirection,
+                                                                        mock_targetDirection)
+        graph.add_edge_to_edges(sourceToTargetEdge)
+        graph.add_edge_to_edges(sourceToTargetEdge)
+        graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        # execution
+        actual_edge = graph.add_edge_to_edges(sourceToTargetEdge)
+        actual_reverse_edge = graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        actual_graph_edges = graph.get_edges()
+        actual_number_of_edges = len(actual_graph_edges)
+        actual_edge_coverage = actual_edge.get_edge_coverage()
+        actual_reverse_edge_coverage = actual_reverse_edge.get_edge_coverage()
+        # assertion
+        expected_number_of_edges = 2
+        expected_edge = actual_graph_edges[sourceToTargetEdge.__hash__()]
+        expected_reverse_edge = actual_graph_edges[reverseSourceToTargetEdge.__hash__()]
+        expected_edge_coverage = 3
+        self.assertEqual(actual_number_of_edges, expected_number_of_edges)
+        self.assertEqual(actual_edge, expected_edge)
+        self.assertEqual(actual_reverse_edge, expected_reverse_edge)
+        self.assertEqual(actual_edge_coverage, expected_edge_coverage)
+        self.assertEqual(actual_reverse_edge_coverage, expected_edge_coverage)
+
+    def test___add_new_edges_to_graph(self):
+        # setup
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        sourceToTargetEdge, reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                        mock_targetNode,
+                                                                        mock_sourceDirection,
+                                                                        mock_targetDirection)
+        targetToSourceEdge, reverseTargetToSourceEdge = graph.create_edges(mock_targetNode,
+                                                                        mock_sourceNode,
+                                                                        mock_targetDirection,
+                                                                        mock_sourceDirection)
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge, actual_targetToSourceEdge, actual_reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
+                                                                                                                                                            reverseSourceToTargetEdge,
+                                                                                                                                                            targetToSourceEdge,
+                                                                                                                                                            reverseTargetToSourceEdge)
+        actual_graph_edges = graph.get_edges()
+        actual_number_of_edges = len(actual_graph_edges)
+        # assertion
+        expected_number_of_edges = 4
+        expected_edge_hashes = [sourceToTargetEdge.__hash__(), reverseSourceToTargetEdge.__hash__(), targetToSourceEdge.__hash__(), reverseTargetToSourceEdge.__hash__()]
+        expected_edge_coverage = 1
+        self.assertEqual(actual_number_of_edges, expected_number_of_edges)
+        self.assertTrue(all(h in list(actual_graph_edges.keys()) for h in expected_edge_hashes))
+        self.assertTrue(all(actual_graph_edges[h].get_edge_coverage() == expected_edge_coverage for h in expected_edge_hashes))
+
+    def test___add_duplicate_edges_to_graph(self):
+        # setup
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        sourceToTargetEdge, reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                        mock_targetNode,
+                                                                        mock_sourceDirection,
+                                                                        mock_targetDirection)
+        targetToSourceEdge, reverseTargetToSourceEdge = graph.create_edges(mock_targetNode,
+                                                                        mock_sourceNode,
+                                                                        mock_targetDirection,
+                                                                        mock_sourceDirection)
+        graph.add_edge_to_edges(sourceToTargetEdge)
+        graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        graph.add_edge_to_edges(targetToSourceEdge)
+        graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge, actual_targetToSourceEdge, actual_reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
+                                                                                                                                                            reverseSourceToTargetEdge,
+                                                                                                                                                            targetToSourceEdge,
+                                                                                                                                                            reverseTargetToSourceEdge)
+        actual_graph_edges = graph.get_edges()
+        actual_number_of_edges = len(actual_graph_edges)
+        # assertion
+        expected_number_of_edges = 4
+        expected_edge_hashes = [actual_sourceToTargetEdge.__hash__(), actual_reverseSourceToTargetEdge.__hash__(), actual_targetToSourceEdge.__hash__(), actual_reverseTargetToSourceEdge.__hash__()]
+        expected_edge_coverage = 2
+        self.assertEqual(actual_number_of_edges, expected_number_of_edges)
+        self.assertTrue(all(h in list(actual_graph_edges.keys()) for h in expected_edge_hashes))
+        self.assertTrue(all(actual_graph_edges[h].get_edge_coverage() == expected_edge_coverage for h in expected_edge_hashes))
+
+    def test___add_one_new_one_duplicate_edges_to_graph(self):
+        # setup
+
+        class fakeNode:
+            def __init__(self,
+                        direction):
+                self.direction = direction
+            def get_direction(self):
+                return self.direction
+
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        mock_sourceNode = fakeNode(-1)
+        mock_targetNode = fakeNode(1)
+        mock_sourceDirection = mock_sourceNode.get_direction()
+        mock_targetDirection = mock_targetNode.get_direction()
+        sourceToTargetEdge, reverseSourceToTargetEdge = graph.create_edges(mock_sourceNode,
+                                                                        mock_targetNode,
+                                                                        mock_sourceDirection,
+                                                                        mock_targetDirection)
+        targetToSourceEdge, reverseTargetToSourceEdge = graph.create_edges(mock_targetNode,
+                                                                        mock_sourceNode,
+                                                                        mock_targetDirection,
+                                                                        mock_sourceDirection)
+        graph.add_edge_to_edges(sourceToTargetEdge)
+        graph.add_edge_to_edges(reverseSourceToTargetEdge)
+        # execution
+        actual_sourceToTargetEdge, actual_reverseSourceToTargetEdge, actual_targetToSourceEdge, actual_reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
+                                                                                                                                                            reverseSourceToTargetEdge,
+                                                                                                                                                            targetToSourceEdge,
+                                                                                                                                                            reverseTargetToSourceEdge)
+        actual_graph_edges = graph.get_edges()
+        actual_number_of_edges = len(actual_graph_edges)
+        # assertion
+        expected_number_of_edges = 4
+        expected_edge_hashes = [actual_sourceToTargetEdge.__hash__(), actual_reverseSourceToTargetEdge.__hash__(), actual_targetToSourceEdge.__hash__(), actual_reverseTargetToSourceEdge.__hash__()]
+        expected_duplicate_edge_coverage = 2
+        expected_new_edge_coverage = 1
+        expected_duplicate_hashes = [actual_sourceToTargetEdge.__hash__(), actual_reverseSourceToTargetEdge.__hash__()]
+        expected_new_hashes = [actual_targetToSourceEdge.__hash__(), actual_reverseTargetToSourceEdge.__hash__()]
+        self.assertEqual(actual_number_of_edges, expected_number_of_edges)
+        self.assertTrue(all(h in list(actual_graph_edges.keys()) for h in expected_edge_hashes))
+        self.assertTrue(all(actual_graph_edges[h].get_edge_coverage() == expected_new_edge_coverage for h in expected_new_hashes))
+        self.assertTrue(all(actual_graph_edges[h].get_edge_coverage() == expected_duplicate_edge_coverage for h in expected_duplicate_hashes))
