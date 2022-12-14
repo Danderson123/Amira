@@ -45,8 +45,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                             1,
                             1)
         for g in geneMers:
-            graph.add_node(g,
-                        "read1")
+            graph.add_node(g)
         # execution
         actual_all_nodes = [x for x in graph.all_nodes()]
         actual_number_of_nodes = len(actual_all_nodes)
@@ -65,8 +64,9 @@ class TestGeneMerConstructor(unittest.TestCase):
                         1,
                         1)
         # execution
-        actual_returned_node = graph.add_node(geneMer,
-                                            "read1")
+        actual_returned_node = graph.add_node(geneMer)
+        actual_returned_node.add_read("read1")
+        actual_returned_node.increment_node_coverage()
         actual_node_read_list = [x for x in actual_returned_node.get_reads()]
         actual_node_hash = actual_returned_node.__hash__()
         actual_node_coverage = actual_returned_node.get_node_coverage()
@@ -88,15 +88,15 @@ class TestGeneMerConstructor(unittest.TestCase):
                         3,
                         1,
                         1)
-        graph.add_node(geneMer1,
-                    "read1")
+        graph.add_node(geneMer1)
         genes2 = ["+gene4", "-gene3", "+gene2"]
         read2 = Read("read2",
                     genes2)
         geneMer2 = [x for x in read2.get_geneMers(3)][0]
         # execution
-        actual_returned_node2 = graph.add_node(geneMer2,
-                                            "read2")
+        actual_returned_node2 = graph.add_node(geneMer2)
+        actual_returned_node2.add_read("read2")
+        actual_returned_node2.increment_node_coverage()
         actual_node2_read_list = [x for x in actual_returned_node2.get_reads()]
         actual_node2_hash = actual_returned_node2.__hash__()
         actual_node2_coverage = actual_returned_node2.get_node_coverage()
@@ -119,11 +119,14 @@ class TestGeneMerConstructor(unittest.TestCase):
                         3,
                         1,
                         1)
-        graph.add_node(geneMer,
-                    "read1")
+        graph.add_node(geneMer)
         # execution
-        actual_returned_node = graph.add_node(geneMer,
-                                            "read2")
+        actual_returned_node = graph.add_node(geneMer)
+        actual_returned_node.add_read("read1")
+        actual_returned_node.increment_node_coverage()
+        actual_returned_node.add_read("read2")
+        actual_returned_node.increment_node_coverage()
+        actual_returned_node = graph.get_node(geneMer)
         actual_node_read_list = [x for x in actual_returned_node.get_reads()]
         actual_node_hash = actual_returned_node.__hash__()
         actual_node_coverage = actual_returned_node.get_node_coverage()
@@ -146,19 +149,23 @@ class TestGeneMerConstructor(unittest.TestCase):
                         3,
                         1,
                         1)
-        graph.add_node(geneMer1,
-                    "read1")
+        graph.add_node(geneMer1)
         genes2 = ["+gene4", "-gene3", "+gene2"]
         read2 = Read("read2",
                     genes2)
         geneMer2 = [x for x in read2.get_geneMers(3)][0]
-        graph.add_node(geneMer2,
-                    "read2")
+        graph.add_node(geneMer2)
         # execution
+        actual_node1 = graph.get_node(geneMer1)
+        actual_node1.add_read("read1")
+        actual_node1.increment_node_coverage()
         actual_node1 = graph.get_node(geneMer1)
         actual_node1_read_list = [x for x in actual_node1.get_reads()]
         actual_node1_hash = actual_node1.__hash__()
         actual_node1_coverage = actual_node1.get_node_coverage()
+        actual_node2 = graph.get_node(geneMer2)
+        actual_node2.add_read("read2")
+        actual_node2.increment_node_coverage()
         actual_node2 = graph.get_node(geneMer2)
         actual_node2_read_list = [x for x in actual_node2.get_reads()]
         actual_node2_hash = actual_node2.__hash__()
@@ -187,8 +194,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                         3,
                         1,
                         1)
-        graph.add_node(geneMer1,
-                    "read1")
+        graph.add_node(geneMer1)
         genes2 = ["+gene4", "-gene3", "+gene2"]
         read2 = Read("read2",
                     genes2)
@@ -207,8 +213,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                             1,
                             1)
         for g in geneMers:
-            graph.add_node(g,
-                        "read1")
+            graph.add_node(g)
         selectedGenes = ["gene2", "gene6"]
         # execution
         actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
@@ -230,8 +235,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                             1,
                             1)
         for g in geneMers:
-            graph.add_node(g,
-                        "read1")
+            graph.add_node(g)
         selectedGenes = ["gene1", "gene2", "gene3", "gene4", "gene5", "gene6", "gene3", "gene2", "gene1"]
         # execution
         actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
@@ -253,8 +257,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                             1,
                             1)
         for g in geneMers:
-            graph.add_node(g,
-                        "read1")
+            graph.add_node(g)
         selectedGenes = ["gene10"]
         # execution
         actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
@@ -274,8 +277,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                             1,
                             1)
         for g in geneMers:
-            graph.add_node(g,
-                        "read1")
+            graph.add_node(g)
         selectedGenes = []
         # execution
         actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
@@ -334,8 +336,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                             1,
                             1)
         for g in geneMers:
-            graph.add_node(g,
-                        "read1")
+            graph.add_node(g)
         selectedGenes = ["gene2", "+gene6"]
         # assertion
         self.assertRaises(AssertionError, graph.get_nodes_containing, selectedGenes)

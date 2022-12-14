@@ -59,10 +59,13 @@ class Edge:
         """ increase the edge coverage by 1 and return the new edge coverage """
         self.edgeCoverage += 1
         return self.get_edge_coverage()
-    def __eq__(self, otherEdge) -> bool:
-        """ return a bool of whether the two edge objects are identical """
-        return self == otherEdge
+    def __eq__(self,
+            otherEdge) -> bool:
+        """ return a bool of whether the two edges connect the same nodes """
+        sortedEdgeHash = tuple(sorted([self.get_sourceNode().__hash__(), self.get_targetNode().__hash__()]))
+        otherSortedEdgeHash = tuple(sorted([otherEdge.get_sourceNode().__hash__(), otherEdge.get_targetNode().__hash__()]))
+        return sortedEdgeHash == otherSortedEdgeHash
     def __hash__(self):
         """ return a hash of a tuple of the source and target gene mer hashes """
-        nodeHashes = tuple(sorted([self.get_sourceNode().__hash__(), self.get_targetNode().__hash__()]))
+        nodeHashes = (self.get_sourceNode().__hash__(), self.get_targetNode().__hash__())
         return hash(nodeHashes)

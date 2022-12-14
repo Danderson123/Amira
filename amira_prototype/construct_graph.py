@@ -45,10 +45,9 @@ class GeneMerGraph:
         """ add a node to the dictionary of nodes """
         self._nodes[nodeHash] = node
     def add_node(self,
-                geneMer: GeneMer,
-                readId: str) -> Node:
+                geneMer: GeneMer) -> Node:
         """
-        Add a gene mer to the graph if it does not exist, else increase the node coverage by 1.
+        Add a gene mer to the graph if it does not exist, get the node.
         Returns the Node itself
         """
         nodeHash = geneMer.__hash__()
@@ -60,10 +59,6 @@ class GeneMerGraph:
                                 nodeHash)
         else:
             node = self.get_nodes()[nodeHash]
-        # increment the node coverage
-        node.increment_node_coverage()
-        # add the read ID to the read
-        node.add_read(readId)
         return self.get_nodes()[nodeHash]
     def get_node(self,
                 geneMer: GeneMer) -> Node:
@@ -100,6 +95,16 @@ class GeneMerGraph:
         Add a forward and backward edge if they do not exist, else increment the edge coverage by 1.
         Also add the nodes to the graph if they are not present already
         """
+        # if the source is not in the graph then add it, else get the node
+        sourceNodeHash = sourceGeneMer.__hash__()
+        if not sourceNodeHash in self.get_nodes():
+            sourceNode = self.add_node(Node(sourceGeneMer),
+                                    read)
+        # if the target is not in the graph then add it, else get the node
+        targetNodeHash = targetGeneMer.__hash__()
+        if not targetNodeHash in self.get_nodes():
+            targetNode = self.add_node(Node(targetGeneMer),
+                                    read)
     def get_degree(self, node: Node) -> int:
         """ return an integer of the number of neighbours for this node """
     def get_forward_edges(self,
