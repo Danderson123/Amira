@@ -46,5 +46,3 @@ jobs:
         python test_construct_node.py
         # test construct_edge.py
         python test_construct_edge.py
-        # test construct_graph.py
-        python test_construct_graph.py
