@@ -19,15 +19,18 @@ class Read:
     def get_genes(self) -> list:
         """ return a list of Gene objects for this read """
         return self.listOfGenes
+    def get_number_of_genes(self) -> int:
+        """ return an int of the number of genes annotated for this read """
+        return self.numberOfGenes
     def get_geneMers(self,
                     kmerSize: int):
         """ return a generator to create GeneMer objects of length kmerSize for this read """
         # if the number of genes on the read is equal to or more than the kmerSize, get the gene-mers
-        if self.numberOfGenes > kmerSize - 1:
+        if self.get_number_of_genes() > kmerSize - 1:
             # iterate through the list of genes by index
-            for i in range(self.numberOfGenes - (kmerSize - 1)):
+            for i in range(self.get_number_of_genes() - (kmerSize - 1)):
                 # take a slice of the list of Genes from index i to i + kmerSize
-                geneMerGenes = self.listOfGenes[i: i + kmerSize]
+                geneMerGenes = self.get_genes()[i: i + kmerSize]
                 # convert the list of Gene objects to a GeneMer object
                 geneMer = GeneMer(geneMerGenes)
                 # add the geneMer to the list of gene mers for this read
