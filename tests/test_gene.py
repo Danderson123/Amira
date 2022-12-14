@@ -1,6 +1,8 @@
 import unittest
+import sys
+sys.path.insert(0, "amira_prototype")
 
-from amira_prototype.construct_gene import convert_string_strand_to_int, convert_int_strand_to_string, reverse_strand, Gene
+from construct_gene import convert_string_strand_to_int, convert_int_strand_to_string, reverse_strand, Gene
 
 class TestGeneConstructor(unittest.TestCase):
 
