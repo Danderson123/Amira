@@ -45,7 +45,7 @@ def test_node_remove_read():
     # test removing a read that is in the list
     for g in geneMers:
         node = Node(g)
-        readList = [read1, read1, read2, read3, read3]
+        readList = [read1, read2, read3]
         for read in readList:
             node.add_read(read)
         for read in readList:
@@ -59,7 +59,10 @@ def test_node_remove_read():
         readList = [read1, read1, read2, read3, read3]
         for read in readList:
             node.add_read(read)
-    node.remove_read(read4)
+    try:
+        node.remove_read(read4)
+    except Exception as e:
+        assert isinstance(e, AssertionError)
     assert all(r in node.get_reads() for r in readList), "A read was incorrectly removed from the Node"
     assert all([x for x in node.get_reads()].count(r) == 1 for r in readList), "A read occurs more than once in the read list"
 
