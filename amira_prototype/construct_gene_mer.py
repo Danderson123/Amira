@@ -88,5 +88,5 @@ class GeneMer:
         return self.canonicalGeneMer == otherGeneMer.get_canonical_geneMer() and self.rcGeneMer == otherGeneMer.get_rc_geneMer()
     def __hash__(self):
         """ return a hash of the gene mer to see if two gene mers are the same """
-        geneMerGenes = tuple([g.__hash__() for g in self.canonicalGeneMer])
+        geneMerGenes = tuple([g.__hash__() for g in self.get_canonical_geneMer()])
         return hash(geneMerGenes)

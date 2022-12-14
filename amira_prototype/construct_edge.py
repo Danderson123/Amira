@@ -58,7 +58,7 @@ class Edge:
     def increment_edge_coverage(self) -> int:
         """ increase the edge coverage by 1 and return the new edge coverage """
         self.edgeCoverage += 1
-        return self.edgeCoverage
+        return self.get_edge_coverage()
     def __eq__(self, otherEdge) -> bool:
         """ return a bool of whether the two edge objects are identical """
         return self == otherEdge

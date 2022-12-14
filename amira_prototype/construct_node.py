@@ -18,7 +18,7 @@ class Node:
     def assign_nodeId(self,
                     nodeId):
         self.nodeId = nodeId
-        return self.nodeId
+        return self.get_nodeId()
     def get_nodeId(self):
         """ return a unique integer node ID for this node """
         return self.nodeId
@@ -28,7 +28,7 @@ class Node:
     def increment_node_coverage(self) -> int:
         """ increase the coverage of this node by 1 and return the new coverage """
         self.nodeCoverage += 1
-        return self.nodeCoverage
+        return self.get_node_coverage()
     def get_reads(self) -> list:
         """ return a generator for the list of Read objects associated with this node """
         for read in self.setOfReads:
@@ -40,11 +40,11 @@ class Node:
     def remove_read(self,
                     read: Read):
         """ remove a read from the list of reads for this node """
-        if read in self.setOfReads:
-            readList = list(self.setOfReads)
-            mask = readList.index(read)
-            del readList[mask]
-            self.setOfReads = readList
+        assert read in self.setOfReads, "This node does not contain the read: " + read.get_readId()
+        readList = list(self.setOfReads)
+        mask = readList.index(read)
+        del readList[mask]
+        self.setOfReads = readList
     def add_forward_edge(self,
                         forwardEdge):
         """ add a forward edge if it is not already in the forward edge list, return the edge """
@@ -84,7 +84,7 @@ class Node:
     def add_edge_to_node(self,
                     edge):
         """ add a forward or backward edge depending on the source node direction and return the edge """
-        if edge.sourceNodeDirection == 1:
+        if edge.get_sourceNodeDirection() == 1:
             return self.add_forward_edge(edge)
         else:
             return self.add_backward_edge(edge)
