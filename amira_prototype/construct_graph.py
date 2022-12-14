@@ -18,20 +18,31 @@ class GeneMerGraph:
         self._nodes = {}
         self._edges = {}
     def get_reads(self):
+        """ return a dictionary of all reads and their genes """
         return self._reads
     def get_kmerSize(self):
+        """ return an integer of the gene-mer size """
         return self._kmerSize
     def get_minGeneMerCoverage(self):
+        """ return an integer of the minimum coverage for nodes """
         return self._minGeneMerCoverage
     def get_minEdgeCoverage(self):
+        """ return an integer of the minimum coverage for edges """
         return self._minEdgeCoverage
     def get_nodes(self):
+        """ return the node dictionary """
         return self._nodes
     def get_edges(self):
+        """ return the edge dictionary """
         return self._edges
+    def all_nodes(self):
+        """ return a generator for all nodes in the graph and their attributes """
+        for nodeHash in self.get_nodes():
+            yield self.get_nodes()[nodeHash]
     def add_node_to_nodes(self,
                         node,
                         nodeHash):
+        """ add a node to the dictionary of nodes """
         self._nodes[nodeHash] = node
     def add_node(self,
                 geneMer: GeneMer,
@@ -57,14 +68,30 @@ class GeneMerGraph:
     def get_node(self,
                 geneMer: GeneMer) -> Node:
         """ get a node given a GeneMer """
+        # the gene-mer and node hashes are the same
         nodeHash = geneMer.__hash__()
+        # confirm the node is in the node dictionary
         assert nodeHash in self.get_nodes(), "This gene-mer is not in the graph"
+        # return the node
         return self.get_nodes()[nodeHash]
-    def remove_node(self, node: Node):
-        """ change the value of a Node to None by index """
+    def check_no_strand_in_genes(self,
+                                listOfGenes: list) -> bool:
+        """ returns a bool of whether any genes in a list have a stand prefix """
+        return all(g[0] != "+" and g[0] != "-" for g in listOfGenes)
     def get_nodes_containing(self,
-                            listOfAMRGenes: list) -> list:
-        """ return all nodes that contain a given gene. Useful for later, when we want to get nodes that contain AMR genes, and build unitigs from them """
+                            listOfGenes: list) -> list:
+        """
+        Return all nodes that contain a given gene.
+        This is useful for later, when we want to get nodes that contain AMR genes.
+        """
+        assert self.check_no_strand_in_genes(listOfGenes), "Strand information cannot be present for any specified genes"
+        selectedNodes = []
+        for node in self.all_nodes():
+            geneMer = node.get_canonical_geneMer()
+            geneNames = [g.get_name() for g in geneMer]
+            if any(inputGene in geneNames for inputGene in listOfGenes):
+                selectedNodes.append(node)
+        return selectedNodes
     def add_edge(self,
                 sourceGeneMer: GeneMer,
                 targetGeneMer: GeneMer,
@@ -95,8 +122,25 @@ class GeneMerGraph:
     def get_total_number_of_reads(self) -> int:
         """ return an integer of the total number of reads contributing to the filtered graph """
         return len(self.get_reads())
-    def all_nodes(self):
-        """ return an iterator for all nodes in the graph and their attributes """
+    def remove_node(self,
+                node: Node):
+        """ remove a node from the graph and all of its edges """
+        # get the node hash
+        nodeHash = node.__hash__()
+        # confirm the node to remove is in the node dictionary
+        assert nodeHash in self.get_nodes(), "This node is not in the graph"
+        node_to_remove = self.get_nodes()[nodeHash]
+        # get the forward edge hashes of the node to remove
+        forward_edges_to_remove = node_to_remove.get_forward_edge_hashes()
+        # get the backward edge hashes of the node to remove
+        backward_edges_to_remove = node_to_remove.get_backward_edge_hashes()
+        # remove the node from the node dictionary
+        del self.get_nodes()[nodeHash]
+        # remove the forward and backward edges from the edge dictionary
+        for edgeHash in forward_edges_to_remove + backward_edges_to_remove:
+            # confirm the edge is in the graph
+            assert edgeHash in self.get_edges(), "Edge is not in the graph"
+            del self.get_edges()[edgeHash]
     def generate_gml(self,
                     outputDirectory):
         """ write a gml of the filtered graph to the output directory """
