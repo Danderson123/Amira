@@ -1,4 +1,4 @@
-from construct_gene import Gene
+from amira_prototype.construct_gene import Gene
 
 def define_rc_geneMer(geneMer):
     """ return a reversed list of reverse complement geneMers for the input list of geneMers """
@@ -57,7 +57,7 @@ def define_geneMer(geneMer):
 
 class GeneMer:
     def __init__(self,
-                geneMer):
+                geneMer: list):
         self.canonicalGeneMer, self.rcGeneMer = define_geneMer(geneMer)
         self.geneMerSize = len(self.canonicalGeneMer)
 

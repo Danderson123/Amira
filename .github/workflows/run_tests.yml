@@ -40,8 +40,6 @@ jobs:
         pytest tests
         # enter the test directory
         cd test
-        # test construct_gene_mer.py
-        python test_construct_gene_mer.py
         # test construct_read.py
         python test_construct_read.py
         # test construct_node.py
