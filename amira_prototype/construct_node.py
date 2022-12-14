@@ -7,7 +7,7 @@ class Node:
         self.canonicalGeneMer = geneMer.get_canonical_geneMer()
         self.geneMerHash = geneMer.__hash__()
         self.nodeCoverage = 0
-        self.setOfReads = set()
+        self.listOfReads = []
         self.forwardEdgeHashes = []
         self.forwardEdges = []
         self.backwardEdgeHashes = []
@@ -29,22 +29,25 @@ class Node:
         """ increase the coverage of this node by 1 and return the new coverage """
         self.nodeCoverage += 1
         return self.get_node_coverage()
+    def get_list_of_reads(self) -> list:
+        return self.listOfReads
     def get_reads(self) -> list:
         """ return a generator for the list of Read objects associated with this node """
-        for read in self.setOfReads:
+        for read in self.get_list_of_reads():
             yield read
     def add_read(self,
                 read: Read):
         """ add a read object to a list of reads for this node """
-        self.setOfReads.add(read)
+        if not read in self.get_list_of_reads():
+            self.listOfReads.append(read)
     def remove_read(self,
                     read: Read):
         """ remove a read from the list of reads for this node """
-        assert read in self.setOfReads, "This node does not contain the read: " + read.get_readId()
-        readList = list(self.setOfReads)
+        assert read in self.get_list_of_reads(), "This node does not contain the read: " + read.get_readId()
+        readList = self.get_list_of_reads()
         mask = readList.index(read)
         del readList[mask]
-        self.setOfReads = readList
+        self.listOfReads = readList
     def add_forward_edge(self,
                         forwardEdge):
         """ add a forward edge if it is not already in the forward edge list, return the edge """
@@ -91,7 +94,7 @@ class Node:
     def __eq__(self,
             otherNode):
         """ check if two nodes are identical """
-        return self.__hash__() == otherNode.__hash__()
+        return self.__hash__() == otherNode.__hash__() and self.get_node_coverage() == otherNode.get_node_coverage()
     def __hash__(self):
         """ return a hash of the canonical gene mer to check if two nodes represent the same gene-mer """
         return self.geneMerHash

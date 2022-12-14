@@ -64,5 +64,5 @@ class Edge:
         return self == otherEdge
     def __hash__(self):
         """ return a hash of a tuple of the source and target gene mer hashes """
-        nodeHashes = tuple(sorted([self.sourceNode.__hash__(), self.targetNode.__hash__()]))
+        nodeHashes = tuple(sorted([self.get_sourceNode().__hash__(), self.get_targetNode().__hash__()]))
         return hash(nodeHashes)
