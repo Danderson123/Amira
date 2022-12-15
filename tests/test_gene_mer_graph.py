@@ -1081,3 +1081,147 @@ class TestGeneMerConstructor(unittest.TestCase):
         self.assertEqual(reverseTargetToSourceEdge.get_edge_coverage(), expected_source_target_edge_coverage)
         self.assertEqual(targetToThirdEdge.get_edge_coverage(), expected_target_third_edge_coverage)
         self.assertEqual(reverseThirdToTargetEdge.get_edge_coverage(), expected_target_third_edge_coverage)
+
+    def test___add_edge_to_node_forward_empty(self):
+        # setup
+        class FakeEdge:
+            def __init__(self,
+                        hash,
+                        sourceNodeDirection):
+                self.hash = hash
+                self.sourceNodeDirection = sourceNodeDirection
+            def __hash__(self):
+                return self.hash
+            def get_sourceNodeDirection(self):
+                return self.sourceNodeDirection
+        mock_edge = FakeEdge(12345,
+                            +1)
+        genes = ["+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes)
+        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        # execution
+        actual_updated_node = graph.add_edge_to_node(node,
+                                                    mock_edge)
+        actual_forward_edges = actual_updated_node.get_forward_edge_hashes()
+        actual_backward_edges = actual_updated_node.get_backward_edge_hashes()
+        # assertion
+        expected_forward_edges = [12345]
+        expected_backward_edges = []
+        self.assertEqual(actual_updated_node, node)
+        self.assertEqual(actual_forward_edges, expected_forward_edges)
+        self.assertEqual(actual_backward_edges, expected_backward_edges)
+
+    def test___add_edge_to_node_forward_not_empty(self):
+        # setup
+        class FakeEdge:
+            def __init__(self,
+                        hash,
+                        sourceNodeDirection):
+                self.hash = hash
+                self.sourceNodeDirection = sourceNodeDirection
+            def __hash__(self):
+                return self.hash
+            def get_sourceNodeDirection(self):
+                return self.sourceNodeDirection
+        mock_edge = FakeEdge(12345,
+                            +1)
+        mock_edge2 = FakeEdge(56789,
+                            +1)
+        genes = ["+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes)
+        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge_to_node(node,
+                            mock_edge)
+        # execution
+        actual_updated_node = graph.add_edge_to_node(node,
+                                                    mock_edge2)
+        actual_forward_edges = actual_updated_node.get_forward_edge_hashes()
+        actual_backward_edges = actual_updated_node.get_backward_edge_hashes()
+        # assertion
+        expected_forward_edges = [12345, 56789]
+        expected_backward_edges = []
+        self.assertEqual(actual_updated_node, node)
+        self.assertEqual(actual_forward_edges, expected_forward_edges)
+        self.assertEqual(actual_backward_edges, expected_backward_edges)
+
+    def test___add_edge_to_node_backward_empty(self):
+        # setup
+        class FakeEdge:
+            def __init__(self,
+                        hash,
+                        sourceNodeDirection):
+                self.hash = hash
+                self.sourceNodeDirection = sourceNodeDirection
+            def __hash__(self):
+                return self.hash
+            def get_sourceNodeDirection(self):
+                return self.sourceNodeDirection
+        mock_edge = FakeEdge(12345,
+                            -1)
+        genes = ["+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes)
+        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        # execution
+        actual_updated_node = graph.add_edge_to_node(node,
+                                                    mock_edge)
+        actual_forward_edges = actual_updated_node.get_forward_edge_hashes()
+        actual_backward_edges = actual_updated_node.get_backward_edge_hashes()
+        # assertion
+        expected_forward_edges = []
+        expected_backward_edges = [12345]
+        self.assertEqual(actual_updated_node, node)
+        self.assertEqual(actual_forward_edges, expected_forward_edges)
+        self.assertEqual(actual_backward_edges, expected_backward_edges)
+
+    def test___add_edge_to_node_backward_not_empty(self):
+        # setup
+        class FakeEdge:
+            def __init__(self,
+                        hash,
+                        sourceNodeDirection):
+                self.hash = hash
+                self.sourceNodeDirection = sourceNodeDirection
+            def __hash__(self):
+                return self.hash
+            def get_sourceNodeDirection(self):
+                return self.sourceNodeDirection
+        mock_edge = FakeEdge(12345,
+                            -1)
+        mock_edge2 = FakeEdge(56789,
+                            -1)
+        genes = ["+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes)
+        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge_to_node(node,
+                            mock_edge)
+        # execution
+        actual_updated_node = graph.add_edge_to_node(node,
+                                                    mock_edge2)
+        actual_forward_edges = actual_updated_node.get_forward_edge_hashes()
+        actual_backward_edges = actual_updated_node.get_backward_edge_hashes()
+        # assertion
+        expected_forward_edges = []
+        expected_backward_edges = [12345, 56789]
+        self.assertEqual(actual_updated_node, node)
+        self.assertEqual(actual_forward_edges, expected_forward_edges)
+        self.assertEqual(actual_backward_edges, expected_backward_edges)
