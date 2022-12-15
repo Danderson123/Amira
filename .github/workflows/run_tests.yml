@@ -38,7 +38,3 @@ jobs:
       run: |
         # run unit tests
         pytest tests
-        # enter the test directory
-        cd test
-        # test construct_edge.py
-        python test_construct_edge.py
