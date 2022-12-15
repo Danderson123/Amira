@@ -51,7 +51,7 @@ class Node:
         """ add a forward edge hash if it is not already in the forward edge list, return the edge """
         if not forwardEdgeHash in self.get_forward_edge_hashes():
             self.forwardEdgeHashes.append(forwardEdgeHash)
-        return self.get_forward_edge_hashes()
+        return self
     def get_forward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.forwardEdgeHashes
@@ -60,7 +60,7 @@ class Node:
         """ add a backward edge if it is not already in the backward edge list, return the edge """
         if not backwardEdgeHash in self.get_backward_edge_hashes():
             self.backwardEdgeHashes.append(backwardEdgeHash)
-        return self.get_backward_edge_hashes()
+        return self
     def get_backward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.backwardEdgeHashes

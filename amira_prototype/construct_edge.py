@@ -46,9 +46,19 @@ class Edge:
     def get_targetNode(self) -> Node:
         """ return the assigned target Node object """
         return self.targetNode
+    def set_sourceNodeDirection(self,
+                            sourceDirection) -> int:
+        """ modify the direction of the source node and return and int of the direction of the source node """
+        self.sourceNodeDirection = sourceDirection
+        return self.get_sourceNodeDirection()
     def get_sourceNodeDirection(self) -> int:
         """ return and int of the direction of the source node """
         return self.sourceNodeDirection
+    def set_targetNodeDirection(self,
+                            targetDirection) -> int:
+        """ modify the direction of the target node and return and int of the direction of the target node """
+        self.targetNodeDirection = targetDirection
+        return self.get_targetNodeDirection()
     def get_targetNodeDirection(self) -> int:
         """ return an int of the direction of the target node """
         return self.targetNodeDirection
@@ -67,5 +77,8 @@ class Edge:
         return sortedEdgeHash == otherSortedEdgeHash
     def __hash__(self):
         """ return a hash of a tuple of the source and target gene mer hashes """
-        nodeHashes = (self.get_sourceNode().__hash__() * self.get_sourceNodeDirection(), self.get_targetNode().__hash__() * self.get_targetNodeDirection())
-        return hash(nodeHashes)
+        forwardEdgeHash = hash(((self.get_sourceNode().__hash__() * self.get_sourceNodeDirection(), self.get_targetNode().__hash__() * self.get_targetNodeDirection())))
+        reverseEdgeHash = hash(((self.get_sourceNode().__hash__() * self.get_sourceNodeDirection() * -1, self.get_targetNode().__hash__() * self.get_targetNodeDirection() * -1)))
+        sortedEdgeHashes = sorted([forwardEdgeHash, reverseEdgeHash])
+        edgeHash = hash(sortedEdgeHashes[0])
+        return edgeHash

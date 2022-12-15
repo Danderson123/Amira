@@ -109,11 +109,11 @@ class GeneMerGraph:
                                 sourceGeneMerDirection,
                                 targetGeneMerDirection)
         # define the edge that will go from the reverse source gene mer to the reverse target gene mer
-        reverseSourceToTargetEdge = Edge(sourceNode,
-                                        targetNode,
-                                        sourceGeneMerDirection * -1,
-                                        targetGeneMerDirection * -1)
-        return sourceToTargetEdge, reverseSourceToTargetEdge
+        reverseTargetToSourceEdge = Edge(targetNode,
+                                        sourceNode,
+                                        targetGeneMerDirection * -1,
+                                        sourceGeneMerDirection * -1)
+        return sourceToTargetEdge, reverseTargetToSourceEdge
     def get_edge_by_hash(self,
                         edgeHash):
         """ return an edge object corresponding to a edge hash """
@@ -133,15 +133,25 @@ class GeneMerGraph:
         return self.get_edge_by_hash(edgeHash)
     def add_edges_to_graph(self,
                         sourceToTargetEdge,
-                        reverseSourceToTargetEdge,
-                        targetToSourceEdge,
                         reverseTargetToSourceEdge):
         """ add the edges to the dictionary of edges and return the updated edges """
         sourceToTargetEdge = self.add_edge_to_edges(sourceToTargetEdge)
-        reverseSourceToTargetEdge = self.add_edge_to_edges(reverseSourceToTargetEdge)
-        targetToSourceEdge = self.add_edge_to_edges(targetToSourceEdge)
         reverseTargetToSourceEdge = self.add_edge_to_edges(reverseTargetToSourceEdge)
-        return sourceToTargetEdge, reverseSourceToTargetEdge, targetToSourceEdge, reverseTargetToSourceEdge
+        return sourceToTargetEdge, reverseTargetToSourceEdge
+    def add_edge_to_node(self,
+                        node,
+                        edge):
+        """
+        Add the edge and reverse edge hashes to the node attributes.
+        Return the forward and reverse edge hashes for this node.
+        """
+        if edge.get_sourceNodeDirection() == 1:
+            edgeHash = edge.__hash__()
+            node.add_forward_edge_hash(edgeHash)
+        if edge.get_sourceNodeDirection() == -1:
+            edgeHash = edge.__hash__()
+            node.add_backward_edge_hash(edgeHash)
+        return node
     def add_edge(self,
                 sourceGeneMer: GeneMer,
                 targetGeneMer: GeneMer):
@@ -155,19 +165,18 @@ class GeneMerGraph:
         # if the target is not in the graph then add it, else get the node
         targetNode = self.add_node(targetGeneMer)
         # create the edge objects
-        sourceToTargetEdge, reverseSourceToTargetEdge = self.create_edges(sourceNode,
+        sourceToTargetEdge, reverseTargetToSourceEdge = self.create_edges(sourceNode,
                                                                         targetNode,
                                                                         sourceGeneMer.get_geneMerDirection(),
                                                                         targetGeneMer.get_geneMerDirection())
-        targetToSourceEdge, reverseTargetToSourceEdge = self.create_edges(targetNode,
-                                                                        sourceNode,
-                                                                        targetGeneMer.get_geneMerDirection(),
-                                                                        sourceGeneMer.get_geneMerDirection())
         # add the edges to the graph
-        sourceToTargetEdge, reverseSourceToTargetEdge, targetToSourceEdge, reverseTargetToSourceEdge = self.add_edges_to_graph(sourceToTargetEdge,
-                                                                                                                            reverseSourceToTargetEdge,
-                                                                                                                            targetToSourceEdge,
-                                                                                                                            reverseTargetToSourceEdge)
+        sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edges_to_graph(sourceToTargetEdge,
+                                                                                reverseTargetToSourceEdge)
+        # add the hashes of the edges to the source and target nodes
+        sourceNode = self.add_edge_to_node(sourceNode,
+                                        sourceToTargetEdge)
+        targetNode = self.add_edge_to_node(targetNode,
+                                        reverseTargetToSourceEdge)
         return sourceNode, targetNode
     def get_degree(self,
                 node: Node) -> int:
