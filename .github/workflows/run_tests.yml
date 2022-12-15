@@ -40,7 +40,5 @@ jobs:
         pytest tests
         # enter the test directory
         cd test
-        # test construct_read.py
-        python test_construct_read.py
         # test construct_edge.py
         python test_construct_edge.py
