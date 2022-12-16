@@ -191,15 +191,36 @@ class GeneMerGraph:
                         node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a backward edge """
         return node.get_backward_edge_hashes()
-    def remove_edge(self, edge: Edge):
-        """ remove an edge """
-    def get_graph(self) -> list:
-        """ return the list of nodes in this graph """
+    def remove_edge_from_edges(self,
+                            edgeHash):
+        """ remove an edge object from the dictionary of all edges by hash """
+        del self._edges[edgeHash]
+        assert not edgeHash in self.get_edges(), "This edge was not removed from the graph successfully"
+    def remove_edge(self,
+                edgeHash: int):
+        """ remove an edge from all graph edges and the node edges """
+        # check that the edge exists in the graph
+        assert edgeHash in self.get_edges(), "This edge is not in the graph"
+        # get the edge object from all graph edges by hash
+        edge = self.get_edges()[edgeHash]
+        # get the source node object of the edge
+        sourceNode = edge.get_sourceNode()
+        # get the source node direction of the edge
+        sourceNodeDirection = edge.get_sourceNodeDirection()
+        # if the direction is forward then remove the edge from the forward edges for the node
+        if sourceNodeDirection == 1:
+            sourceNode.remove_forward_edge_hash(edgeHash)
+        # if the direction is backward then remove the edge from the backward edges for the node
+        if sourceNodeDirection == -1:
+            sourceNode.remove_backward_edge_hash(edgeHash)
+        # remove the edge object from all of the edges in the graph
+        del self._edges[edgeHash]
     def get_total_number_of_nodes(self) -> int:
         """ return an integer of the total number of nodes in the filtered graph """
-        return len(self.get_graph())
+        return len(self.get_nodes())
     def get_total_number_of_edges(self) -> int:
         """ return an integer of the total number of edges in the filtered graph """
+        return len(self.get_edges())
     def get_total_number_of_reads(self) -> int:
         """ return an integer of the total number of reads contributing to the filtered graph """
         return len(self.get_reads())
@@ -215,13 +236,12 @@ class GeneMerGraph:
         forward_edges_to_remove = node_to_remove.get_forward_edge_hashes()
         # get the backward edge hashes of the node to remove
         backward_edges_to_remove = node_to_remove.get_backward_edge_hashes()
-        # remove the node from the node dictionary
-        del self.get_nodes()[nodeHash]
         # remove the forward and backward edges from the edge dictionary
         for edgeHash in forward_edges_to_remove + backward_edges_to_remove:
             # confirm the edge is in the graph
-            assert edgeHash in self.get_edges(), "Edge is not in the graph"
-            del self.get_edges()[edgeHash]
+            self.remove_edge(edgeHash)
+        # remove the node from the node dictionary
+        self.remove_edge_from_edges(edgeHash)
     def generate_gml(self,
                     outputDirectory):
         """ write a gml of the filtered graph to the output directory """

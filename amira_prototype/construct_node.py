@@ -52,6 +52,13 @@ class Node:
         if not forwardEdgeHash in self.get_forward_edge_hashes():
             self.forwardEdgeHashes.append(forwardEdgeHash)
         return self
+    def remove_forward_edge_hash(self,
+                                edgeHash):
+        """ remove and edge hash from the list of forward edge hashes """
+        #### UNIT TEST NEEDED ####
+        assert edgeHash in self.get_forward_edge_hashes(), "This edge hash is not in the list of forward edge hashes"
+        mask = self.get_forward_edge_hashes().index(edgeHash)
+        del self.forwardEdgeHashes[mask]
     def get_forward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.forwardEdgeHashes
@@ -61,6 +68,13 @@ class Node:
         if not backwardEdgeHash in self.get_backward_edge_hashes():
             self.backwardEdgeHashes.append(backwardEdgeHash)
         return self
+    def remove_backward_edge_hash(self,
+                                edgeHash):
+        """ remove and edge hash from the list of backward edge hashes """
+        #### UNIT TEST NEEDED ####
+        assert edgeHash in self.get_backward_edge_hashes(), "This edge hash is not in the list of backward edge hashes"
+        mask = self.get_backward_edge_hashes().index(edgeHash)
+        del self.backwardEdgeHashes[mask]
     def get_backward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.backwardEdgeHashes

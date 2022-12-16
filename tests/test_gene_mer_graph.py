@@ -1471,3 +1471,62 @@ class TestGeneMerConstructor(unittest.TestCase):
         expected_target_degrees = 1
         self.assertEqual(actual_source_degrees, expected_source_degrees)
         self.assertEqual(actual_target_degrees, expected_target_degrees)
+
+    def test___remove_existing_edge(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
+                                            targetGeneMer)
+        sourceNodeEdgeHashes = sourceNode.get_forward_edge_hashes() + sourceNode.get_backward_edge_hashes()
+        targetNodeEdgeHashes = targetNode.get_forward_edge_hashes() + targetNode.get_backward_edge_hashes()
+        # sanity checks
+        self.assertNotEqual(sourceNodeEdgeHashes, [])
+        self.assertNotEqual(targetNodeEdgeHashes, [])
+        self.assertNotEqual(graph.get_edges(), {})
+        # execution
+        for edgeHash in sourceNodeEdgeHashes:
+            graph.remove_edge(edgeHash)
+        for edgeHash in targetNodeEdgeHashes:
+            graph.remove_edge(edgeHash)
+        actual_sourceNodeEdgeHashes = sourceNode.get_forward_edge_hashes() + sourceNode.get_backward_edge_hashes()
+        actual_targetNodeEdgeHashes = targetNode.get_forward_edge_hashes() + targetNode.get_backward_edge_hashes()
+        actual_edges = graph.get_edges()
+        # assertion
+        expected_sourceNodeEdgeHashes = []
+        expected_targetNodeEdgeHashes = []
+        expected_edges = {}
+        self.assertEqual(actual_sourceNodeEdgeHashes, expected_sourceNodeEdgeHashes)
+        self.assertEqual(actual_targetNodeEdgeHashes, expected_targetNodeEdgeHashes)
+        self.assertEqual(actual_edges, expected_edges)
+
+    def test___remove_non_existing_edge(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
+                                            targetGeneMer)
+        sourceNodeEdgeHashes = sourceNode.get_forward_edge_hashes() + sourceNode.get_backward_edge_hashes()
+        targetNodeEdgeHashes = targetNode.get_forward_edge_hashes() + targetNode.get_backward_edge_hashes()
+        # sanity checks
+        self.assertNotEqual(sourceNodeEdgeHashes, [])
+        self.assertNotEqual(targetNodeEdgeHashes, [])
+        self.assertNotEqual(graph.get_edges(), {})
+        # execution
+        self.assertRaises(AssertionError, graph.remove_edge, 12345)
