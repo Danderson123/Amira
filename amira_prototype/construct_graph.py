@@ -181,14 +181,16 @@ class GeneMerGraph:
     def get_degree(self,
                 node: Node) -> int:
         """ return an integer of the number of neighbours for this node """
+        degrees = len(node.get_forward_edge_hashes()) + len(node.get_backward_edge_hashes())
+        return degrees
     def get_forward_edges(self,
                         node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a forward edge """
-        return node.get_forward_edges()
+        return node.get_forward_edge_hashes()
     def get_backward_edges(self,
                         node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a backward edge """
-        return node.get_backward_edges()
+        return node.get_backward_edge_hashes()
     def remove_edge(self, edge: Edge):
         """ remove an edge """
     def get_graph(self) -> list:

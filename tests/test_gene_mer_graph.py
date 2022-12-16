@@ -1225,3 +1225,249 @@ class TestGeneMerConstructor(unittest.TestCase):
         self.assertEqual(actual_updated_node, node)
         self.assertEqual(actual_forward_edges, expected_forward_edges)
         self.assertEqual(actual_backward_edges, expected_backward_edges)
+
+    def test___get_degree_1_edge_2_nodes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        sourceNode = graph.get_node(sourceGeneMer)
+        targetNode = graph.get_node(targetGeneMer)
+        # execution
+        actual_source_degrees = graph.get_degree(sourceNode)
+        actual_target_degrees = graph.get_degree(targetNode)
+        # assertion
+        expected_source_degrees = 1
+        expected_target_degrees = 1
+        self.assertEqual(actual_source_degrees, expected_source_degrees)
+        self.assertEqual(actual_target_degrees, expected_target_degrees)
+
+    def test___get_degree_2_edge_3_nodes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        thirdGeneMer = geneMers[2]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        graph.add_edge(targetGeneMer,
+                    thirdGeneMer)
+        sourceNode = graph.get_node(sourceGeneMer)
+        targetNode = graph.get_node(targetGeneMer)
+        thirdNode = graph.get_node(thirdGeneMer)
+        # execution
+        actual_source_degrees = graph.get_degree(sourceNode)
+        actual_target_degrees = graph.get_degree(targetNode)
+        actual_third_degrees = graph.get_degree(thirdNode)
+        # assertion
+        expected_source_degrees = 1
+        expected_target_degrees = 2
+        expected_third_degrees = 1
+        self.assertEqual(actual_source_degrees, expected_source_degrees)
+        self.assertEqual(actual_target_degrees, expected_target_degrees)
+        self.assertEqual(actual_third_degrees, expected_third_degrees)
+
+    def test___get_degree_3_edge_4_nodes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        thirdGeneMer = geneMers[2]
+        fourthGeneMer = geneMers[3]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        graph.add_edge(targetGeneMer,
+                    thirdGeneMer)
+        graph.add_edge(thirdGeneMer,
+                    fourthGeneMer)
+        sourceNode = graph.get_node(sourceGeneMer)
+        targetNode = graph.get_node(targetGeneMer)
+        thirdNode = graph.get_node(thirdGeneMer)
+        fourthNode = graph.get_node(fourthGeneMer)
+        # execution
+        actual_source_degrees = graph.get_degree(sourceNode)
+        actual_target_degrees = graph.get_degree(targetNode)
+        actual_third_degrees = graph.get_degree(thirdNode)
+        actual_fourth_degrees = graph.get_degree(fourthNode)
+        # assertion
+        expected_source_degrees = 1
+        expected_target_degrees = 2
+        expected_third_degrees = 2
+        expected_fourth_degrees = 1
+        self.assertEqual(actual_source_degrees, expected_source_degrees)
+        self.assertEqual(actual_target_degrees, expected_target_degrees)
+        self.assertEqual(actual_third_degrees, expected_third_degrees)
+        self.assertEqual(actual_fourth_degrees, expected_fourth_degrees)
+
+    def test___get_degree_3_edge_3_nodes_first(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene6"]
+        read1 = Read("read1",
+                    genes)
+        read2 = Read("read1",
+                    genes2)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        targetGeneMer2 = geneMers2[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer2)
+        sourceNode = graph.get_node(sourceGeneMer)
+        targetNode = graph.get_node(targetGeneMer)
+        targetNode2 = graph.get_node(targetGeneMer2)
+        # execution
+        actual_source_degrees = graph.get_degree(sourceNode)
+        actual_target_degrees = graph.get_degree(targetNode)
+        actual_target2_degrees = graph.get_degree(targetNode2)
+        # assertion
+        expected_source_degrees = 2
+        expected_target_degrees = 1
+        expected_target2_degrees = 1
+        self.assertEqual(actual_source_degrees, expected_source_degrees)
+        self.assertEqual(actual_target_degrees, expected_target_degrees)
+        self.assertEqual(actual_target2_degrees, expected_target2_degrees)
+
+    def test___get_degree_3_edge_3_nodes_last(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        genes2 = ["+gene0", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        read2 = Read("read1",
+                    genes2)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        sourceGeneMer2 = geneMers2[0]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        graph.add_edge(sourceGeneMer2,
+                    targetGeneMer)
+        sourceNode = graph.get_node(sourceGeneMer)
+        targetNode = graph.get_node(targetGeneMer)
+        sourceNode2 = graph.get_node(sourceGeneMer2)
+        # execution
+        actual_source_degrees = graph.get_degree(sourceNode)
+        actual_target_degrees = graph.get_degree(targetNode)
+        actual_source2_degrees = graph.get_degree(sourceNode2)
+        # assertion
+        expected_source_degrees = 1
+        expected_target_degrees = 2
+        expected_source2_degrees = 1
+        self.assertEqual(actual_source_degrees, expected_source_degrees)
+        self.assertEqual(actual_target_degrees, expected_target_degrees)
+        self.assertEqual(actual_source2_degrees, expected_source2_degrees)
+
+    def test___get_degree_5_edge_5_nodes_middle(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene0", "-gene2", "+gene3", "-gene4", "+gene6"]
+        read1 = Read("read1",
+                    genes)
+        read2 = Read("read1",
+                    genes2)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        firstGeneMer = geneMers[0]
+        middleGeneMer = geneMers[1]
+        thirdGeneMer = geneMers[2]
+        firstGeneMer2 = geneMers2[0]
+        middleGeneMer2 = geneMers2[1]
+        thirdGeneMer2 = geneMers2[2]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(firstGeneMer,
+                    middleGeneMer)
+        graph.add_edge(middleGeneMer,
+                    thirdGeneMer)
+        graph.add_edge(firstGeneMer2,
+                    middleGeneMer2)
+        graph.add_edge(middleGeneMer2,
+                    thirdGeneMer2)
+        firstNode = graph.get_node(firstGeneMer)
+        middleNode = graph.get_node(middleGeneMer)
+        thirdNode = graph.get_node(thirdGeneMer)
+        firstNode2 = graph.get_node(firstGeneMer2)
+        thirdNode2 = graph.get_node(thirdGeneMer2)
+        # execution
+        actual_first_degrees = graph.get_degree(firstNode)
+        actual_middle_degrees = graph.get_degree(middleNode)
+        actual_third_degrees = graph.get_degree(thirdNode)
+        actual_first_degrees2 = graph.get_degree(firstNode2)
+        actual_third_degrees2 = graph.get_degree(thirdNode2)
+        # assertion
+        expected_first_degrees = 1
+        expected_middle_degrees = 4
+        expected_third_degrees = 1
+        expected_first_degrees2 = 1
+        expected_third_degrees2 = 1
+        self.assertEqual(actual_first_degrees, expected_first_degrees)
+        self.assertEqual(actual_middle_degrees, expected_middle_degrees)
+        self.assertEqual(actual_third_degrees, expected_third_degrees)
+        self.assertEqual(actual_first_degrees2, expected_first_degrees2)
+        self.assertEqual(actual_third_degrees2, expected_third_degrees2)
+
+    def test___get_degree_1_edge_2_node_duplicate(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        graph.add_edge(sourceGeneMer,
+                    targetGeneMer)
+        sourceNode = graph.get_node(sourceGeneMer)
+        targetNode = graph.get_node(targetGeneMer)
+        # execution
+        actual_source_degrees = graph.get_degree(sourceNode)
+        actual_target_degrees = graph.get_degree(targetNode)
+        # assertion
+        expected_source_degrees = 1
+        expected_target_degrees = 1
+        self.assertEqual(actual_source_degrees, expected_source_degrees)
+        self.assertEqual(actual_target_degrees, expected_target_degrees)
