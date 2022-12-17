@@ -78,6 +78,14 @@ class Node:
     def get_backward_edge_hashes(self):
         """ return a list of the hashes of the backward edges """
         return self.backwardEdgeHashes
+    def assign_node_Id(self,
+                    nodeId):
+        """ assign an integer identifier to this node and return it """
+        self.nodeId = nodeId
+        return nodeId
+    def get_node_Id(self):
+        """ return the integer node ID for this node """
+        return self.nodeId
     def __eq__(self,
             otherNode):
         """ check if two nodes are identical """

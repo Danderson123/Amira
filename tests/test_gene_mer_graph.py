@@ -17,7 +17,7 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         actual_reads = graph.get_reads()
         actual_kmerSize = graph.get_kmerSize()
-        actual_minGeneMerCoverage = graph.get_minGeneMerCoverage()
+        actual_minGeneMerCoverage = graph.get_minNodeCoverage()
         actual_minEdgeCoverage = graph.get_minEdgeCoverage()
         actual_nodes = graph.get_nodes()
         actual_edges = graph.get_edges()

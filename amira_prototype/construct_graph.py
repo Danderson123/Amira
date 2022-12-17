@@ -9,14 +9,15 @@ class GeneMerGraph:
     def __init__(self,
                 readDict,
                 kmerSize,
-                minGeneMerCoverage,
+                minNodeCoverage,
                 minEdgeCoverage):
         self._reads = readDict
         self._kmerSize = kmerSize
-        self._minGeneMerCoverage = minGeneMerCoverage
+        self._minNodeCoverage = minNodeCoverage
         self._minEdgeCoverage = minEdgeCoverage
         self._nodes = {}
         self._edges = {}
+
     def get_reads(self):
         """ return a dictionary of all reads and their genes """
         return self._reads
@@ -35,6 +36,12 @@ class GeneMerGraph:
     def get_edges(self):
         """ return the edge dictionary """
         return self._edges
+    def get_minNodeCoverage(self):
+        """ return the minimum node coverage """
+        return self._minNodeCoverage
+    def get_minEdgeCoverage(self):
+        """ return the minimum edge coverage """
+        return self._minEdgeCoverage
     def all_nodes(self):
         """ return a generator for all nodes in the graph and their attributes """
         for nodeHash in self.get_nodes():
@@ -51,7 +58,8 @@ class GeneMerGraph:
     def add_node(self,
                 geneMer: GeneMer) -> Node:
         """
-        Add a gene mer to the graph if it does not exist, get the node.
+        Add a gene mer to the graph if it does not exist,                 geneMers[g+1])
+get the node.
         Returns the Node itself
         """
         nodeHash = geneMer.__hash__()
@@ -242,6 +250,69 @@ class GeneMerGraph:
             self.remove_edge(edgeHash)
         # remove the node from the node dictionary
         self.remove_edge_from_edges(edgeHash)
+    def write_node_entry(self,
+                        node_id,
+                        node_string,
+                        node_coverage,
+                        reads):
+        """ return a string of a gml node entry """
+        node_entry = "\tnode\t[\n"
+        node_entry += "\t\tid\t" + str(node_id) + "\n"
+        node_entry += '\t\tlabel\t"' + node_string + '"\n'
+        node_entry += "\t\tcoverage\t" + str(node_coverage) + "\n"
+        node_entry += '\t\treads\t"' + ",".join(reads) + '"\n'
+        node_entry += "\t]"
+        return node_entry
+    def write_edge_entry(self,
+                        source_node,
+                        target_node,
+                        edge_coverage):
+        """ return a string of a gml edge entry """
+        edge_entry = "\tedge\t[\n"
+        edge_entry += "\t\tsource\t" + str(source_node) + "\n"
+        edge_entry += "\t\ttarget\t" + str(target_node) + "\n"
+        edge_entry += "\t\tweight\t" + str(edge_coverage) + "\n"
+        edge_entry += "\t]"
+        return edge_entry
+    def assign_Id_to_nodes(self):
+        """ assign an integer ID to each node in the graph """
+        currentNodeId = 0
+        for node in self.all_nodes():
+            assignedId = node.assign_node_Id(currentNodeId)
+            assert assignedId == currentNodeId, "This node was assigned an incorrect ID"
+            currentNodeId += 1
     def generate_gml(self,
-                    outputDirectory):
+                    output_file):
         """ write a gml of the filtered graph to the output directory """
+        #### UNIT TESTS NEEDED ####
+        graph_data = ["graph\t["]
+        self.assign_Id_to_nodes()
+        # iterate through the nodes in the graph
+        for sourceNode in self.all_nodes():
+            # check that the coverage of the node is greater than the minimum specified node coverage
+            if sourceNode.get_node_coverage() >= self.get_minNodeCoverage():
+                # add the node entry
+                nodeEntry = self.write_node_entry(sourceNode.get_node_Id(),
+                                                str(sourceNode.get_node_Id()),
+                                                sourceNode.get_node_coverage(),
+                                                [read for read in sourceNode.get_reads()])
+                graph_data.append(nodeEntry)
+                # get the forward edges for this node
+                nodeForwardEdgeHashes = sourceNode.get_forward_edge_hashes()
+                nodeBackwardEdgeHashes = sourceNode.get_backward_edge_hashes()
+                # get the edge objects corresponding to the forward edge hashes
+                nodeForwardEdges = [self.get_edges()[edgeHash] for edgeHash in nodeForwardEdgeHashes]
+                nodeBackwardEdges = [self.get_edges()[edgeHash] for edgeHash in nodeBackwardEdgeHashes]
+                for edge in nodeForwardEdges + nodeBackwardEdges:
+                    if edge.get_edge_coverage() >= self.get_minEdgeCoverage():
+                        targetNode = edge.get_targetNode()
+                        if targetNode.get_node_coverage() >= self.get_minNodeCoverage():
+                            edgeEntry = self.write_edge_entry(sourceNode.get_node_Id(),
+                                                            targetNode.get_node_Id(),
+                                                            edge.get_edge_coverage())
+                            graph_data.append(edgeEntry)
+        graph_data.append("]")
+        # write the gml to the output file
+        with open(output_file + ".gml", "w") as outGml:
+            outGml.write("\n".join(graph_data))
+
