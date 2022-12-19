@@ -68,7 +68,11 @@ class Gene:
     def __eq__(self,
             otherGene) -> bool:
         """ return a bool to check if the gene names of two Gene objects are the same """
+        # Fixme: either add the strand to __eq__(), and keep __hash__() as is
         return self.name == otherGene.get_name()
     def __hash__(self):
         """ return a hash of the gene name multiplied by the strand to compare against hashes of other Gene instances """
+        # Fixme: or keep __eq__() as is, but remove self.strand from __hash__()
+        # I don't know what is the correct implementation, as I don't know how these genes objects will be used.
+        # So I leave the fix to you.
         return hash(self.name) * self.strand
