@@ -58,8 +58,7 @@ class GeneMerGraph:
     def add_node(self,
                 geneMer: GeneMer) -> Node:
         """
-        Add a gene mer to the graph if it does not exist,                 geneMers[g+1])
-get the node.
+        Add a gene mer to the graph if it does not exist, else get the node.
         Returns the Node itself
         """
         nodeHash = geneMer.__hash__()
@@ -128,8 +127,7 @@ get the node.
         return self.get_edges()[edgeHash]
     def add_edge_to_edges(self,
                         edge):
-        """
-        Add the edge to the graph edges if it is not present, else increment the edge coverage by 1.
+        """Add the edge to the graph edges if it is not present, else increment the edge coverage by 1.
         Returns the edge.
         """
         # get the hash for the edge we want
@@ -284,7 +282,7 @@ get the node.
     def generate_gml(self,
                     output_file):
         """ write a gml of the filtered graph to the output directory """
-        #### UNIT TESTS NEEDED ####
+        #### UNIT TESTS NEEDED
         graph_data = ["graph\t["]
         self.assign_Id_to_nodes()
         # iterate through the nodes in the graph

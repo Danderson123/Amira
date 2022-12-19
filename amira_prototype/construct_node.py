@@ -55,7 +55,6 @@ class Node:
     def remove_forward_edge_hash(self,
                                 edgeHash):
         """ remove and edge hash from the list of forward edge hashes """
-        #### UNIT TEST NEEDED ####
         assert edgeHash in self.get_forward_edge_hashes(), "This edge hash is not in the list of forward edge hashes"
         mask = self.get_forward_edge_hashes().index(edgeHash)
         del self.forwardEdgeHashes[mask]

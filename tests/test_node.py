@@ -151,7 +151,7 @@ class TestNodeConstructor(unittest.TestCase):
                     genes)
         node = [Node(x) for x in read1.get_geneMers(3)][0]
         node.add_forward_edge_hash(12345)
-        # execution
+        # executionforward_edge_hashes
         actual_updated_node = node.add_forward_edge_hash(12345)
         actual_list_of_forward_hashes = actual_updated_node.get_forward_edge_hashes()
         # assertion
@@ -202,3 +202,69 @@ class TestNodeConstructor(unittest.TestCase):
         expected_list_of_backward_hashes = [12345]
         self.assertEqual(actual_updated_node, node)
         self.assertEqual(actual_list_of_backward_hashes, expected_list_of_backward_hashes)
+
+    def test___remove_forward_edge_hash_in_forward_hashes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        mockHashes = [12345,56789,28423]
+        for e in range(len(mockHashes)):
+            nodes[e].add_forward_edge_hash(mockHashes[e])
+        # execution
+        for n in range(len(nodes)):
+            assert mockHashes[n] in nodes[n].get_forward_edge_hashes()
+            nodes[n].remove_forward_edge_hash(mockHashes[n])
+        # assertion
+        for n in range(len(nodes)):
+            self.assertFalse(mockHashes[n] in nodes[n].get_forward_edge_hashes())
+
+    def test___remove_forward_edge_hash_not_in_forward_hashes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        mockHashes = [12345,56789,28423]
+        for e in range(len(mockHashes)):
+            nodes[e].add_forward_edge_hash(mockHashes[e])
+        # execution
+        queryHashes = [18465, 18930, 91672]
+        for n in range(len(nodes)):
+            assert queryHashes[n] not in nodes[n].get_forward_edge_hashes()
+            # assertion
+            self.assertRaises(AssertionError, nodes[n].remove_forward_edge_hash, queryHashes[n])
+
+    def test___remove_backward_edge_hash_in_backward_hashes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        mockHashes = [12345,56789,28423]
+        for e in range(len(mockHashes)):
+            nodes[e].add_backward_edge_hash(mockHashes[e])
+        # execution
+        for n in range(len(nodes)):
+            assert mockHashes[n] in nodes[n].get_backward_edge_hashes()
+            nodes[n].remove_backward_edge_hash(mockHashes[n])
+        # assertion
+        for n in range(len(nodes)):
+            self.assertFalse(mockHashes[n] in nodes[n].get_backward_edge_hashes())
+
+    def test___remove_backward_edge_hash_not_in_backward_hashes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        mockHashes = [12345,56789,28423]
+        for e in range(len(mockHashes)):
+            nodes[e].add_backward_edge_hash(mockHashes[e])
+        # execution
+        queryHashes = [18465, 18930, 91672]
+        for n in range(len(nodes)):
+            assert queryHashes[n] not in nodes[n].get_backward_edge_hashes()
+            # assertion
+            self.assertRaises(AssertionError, nodes[n].remove_backward_edge_hash, queryHashes[n])
