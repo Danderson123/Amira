@@ -283,9 +283,11 @@ class GeneMerGraph:
                         output_file,
                         gml_content):
         """ Writes the gml to a file titled <output_file>.gml. Returns nothing."""
-        # make the directory if it does not exist
-        if not os.path.exists(os.path.dirname(output_file)):
-            os.mkdir(os.path.dirname(output_file))
+        # check if there is a directory to make
+        if os.path.dirname(output_file) != "":
+            # make the directory if it does not exist
+            if not os.path.exists(os.path.dirname(output_file)):
+                os.mkdir(os.path.dirname(output_file))
         # write the gml to the output file
         with open(output_file + ".gml", "w") as outGml:
             outGml.write("\n".join(gml_content))
