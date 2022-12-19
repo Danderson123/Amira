@@ -338,9 +338,9 @@ class TestGeneConstructor(unittest.TestCase):
         self.assertNotEqual(hash(gene_plus_strand), hash(another_gene))
         self.assertNotEqual(gene_plus_strand, another_gene)
 
-        # property one
+        # property 1
         self.assertEqual(gene_plus_strand, gene_minus_strand)
-        # Fixme: this fails: if two objects are equal, they must hash to a same hash value
+        # Fixme: this fails: if two objects are equal, they must hash to a same hash value as per property 1
         self.assertEqual(hash(gene_plus_strand), hash(gene_minus_strand))
 
 
@@ -362,21 +362,22 @@ class TestGeneConstructor(unittest.TestCase):
 
     def test___hash_and_eq_in_a_dictionary___counting_use_case(self):
         """
-        This test counts how many times we've seen a gene
+        This test counts how many times we've seen a gene using a dictionary
         """
         gene_plus_strand = Gene("+gene")
         gene_minus_strand = Gene("-gene")
         another_gene = Gene("+another_gene")
 
-        list_of_genes = [gene_minus_strand, another_gene, gene_plus_strand, gene_minus_strand, gene_minus_strand,
-                         another_gene, another_gene, gene_plus_strand]
+        list_of_genes_to_count = [gene_minus_strand, another_gene, gene_plus_strand, gene_minus_strand, gene_minus_strand,
+                                  another_gene, another_gene, gene_plus_strand]
 
         # count the number of genes
         from collections import defaultdict
         genes_to_count = defaultdict(int)
-        for gene in list_of_genes:
+        for gene in list_of_genes_to_count:
             genes_to_count[gene] += 1
 
         # Fixme: we should have 5 counts of "gene" and 3 counts of "another_gene"
         self.assertEqual(3, genes_to_count[another_gene])  # this works
         self.assertEqual(5, genes_to_count[gene_plus_strand])  # Fixme: this fails
+        self.assertEqual(5, genes_to_count[gene_minus_strand])  # Fixme: this fails
