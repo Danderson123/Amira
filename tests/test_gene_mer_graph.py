@@ -6,9 +6,9 @@ from construct_graph import GeneMerGraph
 from construct_read import Read
 from construct_node import Node
 
-class TestGeneMerConstructor(unittest.TestCase):
+class TestGeneMerGraphConstructor(unittest.TestCase):
 
-    def test___init_GeneMerGraph(self):
+    def test___init_empty_GeneMerGraph(self):
         # setup
         graph = GeneMerGraph({},
                             0,
@@ -34,6 +34,85 @@ class TestGeneMerConstructor(unittest.TestCase):
         self.assertEqual(actual_minEdgeCoverage, expected_minEdgeCoverage)
         self.assertEqual(actual_nodes, expected_nodes)
         self.assertEqual(actual_edges, expected_edges)
+
+    def test___init_non_empty_GeneMerGraph(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene6"]
+        graph = GeneMerGraph({"read1": genes,
+                            "read2": genes2},
+                            3,
+                            1,
+                            1)
+        # execution
+        actual_reads = graph.get_reads()
+        actual_kmerSize = graph.get_kmerSize()
+        actual_minGeneMerCoverage = graph.get_minNodeCoverage()
+        actual_minEdgeCoverage = graph.get_minEdgeCoverage()
+        actual_number_nodes = graph.get_total_number_of_nodes()
+        actual_number_edges = graph.get_total_number_of_edges()
+        actual_node_1_coverage = graph.get_nodes()[list(graph.get_nodes().keys())[0]].get_node_coverage()
+        actual_node_2_coverage = graph.get_nodes()[list(graph.get_nodes().keys())[1]].get_node_coverage()
+        actual_node_3_coverage = graph.get_nodes()[list(graph.get_nodes().keys())[2]].get_node_coverage()
+        # assertion
+        expected_reads = {"read1": genes,
+                        "read2": genes2}
+        expected_kmerSize = 3
+        expected_minGeneMerCoverage = 1
+        expected_minEdgeCoverage = 1
+        expected_number_nodes = 3
+        expected_number_edges = 4
+        expected_node_1_coverage = 2
+        expected_node_2_coverage = 1
+        expected_node_3_coverage = 1
+        self.assertEqual(actual_reads, expected_reads)
+        self.assertEqual(actual_kmerSize, expected_kmerSize)
+        self.assertEqual(actual_minGeneMerCoverage, expected_minGeneMerCoverage)
+        self.assertEqual(actual_minEdgeCoverage, expected_minEdgeCoverage)
+        self.assertEqual(actual_number_edges, expected_number_edges)
+        self.assertEqual(actual_number_nodes, expected_number_nodes)
+        self.assertEqual(actual_node_1_coverage, expected_node_1_coverage)
+        self.assertEqual(actual_node_2_coverage, expected_node_2_coverage)
+        self.assertEqual(actual_node_3_coverage, expected_node_3_coverage)
+
+    def test___init_non_empty_duplicate_nodes_GeneMerGraph(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene1", "-gene2", "+gene3", "+gene8"] # 5 nodes, 10 edges
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene6", "+gene1", "-gene2", "+gene3"] # 3 nodes, 8 edges
+        graph = GeneMerGraph({"read1": genes,
+                            "read2": genes2},
+                            3,
+                            1,
+                            1)
+        graph.generate_gml("graph")
+        # execution
+        actual_reads = graph.get_reads()
+        actual_kmerSize = graph.get_kmerSize()
+        actual_minGeneMerCoverage = graph.get_minNodeCoverage()
+        actual_minEdgeCoverage = graph.get_minEdgeCoverage()
+        actual_number_nodes = graph.get_total_number_of_nodes()
+        actual_number_edges = graph.get_total_number_of_edges()
+        actual_node_1_coverage = graph.get_nodes()[list(graph.get_nodes().keys())[0]].get_node_coverage()
+        # assertion
+        expected_reads = {"read1": genes,
+                        "read2": genes2}
+        expected_kmerSize = 3
+        expected_minGeneMerCoverage = 1
+        expected_minEdgeCoverage = 1
+        expected_number_nodes = 8
+        expected_number_edges = 18
+        expected_node_1_coverage = 4
+        expected_edge_coverage = 1
+        self.assertEqual(actual_reads, expected_reads)
+        self.assertEqual(actual_kmerSize, expected_kmerSize)
+        self.assertEqual(actual_minGeneMerCoverage, expected_minGeneMerCoverage)
+        self.assertEqual(actual_minEdgeCoverage, expected_minEdgeCoverage)
+        self.assertEqual(actual_number_edges, expected_number_edges)
+        self.assertEqual(actual_number_nodes, expected_number_nodes)
+        self.assertEqual(actual_node_1_coverage, expected_node_1_coverage)
+        self.assertTrue(all(node.get_node_coverage() == 1 for node in list(graph.get_nodes().values())[1:]))
+        [print(edge.get_edge_coverage()) for edge in list(graph.get_edges().values())]
+        self.assertTrue(all(edge.get_edge_coverage() == expected_edge_coverage for edge in list(graph.get_edges().values())))
 
     def test___all_nodes(self):
         # setup
@@ -66,6 +145,7 @@ class TestGeneMerConstructor(unittest.TestCase):
                         1)
         # execution
         actual_returned_node = graph.add_node(geneMer)
+        actual_returned_node.increment_node_coverage()
         actual_returned_node.add_read("read1")
         actual_node_read_list = [x for x in actual_returned_node.get_reads()]
         actual_node_hash = actual_returned_node.__hash__()
@@ -88,13 +168,15 @@ class TestGeneMerConstructor(unittest.TestCase):
                         3,
                         1,
                         1)
-        graph.add_node(geneMer1)
+        node1 = graph.add_node(geneMer1)
+        node1.increment_node_coverage()
         genes2 = ["+gene4", "-gene3", "+gene2"]
         read2 = Read("read2",
                     genes2)
         geneMer2 = [x for x in read2.get_geneMers(3)][0]
         # execution
         actual_returned_node2 = graph.add_node(geneMer2)
+        actual_returned_node2.increment_node_coverage()
         actual_returned_node2.add_read("read2")
         actual_node2_read_list = [x for x in actual_returned_node2.get_reads()]
         actual_node2_hash = actual_returned_node2.__hash__()
@@ -121,6 +203,7 @@ class TestGeneMerConstructor(unittest.TestCase):
         graph.add_node(geneMer)
         # execution
         actual_returned_node = graph.add_node(geneMer)
+        actual_returned_node.increment_node_coverage()
         actual_returned_node.add_read("read1")
         actual_returned_node.add_read("read2")
         actual_returned_node.increment_node_coverage()
@@ -147,12 +230,14 @@ class TestGeneMerConstructor(unittest.TestCase):
                         3,
                         1,
                         1)
-        graph.add_node(geneMer1)
+        node1 = graph.add_node(geneMer1)
+        node1.increment_node_coverage()
         genes2 = ["+gene4", "-gene3", "+gene2"]
         read2 = Read("read2",
                     genes2)
         geneMer2 = [x for x in read2.get_geneMers(3)][0]
-        graph.add_node(geneMer2)
+        node2 = graph.add_node(geneMer2)
+        node2.increment_node_coverage()
         # execution
         actual_node1 = graph.get_node(geneMer1)
         actual_node1.add_read("read1")
@@ -610,6 +695,8 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         actual_edge = graph.add_edge_to_edges(sourceToTargetEdge)
         actual_reverse_edge = graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         actual_edge_coverage = actual_edge.get_edge_coverage()
@@ -649,9 +736,13 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_targetDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         # execution
         actual_edge = graph.add_edge_to_edges(sourceToTargetEdge)
         actual_reverse_edge = graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         actual_edge_coverage = actual_edge.get_edge_coverage()
@@ -693,9 +784,15 @@ class TestGeneMerConstructor(unittest.TestCase):
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         # execution
         actual_edge = graph.add_edge_to_edges(sourceToTargetEdge)
         actual_reverse_edge = graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         actual_edge_coverage = actual_edge.get_edge_coverage()
@@ -736,6 +833,8 @@ class TestGeneMerConstructor(unittest.TestCase):
         # execution
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
                                                                                 reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -770,9 +869,13 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_targetDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         # execution
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
                                                                                 reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -815,11 +918,17 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_thirdDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         # execution
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
                                                                                 reverseTargetToSourceEdge)
         targetToThirdEdge, reverseThirdToTargetEdge = graph.add_edges_to_graph(targetToThirdEdge,
                                                                                 reverseThirdToTargetEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -866,8 +975,12 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_thirdDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         graph.add_edge_to_edges(targetToThirdEdge)
         graph.add_edge_to_edges(reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         # execution
         rc_sourceToTargetEdge = sourceToTargetEdge
         rc_sourceToTargetEdge.set_sourceNodeDirection(sourceToTargetEdge.get_sourceNodeDirection() * -1)
@@ -883,8 +996,12 @@ class TestGeneMerConstructor(unittest.TestCase):
         reverseThirdToTargetEdge.set_targetNodeDirection(reverseThirdToTargetEdge.get_targetNodeDirection() * -1)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(rc_sourceToTargetEdge,
                                                                                 rc_reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         targetToThirdEdge, reverseThirdToTargetEdge = graph.add_edges_to_graph(rc_targetToThirdEdge,
                                                                             rc_reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -931,8 +1048,12 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_thirdDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         graph.add_edge_to_edges(targetToThirdEdge)
         graph.add_edge_to_edges(reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         # execution
         rc_sourceToTargetEdge = sourceToTargetEdge
         rc_sourceToTargetEdge.set_sourceNodeDirection(sourceToTargetEdge.get_sourceNodeDirection() * -1)
@@ -948,8 +1069,12 @@ class TestGeneMerConstructor(unittest.TestCase):
         reverseThirdToTargetEdge.set_targetNodeDirection(reverseThirdToTargetEdge.get_targetNodeDirection() * -1)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(rc_sourceToTargetEdge,
                                                                                 rc_reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         targetToThirdEdge, reverseThirdToTargetEdge = graph.add_edges_to_graph(rc_targetToThirdEdge,
                                                                             rc_reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -997,8 +1122,12 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_thirdDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         graph.add_edge_to_edges(targetToThirdEdge)
         graph.add_edge_to_edges(reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         # execution
         rc_targetToThirdEdge = targetToThirdEdge
         rc_targetToThirdEdge.set_sourceNodeDirection(targetToThirdEdge.get_sourceNodeDirection() * -1)
@@ -1008,8 +1137,12 @@ class TestGeneMerConstructor(unittest.TestCase):
         reverseThirdToTargetEdge.set_targetNodeDirection(reverseThirdToTargetEdge.get_targetNodeDirection() * -1)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(sourceToTargetEdge,
                                                                                 reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         targetToThirdEdge, reverseThirdToTargetEdge = graph.add_edges_to_graph(rc_targetToThirdEdge,
                                                                             rc_reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -1056,8 +1189,12 @@ class TestGeneMerConstructor(unittest.TestCase):
                                                                         mock_thirdDirection)
         graph.add_edge_to_edges(sourceToTargetEdge)
         graph.add_edge_to_edges(reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         graph.add_edge_to_edges(targetToThirdEdge)
         graph.add_edge_to_edges(reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         # execution
         rc_sourceToTargetEdge = sourceToTargetEdge
         rc_sourceToTargetEdge.set_sourceNodeDirection(sourceToTargetEdge.get_sourceNodeDirection() * -1)
@@ -1067,8 +1204,12 @@ class TestGeneMerConstructor(unittest.TestCase):
         rc_reverseTargetToSourceEdge.set_targetNodeDirection(reverseTargetToSourceEdge.get_targetNodeDirection() * -1)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edges_to_graph(rc_sourceToTargetEdge,
                                                                                 rc_reverseTargetToSourceEdge)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
         targetToThirdEdge, reverseThirdToTargetEdge = graph.add_edges_to_graph(targetToThirdEdge,
                                                                             reverseThirdToTargetEdge)
+        targetToThirdEdge.increment_edge_coverage()
+        reverseThirdToTargetEdge.increment_edge_coverage()
         actual_graph_edges = graph.get_edges()
         actual_number_of_edges = len(actual_graph_edges)
         # assertion
@@ -1485,8 +1626,10 @@ class TestGeneMerConstructor(unittest.TestCase):
                             3,
                             1,
                             1)
-        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
-                                            targetGeneMer)
+        sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
+                                                                    targetGeneMer)
+        sourceNode = sourceToTargetEdge.get_sourceNode()
+        targetNode = reverseTargetToSourceEdge.get_sourceNode()
         sourceNodeEdgeHashes = sourceNode.get_forward_edge_hashes() + sourceNode.get_backward_edge_hashes()
         targetNodeEdgeHashes = targetNode.get_forward_edge_hashes() + targetNode.get_backward_edge_hashes()
         # sanity checks
@@ -1521,8 +1664,10 @@ class TestGeneMerConstructor(unittest.TestCase):
                             3,
                             1,
                             1)
-        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
-                                            targetGeneMer)
+        sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
+                                                                    targetGeneMer)
+        sourceNode = sourceToTargetEdge.get_sourceNode()
+        targetNode = reverseTargetToSourceEdge.get_sourceNode()
         sourceNodeEdgeHashes = sourceNode.get_forward_edge_hashes() + sourceNode.get_backward_edge_hashes()
         targetNodeEdgeHashes = targetNode.get_forward_edge_hashes() + targetNode.get_backward_edge_hashes()
         # sanity checks
@@ -1544,15 +1689,15 @@ class TestGeneMerConstructor(unittest.TestCase):
                             3,
                             1,
                             1)
-        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
-                                            targetGeneMer)
+        sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
+                                                                    targetGeneMer)
         # execution
         graph.assign_Id_to_nodes()
         # assertion
         expected_sourceNode_Id = 0
         expected_targetNode_Id = 1
-        self.assertEqual(sourceNode.get_nodeId(), expected_sourceNode_Id)
-        self.assertEqual(targetNode.get_nodeId(), expected_targetNode_Id)
+        self.assertEqual(sourceToTargetEdge.get_sourceNode().get_nodeId(), expected_sourceNode_Id)
+        self.assertEqual(reverseTargetToSourceEdge.get_sourceNode().get_nodeId(), expected_targetNode_Id)
 
     def test___write_gml_to_file(self):
         # setup
@@ -1601,8 +1746,12 @@ class TestGeneMerConstructor(unittest.TestCase):
                             3,
                             1,
                             1)
-        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
-                                            targetGeneMer)
+        sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
+                                                                    targetGeneMer)
+        sourceToTargetEdge.increment_edge_coverage()
+        reverseTargetToSourceEdge.increment_edge_coverage()
+        sourceToTargetEdge.get_sourceNode().increment_node_coverage()
+        reverseTargetToSourceEdge.get_sourceNode().increment_node_coverage()
         # execution
         actual_writtenGraph = graph.generate_gml("tests/test_graph")
         # assertion

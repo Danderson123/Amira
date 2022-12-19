@@ -3,6 +3,7 @@ import os
 from construct_node import Node
 from construct_edge import Edge
 from construct_gene_mer import GeneMer
+from construct_read import Read
 
 class GeneMerGraph:
 
@@ -17,7 +18,24 @@ class GeneMerGraph:
         self._minEdgeCoverage = minEdgeCoverage
         self._nodes = {}
         self._edges = {}
-
+        # initialise the graph
+        for readId in self.get_reads():
+            read = Read(readId,
+                        self.get_reads()[readId])
+            geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
+            if not len(geneMers) == 0:
+                for g in range(len(geneMers) - 1):
+                    sourceNode = self.add_node(geneMers[g])
+                    sourceNode.increment_node_coverage()
+                    if not len(geneMers) == 1:
+                        self.add_node(geneMers[g+1])
+                        sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(geneMers[g],
+                                                                                    geneMers[g+1])
+                    sourceToTargetEdge.increment_edge_coverage()
+                    reverseTargetToSourceEdge.increment_edge_coverage()
+                targetNodeHash = geneMers[-1].__hash__()
+                targetNode = self.get_node_by_hash(targetNodeHash)
+                targetNode.increment_node_coverage()
     def get_reads(self):
         """ return a dictionary of all reads and their genes """
         return self._reads
@@ -65,8 +83,6 @@ class GeneMerGraph:
         if not nodeHash in self.get_nodes():
             # convert the gene-mer to a node
             node = Node(geneMer)
-            # set the coverage to 1
-            node.increment_node_coverage()
             # add the node to the graph
             self.add_node_to_nodes(node,
                                 nodeHash)
@@ -135,7 +151,6 @@ class GeneMerGraph:
         # see if the edge is in the edge dictionary
         if not edgeHash in self.get_edges():
             self._edges[edgeHash] = edge
-        self._edges[edgeHash].increment_edge_coverage()
         return self.get_edge_by_hash(edgeHash)
     def add_edges_to_graph(self,
                         sourceToTargetEdge,
@@ -183,7 +198,7 @@ class GeneMerGraph:
                                         sourceToTargetEdge)
         targetNode = self.add_edge_to_node(targetNode,
                                         reverseTargetToSourceEdge)
-        return sourceNode, targetNode
+        return sourceToTargetEdge, reverseTargetToSourceEdge
     def get_degree(self,
                 node: Node) -> int:
         """ return an integer of the number of neighbours for this node """
