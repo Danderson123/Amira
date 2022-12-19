@@ -1,4 +1,4 @@
-import numpy as np
+import os
 
 from construct_node import Node
 from construct_edge import Edge
@@ -279,9 +279,19 @@ class GeneMerGraph:
             assignedId = node.assign_node_Id(currentNodeId)
             assert assignedId == currentNodeId, "This node was assigned an incorrect ID"
             currentNodeId += 1
+    def write_gml_to_file(self,
+                        output_file,
+                        gml_content):
+        """ Writes the gml to a file titled <output_file>.gml. Returns nothing."""
+        # make the directory if it does not exist
+        if not os.path.exists(os.path.dirname(output_file)):
+            os.mkdir(os.path.dirname(output_file))
+        # write the gml to the output file
+        with open(output_file + ".gml", "w") as outGml:
+            outGml.write("\n".join(gml_content))
     def generate_gml(self,
                     output_file):
-        """ write a gml of the filtered graph to the output directory """
+        """ Write a gml of the filtered graph to the output directory. Returns the written content as a list """
         #### UNIT TESTS NEEDED
         graph_data = ["graph\t["]
         self.assign_Id_to_nodes()
@@ -299,9 +309,8 @@ class GeneMerGraph:
                 nodeForwardEdgeHashes = sourceNode.get_forward_edge_hashes()
                 nodeBackwardEdgeHashes = sourceNode.get_backward_edge_hashes()
                 # get the edge objects corresponding to the forward edge hashes
-                nodeForwardEdges = [self.get_edges()[edgeHash] for edgeHash in nodeForwardEdgeHashes]
-                nodeBackwardEdges = [self.get_edges()[edgeHash] for edgeHash in nodeBackwardEdgeHashes]
-                for edge in nodeForwardEdges + nodeBackwardEdges:
+                nodeEdges = [self.get_edge_by_hash(edgeHash) for edgeHash in nodeForwardEdgeHashes + nodeBackwardEdgeHashes]
+                for edge in nodeEdges:
                     if edge.get_edge_coverage() >= self.get_minEdgeCoverage():
                         targetNode = edge.get_targetNode()
                         if targetNode.get_node_coverage() >= self.get_minNodeCoverage():
@@ -310,7 +319,7 @@ class GeneMerGraph:
                                                             edge.get_edge_coverage())
                             graph_data.append(edgeEntry)
         graph_data.append("]")
-        # write the gml to the output file
-        with open(output_file + ".gml", "w") as outGml:
-            outGml.write("\n".join(graph_data))
+        self.write_gml_to_file(output_file,
+                            graph_data)
+        return graph_data
 

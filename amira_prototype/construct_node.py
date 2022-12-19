@@ -70,7 +70,6 @@ class Node:
     def remove_backward_edge_hash(self,
                                 edgeHash):
         """ remove and edge hash from the list of backward edge hashes """
-        #### UNIT TEST NEEDED ####
         assert edgeHash in self.get_backward_edge_hashes(), "This edge hash is not in the list of backward edge hashes"
         mask = self.get_backward_edge_hashes().index(edgeHash)
         del self.backwardEdgeHashes[mask]

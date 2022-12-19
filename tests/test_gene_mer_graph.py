@@ -966,6 +966,7 @@ class TestGeneMerConstructor(unittest.TestCase):
 
     def test___add_two_duplicate_reverse_edges_to_graph_one_positive_one_negative(self):
         # setup
+        #### UNIT TEST NEEDED ####
 
         class fakeNode:
             def __init__(self,
@@ -1530,3 +1531,88 @@ class TestGeneMerConstructor(unittest.TestCase):
         self.assertNotEqual(graph.get_edges(), {})
         # execution
         self.assertRaises(AssertionError, graph.remove_edge, 12345)
+
+    def test___assign_Id_to_nodes(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
+                                            targetGeneMer)
+        # execution
+        graph.assign_Id_to_nodes()
+        # assertion
+        expected_sourceNode_Id = 0
+        expected_targetNode_Id = 1
+        self.assertEqual(sourceNode.get_nodeId(), expected_sourceNode_Id)
+        self.assertEqual(targetNode.get_nodeId(), expected_targetNode_Id)
+
+    def test___write_gml_to_file(self):
+        # setup
+        import os
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        # execution
+        graph.write_gml_to_file("tests/test_graph",
+                            ["graph\t[", "\t\tnode\t[]", "\t\tedge\t[]", "]"])
+        # assertion
+        self.assertTrue(os.path.exists("tests/test_graph.gml"))
+        with open("tests/test_graph.gml", "r") as i:
+            actual_content = i.read().splitlines()
+        self.assertEqual(actual_content, ["graph\t[", "\t\tnode\t[]", "\t\tedge\t[]", "]"])
+        os.remove("tests/test_graph.gml")
+
+    def test___write_gml_to_file_in_subdirectory(self):
+        # setup
+        import os
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        # execution
+        graph.write_gml_to_file("tests/tests/test_graph",
+                                ["graph\t[", "\t\tnode\t[]", "\t\tedge\t[]", "]"])
+        # assertion
+        self.assertTrue(os.path.exists("tests/tests/test_graph.gml"))
+        with open("tests/tests/test_graph.gml", "r") as i:
+            actual_content = i.read().splitlines()
+        self.assertEqual(actual_content, ["graph\t[", "\t\tnode\t[]", "\t\tedge\t[]", "]"])
+        import shutil
+        shutil.rmtree("tests/tests")
+
+    def test___generate_gml(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        sourceGeneMer = geneMers[0]
+        targetGeneMer = geneMers[1]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        sourceNode, targetNode = graph.add_edge(sourceGeneMer,
+                                            targetGeneMer)
+        # execution
+        actual_writtenGraph = graph.generate_gml("tests/test_graph")
+        # assertion
+        expected_writtenGraph = ['graph\t[',
+                                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"0"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                ']']
+        import os
+        self.assertTrue(os.path.exists("tests/test_graph.gml"))
+        self.assertEqual(actual_writtenGraph, expected_writtenGraph)
+        os.remove("tests/test_graph.gml")
