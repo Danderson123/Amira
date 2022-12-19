@@ -292,7 +292,6 @@ class GeneMerGraph:
     def generate_gml(self,
                     output_file):
         """ Write a gml of the filtered graph to the output directory. Returns the written content as a list """
-        #### UNIT TESTS NEEDED
         graph_data = ["graph\t["]
         self.assign_Id_to_nodes()
         # iterate through the nodes in the graph
