@@ -207,6 +207,84 @@ class TestGeneConstructor(unittest.TestCase):
         self.assertEqual(actual_name, expected_name)
         self.assertEqual(actual_strand, expected_strand)
 
+    def test___eq_positive_gene(self):
+        # setup
+        gene1 = Gene("+gene1")
+        gene2 = Gene("+gene1")
+        # execution
+        actual_gene1_gene2_comparison = gene1.__eq__(gene2)
+        actual_gene2_gene1_comparison = gene2.__eq__(gene1)
+        # assertion
+        expected_gene1_gene2_comparison = True
+        expected_gene2_gene1_comparison = True
+        self.assertEqual(actual_gene1_gene2_comparison, expected_gene1_gene2_comparison)
+        self.assertEqual(actual_gene2_gene1_comparison, expected_gene2_gene1_comparison)
+
+    def test___eq_negative_gene(self):
+        # setup
+        gene1 = Gene("-gene2")
+        gene2 = Gene("-gene2")
+        # execution
+        actual_gene1_gene2_comparison = gene1.__eq__(gene2)
+        actual_gene2_gene1_comparison = gene2.__eq__(gene1)
+        # assertion
+        expected_gene1_gene2_comparison = True
+        expected_gene2_gene1_comparison = True
+        self.assertEqual(actual_gene1_gene2_comparison, expected_gene1_gene2_comparison)
+        self.assertEqual(actual_gene2_gene1_comparison, expected_gene2_gene1_comparison)
+
+    def test___eq_positive_negative_same_gene(self):
+        # setup
+        gene1 = Gene("+gene1")
+        gene2 = Gene("-gene1")
+        # execution
+        actual_gene1_gene2_comparison = gene1.__eq__(gene2)
+        actual_gene2_gene1_comparison = gene2.__eq__(gene1)
+        # assertion
+        expected_gene1_gene2_comparison = False
+        expected_gene2_gene1_comparison = False
+        self.assertEqual(actual_gene1_gene2_comparison, expected_gene1_gene2_comparison)
+        self.assertEqual(actual_gene2_gene1_comparison, expected_gene2_gene1_comparison)
+
+    def test___negative_positive_same_gene(self):
+        # setup
+        gene1 = Gene("-gene1")
+        gene2 = Gene("+gene1")
+        # execution
+        actual_gene1_gene2_comparison = gene1.__eq__(gene2)
+        actual_gene2_gene1_comparison = gene2.__eq__(gene1)
+        # assertion
+        expected_gene1_gene2_comparison = False
+        expected_gene2_gene1_comparison = False
+        self.assertEqual(actual_gene1_gene2_comparison, expected_gene1_gene2_comparison)
+        self.assertEqual(actual_gene2_gene1_comparison, expected_gene2_gene1_comparison)
+
+    def test___positive_strand_different_gene(self):
+        # setup
+        gene1 = Gene("+gene1")
+        gene2 = Gene("+gene2")
+        # execution
+        actual_gene1_gene2_comparison = gene1.__eq__(gene2)
+        actual_gene2_gene1_comparison = gene2.__eq__(gene1)
+        # assertion
+        expected_gene1_gene2_comparison = False
+        expected_gene2_gene1_comparison = False
+        self.assertEqual(actual_gene1_gene2_comparison, expected_gene1_gene2_comparison)
+        self.assertEqual(actual_gene2_gene1_comparison, expected_gene2_gene1_comparison)
+
+    def test___negative_strand_different_gene(self):
+        # setup
+        gene1 = Gene("-gene1")
+        gene2 = Gene("-gene2")
+        # execution
+        actual_gene1_gene2_comparison = gene1.__eq__(gene2)
+        actual_gene2_gene1_comparison = gene2.__eq__(gene1)
+        # assertion
+        expected_gene1_gene2_comparison = False
+        expected_gene2_gene1_comparison = False
+        self.assertEqual(actual_gene1_gene2_comparison, expected_gene1_gene2_comparison)
+        self.assertEqual(actual_gene2_gene1_comparison, expected_gene2_gene1_comparison)
+
     def test___hash_positive_gene(self):
         # setup
         gene = Gene("+gene1")
