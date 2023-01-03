@@ -4,6 +4,7 @@ from construct_node import Node
 from construct_edge import Edge
 from construct_gene_mer import GeneMer
 from construct_read import Read
+from construct_gene import convert_int_strand_to_string
 
 class GeneMerGraph:
 
@@ -27,15 +28,17 @@ class GeneMerGraph:
                 for g in range(len(geneMers) - 1):
                     sourceNode = self.add_node(geneMers[g])
                     sourceNode.increment_node_coverage()
+                    sourceNode.add_read(read.get_readId())
                     if not len(geneMers) == 1:
                         self.add_node(geneMers[g+1])
                         sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(geneMers[g],
                                                                                     geneMers[g+1])
-                    sourceToTargetEdge.increment_edge_coverage()
-                    reverseTargetToSourceEdge.increment_edge_coverage()
-                targetNodeHash = geneMers[-1].__hash__()
-                targetNode = self.get_node_by_hash(targetNodeHash)
-                targetNode.increment_node_coverage()
+                        sourceToTargetEdge.increment_edge_coverage()
+                        reverseTargetToSourceEdge.increment_edge_coverage()
+                if not len(geneMers) == 1:
+                    targetNodeHash = geneMers[-1].__hash__()
+                    targetNode = self.get_node_by_hash(targetNodeHash)
+                    targetNode.increment_node_coverage()
     def get_reads(self):
         """ return a dictionary of all reads and their genes """
         return self._reads
@@ -306,6 +309,15 @@ class GeneMerGraph:
         # write the gml to the output file
         with open(output_file + ".gml", "w") as outGml:
             outGml.write("\n".join(gml_content))
+    def get_gene_mer_label(self,
+                        sourceNode: Node) -> str:
+        """ returns a string of the genes in the canonicall gene mer for a node and their strands """
+        # get the canonical gene mer for the node
+        geneMer = sourceNode.get_canonical_geneMer()
+        # get a list of the gene strand + gene name for the canonical gene mer
+        geneMerGenes = [convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in geneMer]
+        # return a string of the gene mer genes and strands
+        return "~~~".join(geneMerGenes)
     def generate_gml(self,
                     output_file):
         """ Write a gml of the filtered graph to the output directory. Returns the written content as a list """
@@ -317,7 +329,7 @@ class GeneMerGraph:
             if sourceNode.get_node_coverage() >= self.get_minNodeCoverage():
                 # add the node entry
                 nodeEntry = self.write_node_entry(sourceNode.get_node_Id(),
-                                                str(sourceNode.get_node_Id()),
+                                                self.get_gene_mer_label(sourceNode),
                                                 sourceNode.get_node_coverage(),
                                                 [read for read in sourceNode.get_reads()])
                 graph_data.append(nodeEntry)
@@ -338,4 +350,3 @@ class GeneMerGraph:
         self.write_gml_to_file(output_file,
                             graph_data)
         return graph_data
-

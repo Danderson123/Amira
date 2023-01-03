@@ -84,7 +84,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             3,
                             1,
                             1)
-        graph.generate_gml("graph")
         # execution
         actual_reads = graph.get_reads()
         actual_kmerSize = graph.get_kmerSize()
@@ -1755,13 +1754,48 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         actual_writtenGraph = graph.generate_gml("tests/test_graph")
         # assertion
-        expected_writtenGraph = ['graph\t[',
-                                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"0"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+        expected_writtenGraph = [['graph\t[',
+                                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
                                 '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
-                                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"+gene4~~~-gene3~~~+gene2"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
                                 '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
-                                ']']
+                                ']'],
+                                ['graph\t[',
+                                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"+gene1~~~-gene2~~~+gene3"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"-gene2~~~+gene3~~~-gene4"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                ']'],
+                                ['graph\t[',
+                                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"-gene2~~~+gene3~~~-gene4"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                ']'],
+                                ['graph\t[',
+                                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"+gene1~~~-gene2~~~+gene3"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"+gene4~~~-gene3~~~+gene2"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                ']']]
         import os
         self.assertTrue(os.path.exists("tests/test_graph.gml"))
-        self.assertEqual(actual_writtenGraph, expected_writtenGraph)
+        self.assertTrue(any(actual_writtenGraph == e for e in expected_writtenGraph))
         os.remove("tests/test_graph.gml")
+
+    def test___get_gene_mer_label(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes)
+        sourceGeneMer = [x for x in read1.get_geneMers(3)][0]
+        sourceNode = Node(sourceGeneMer)
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        # execution
+        actual_geneMerString = graph.get_gene_mer_label(sourceNode)
+        # assertion
+        expected_geneMerString = ["+gene1~~~-gene2~~~+gene3", "-gene3~~~+gene2~~~-gene1"]
+        self.assertTrue(any(actual_geneMerString == e for e in expected_geneMerString))
