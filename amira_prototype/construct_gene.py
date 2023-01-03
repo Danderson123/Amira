@@ -65,10 +65,6 @@ class Gene:
         reverseGene = reverseStrand + self.name
         GeneData = Gene(reverseGene)
         return GeneData
-    def __eq__(self,
-            otherGene) -> bool:
-        """ return a bool to check if the gene names of two Gene objects are the same """
-        return self.name == otherGene.get_name()
     def __hash__(self):
         """ return a hash of the gene name multiplied by the strand to compare against hashes of other Gene instances """
         return hash(self.name) * self.strand

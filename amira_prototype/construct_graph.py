@@ -350,3 +350,12 @@ class GeneMerGraph:
         self.write_gml_to_file(output_file,
                             graph_data)
         return graph_data
+
+import json
+with open("3_perfect.filtered.sam.json", "r") as i:
+    reads = json.loads(i.read())
+graph = GeneMerGraph(reads,
+                    5,
+                    3,
+                    2)
+graph.generate_gml("graph")
