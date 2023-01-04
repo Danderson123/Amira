@@ -1,8 +1,7 @@
 from construct_graph import GeneMerGraph
 from construct_node import Node
-from construct_gene import Gene
 
-class Unitig:
+class Unitigs:
     def __init__(self,
                 graph: GeneMerGraph,
                 listOfGenes: list):
