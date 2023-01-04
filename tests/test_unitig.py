@@ -6,6 +6,9 @@ from construct_graph import GeneMerGraph
 from construct_unitig import Unitigs
 from construct_edge import Edge
 from construct_read import Read
+from construct_node import Node
+from construct_gene_mer import GeneMer
+from construct_gene import Gene
 
 class TestUnitigsConstructor(unittest.TestCase):
 
@@ -61,8 +64,8 @@ class TestUnitigsConstructor(unittest.TestCase):
                                 nodes[1],
                                 1,
                                 1)
-        mock_rc_forward_edge = Edge(nodes[0],
-                                    nodes[1],
+        mock_rc_forward_edge = Edge(nodes[1],
+                                    nodes[0],
                                     -1,
                                     -1)
         graph.add_edges_to_graph(mock_forward_edge,
@@ -127,8 +130,8 @@ class TestUnitigsConstructor(unittest.TestCase):
                                 nodes[1],
                                 -1,
                                 -1)
-        mock_rc_backward_edge = Edge(nodes[0],
-                                    nodes[1],
+        mock_rc_backward_edge = Edge(nodes[1],
+                                    nodes[0],
                                     1,
                                     1)
         graph.add_edges_to_graph(mock_backward_edge,
@@ -174,3 +177,156 @@ class TestUnitigsConstructor(unittest.TestCase):
         self.assertEqual(actual_extend, expected_extend)
         self.assertEqual(actual_targetNode, expected_targetNode)
         self.assertEqual(actual_targetDirection, expected_targetDirection)
+
+    def test___get_forward_path_from_node(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        genes2 = ["-gene6", "+gene7", "-gene8", "+gene9"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3,
+                            1,
+                            1)
+        sourceGeneMer = GeneMer([Gene("+gene5"), Gene("-gene6"), Gene("+gene7")])
+        sourceNode = graph.add_node(sourceGeneMer)
+        sourceNode.increment_node_coverage()
+        targetNode = graph.get_node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")]))
+        mock_forward_edge = Edge(sourceNode,
+                                targetNode,
+                                1,
+                                GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")]).get_geneMerDirection())
+        mock_rc_forward_edge = Edge(targetNode,
+                                    sourceNode,
+                                    GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")]).get_geneMerDirection() * -1,
+                                    -1)
+        mock_forward_edge.increment_edge_coverage()
+        mock_rc_forward_edge.increment_edge_coverage()
+        graph.add_edges_to_graph(mock_forward_edge,
+                                mock_rc_forward_edge)
+        graph.add_edge_to_node(sourceNode,
+                            mock_forward_edge)
+        graph.add_edge_to_node(targetNode,
+                            mock_rc_forward_edge)
+        unitig = Unitigs(graph,
+                        ["gene5"])
+        # execution
+        actual_forwardPath = unitig.get_forward_path_from_node(sourceNode)
+        # assertion
+        expected_forwardPath = [Node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")])).get_canonical_geneMer(),
+                            Node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")])).get_canonical_geneMer()]
+        self.assertEqual(actual_forwardPath, expected_forwardPath)
+
+    def test___get_forward_path_from_first_node(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        genes2 = ["-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3,
+                            1,
+                            1)
+        sourceGeneMer = GeneMer([Gene("-gene0"), Gene("+gene1"), Gene("-gene2")])
+        sourceNode = graph.add_node(sourceGeneMer)
+        sourceNode.increment_node_coverage()
+        targetNode = graph.get_node(GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]))
+        mock_forward_edge = Edge(sourceNode,
+                                targetNode,
+                                1,
+                                GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]).get_geneMerDirection())
+        mock_rc_forward_edge = Edge(targetNode,
+                                    sourceNode,
+                                    GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]).get_geneMerDirection() * -1,
+                                    -1)
+        mock_forward_edge.increment_edge_coverage()
+        mock_rc_forward_edge.increment_edge_coverage()
+        graph.add_edges_to_graph(mock_forward_edge,
+                                mock_rc_forward_edge)
+        graph.add_edge_to_node(sourceNode,
+                            mock_forward_edge)
+        graph.add_edge_to_node(targetNode,
+                            mock_rc_forward_edge)
+        unitig = Unitigs(graph,
+                        ["gene0"])
+        # execution
+        actual_forwardPath = unitig.get_forward_path_from_node(sourceNode)
+        # assertion
+        expected_forwardPath = [Node(GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("+gene3"), Gene("-gene4"), Gene("+gene5")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("-gene4"), Gene("+gene5"), Gene("-gene6")])).get_canonical_geneMer()]
+        self.assertEqual(actual_forwardPath, expected_forwardPath)
+
+    def test___get_backward_path_from_node(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        genes2 = ["-gene6", "+gene7", "-gene8", "+gene9"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3,
+                            1,
+                            1)
+        targetGeneMer = GeneMer([Gene("+gene3"), Gene("-gene4"), Gene("+gene5")])
+        targetNode = graph.add_node(targetGeneMer)
+        targetNode.increment_node_coverage()
+        sourceNode = graph.get_node(GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]))
+        mock_backward_edge = Edge(sourceNode,
+                                targetNode,
+                                GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]).get_geneMerDirection(),
+                                1)
+        mock_rc_backward_edge = Edge(targetNode,
+                                    sourceNode,
+                                    -1,
+                                    GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]).get_geneMerDirection() * -1)
+        mock_backward_edge.increment_edge_coverage()
+        mock_rc_backward_edge.increment_edge_coverage()
+        graph.add_edges_to_graph(mock_backward_edge,
+                                mock_rc_backward_edge)
+        graph.add_edge_to_node(sourceNode,
+                            mock_backward_edge)
+        graph.add_edge_to_node(targetNode,
+                            mock_rc_backward_edge)
+        graph.generate_gml("after")
+        unitig = Unitigs(graph,
+                        ["gene5"])
+        # execution
+        actual_backwardPath = unitig.get_backward_path_from_node(targetNode)
+        # assertion
+        expected_backwardPath = [Node(GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")])).get_canonical_geneMer()]
+        self.assertEqual(actual_backwardPath, expected_backwardPath)
+
+    def test___get_backward_path_from_final_node(self):
+        # setup
+        genes1 = ["-gene4", "+gene5", "-gene6", "+gene7"]
+        genes2 = ["+gene5","-gene6", "+gene7", "-gene8", "+gene9"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3,
+                            1,
+                            1)
+        unitig = Unitigs(graph,
+                        ["gene9"])
+        targetGeneMer = GeneMer([Gene("-gene8"), Gene("+gene9"), Gene("-gene10")])
+        targetNode = graph.add_node(targetGeneMer)
+        targetNode.increment_node_coverage()
+        sourceNode = graph.get_node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]))
+        mock_backward_edge = Edge(sourceNode,
+                                targetNode,
+                                GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]).get_geneMerDirection(),
+                                1)
+        mock_rc_backward_edge = Edge(targetNode,
+                                    sourceNode,
+                                    -1,
+                                    GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]).get_geneMerDirection() * -1)
+        mock_backward_edge.increment_edge_coverage()
+        mock_rc_backward_edge.increment_edge_coverage()
+        graph.add_edges_to_graph(mock_backward_edge,
+                                mock_rc_backward_edge)
+        graph.add_edge_to_node(sourceNode,
+                            mock_backward_edge)
+        graph.add_edge_to_node(targetNode,
+                            mock_rc_backward_edge)
+        # execution
+        actual_backwardPath = unitig.get_backward_path_from_node(targetNode)
+        # assertion
+        expected_backwardPath = [Node(GeneMer([Gene("-gene4"), Gene("+gene5"), Gene("-gene6")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("+gene5"), Gene("-gene6"), Gene("+gene7")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")])).get_canonical_geneMer(),
+                                Node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")])).get_canonical_geneMer()]
+        self.assertEqual(actual_backwardPath, expected_backwardPath)
