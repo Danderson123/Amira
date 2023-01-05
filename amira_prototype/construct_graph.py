@@ -99,18 +99,14 @@ class GeneMerGraph:
         assert nodeHash in self.get_nodes(), "This gene-mer is not in the graph"
         # return the node
         return self.get_nodes()[nodeHash]
-    def check_no_strand_in_genes(self,
-                                listOfGenes: list) -> bool:
-        """ returns a bool of whether any genes in a list have a stand prefix """
-        return all(g[0] != "+" and g[0] != "-" for g in listOfGenes)
     def get_nodes_containing(self,
-                            listOfGenes: list) -> list:
+                            geneOfInterest: str) -> list:
         """
         Return all nodes that contain a given gene.
         This is useful for later, when we want to get nodes that contain AMR genes.
         """
         # ensure there is no strand information present on the requested genes
-        assert self.check_no_strand_in_genes(listOfGenes), "Strand information cannot be present for any specified genes"
+        assert not (geneOfInterest[0] == "+" or geneOfInterest[0] == "-"), "Strand information cannot be present for any specified genes"
         selectedNodes = []
         # iterate through the nodes in the graph
         for node in self.all_nodes():
@@ -119,7 +115,7 @@ class GeneMerGraph:
             # get the genes in this gene mer
             geneNames = [g.get_name() for g in geneMer]
             # add node to the selectedNodes list if it contains any of the specified genes
-            if any(inputGene in geneNames for inputGene in listOfGenes):
+            if geneOfInterest in geneNames:
                 # add the node to the list of selected nodes
                 selectedNodes.append(node)
         return selectedNodes

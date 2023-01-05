@@ -13,9 +13,10 @@ class Unitigs:
     def get_selected_genes(self):
         """ returns the list of selected genes """
         return self._listOfGenes
-    def get_nodes_of_interest(self):
+    def get_nodes_of_interest(self,
+                            geneOfInterest):
         """ extracts the graph nodes containing the genes of interest and returns them as a list """
-        return self.get_graph().get_nodes_containing(self.get_selected_genes())
+        return self.get_graph().get_nodes_containing(geneOfInterest)
     def get_forward_node_from_node(self,
                                 sourceNode: Node) -> list:
         """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
@@ -73,20 +74,29 @@ class Unitigs:
     def get_unitig_for_node(self,
                             node):
         """ builds a unitig starting from the node of interest and expanding in both directions """
-        if self.get_graph().get_degree(node) == 2:
+        if self.get_graph().get_degree(node) == 2 or self.get_graph().get_degree(node) == 1:
             forward_nodes_from_node = self.get_forward_path_from_node(node)
             backward_nodes_from_node = self.get_backward_path_from_node(node)
             unitig = backward_nodes_from_node + [node.get_canonical_geneMer()] + forward_nodes_from_node
             return unitig
     def get_unitigs_of_interest(self):
-        nodesOfInterest = self.get_nodes_of_interest()
-        all_unitigs = []
-        for node in nodesOfInterest:
-            node_unitig = self.get_unitig_for_node(node)
-            if node_unitig:
-                node_unitig = [[g.get_name() for g in geneMer] for geneMer in node_unitig]
-                all_unitigs.append(node_unitig)
-        return all_unitigs
+        """ returns a dictionary of genes of interest and their linear paths in the graph """
+        unitigsOfInterest = {}
+        # iterate through the list of specified genes
+        for geneOfInterest in self.get_selected_genes():
+            # get the graph nodes containing this gene
+            nodesOfInterest = self.get_nodes_of_interest(geneOfInterest)
+            all_unitigs = []
+            # iterate through the nodes containing this gene
+            for node in nodesOfInterest:
+                # get the linear path for this node
+                node_unitig = self.get_unitig_for_node(node)
+                if node_unitig:
+                    if not (node_unitig in all_unitigs or list(reversed(node_unitig)) in all_unitigs):
+                        all_unitigs.append(node_unitig)
+            # populate a dictionary with the gene name and the corresponding unitigs
+            unitigsOfInterest[geneOfInterest] = all_unitigs
+        return unitigsOfInterest
     def get_path(self) -> list():
         """ returns the linear path of nodes for the genes of interest """
         return

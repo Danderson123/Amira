@@ -4,14 +4,18 @@ from construct_read import GeneMer
 class Node:
     def __init__(self,
                 geneMer: GeneMer):
+        self.geneMer = geneMer
         self.canonicalGeneMer = geneMer.get_canonical_geneMer()
         self.geneMerHash = geneMer.__hash__()
         self.nodeCoverage = 0
         self.listOfReads = []
         self.forwardEdgeHashes = []
         self.backwardEdgeHashes = []
-    def get_canonical_geneMer(self):
+    def get_geneMer(self):
         """ return the GeneMer object represented by this node """
+        return self.geneMer
+    def get_canonical_geneMer(self):
+        """ return the list of canonical gene objects represented by this node """
         return self.canonicalGeneMer
     def assign_nodeId(self,
                     nodeId):

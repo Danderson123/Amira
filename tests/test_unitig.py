@@ -38,11 +38,11 @@ class TestUnitigsConstructor(unittest.TestCase):
                             1,
                             1)
         unitigs = Unitigs(graph,
-                        ["gene4"])
+                        [])
         # execution
-        actual_nodes_of_interest = unitigs.get_nodes_of_interest()
+        actual_nodes_of_interest = unitigs.get_nodes_of_interest("gene4")
         # assertion
-        expected_nodes_of_interest = graph.get_nodes_containing(["gene4"])
+        expected_nodes_of_interest = graph.get_nodes_containing("gene4")
         self.assertNotEqual(actual_nodes_of_interest, [])
         self.assertEqual(actual_nodes_of_interest, expected_nodes_of_interest)
 
@@ -330,3 +330,26 @@ class TestUnitigsConstructor(unittest.TestCase):
                                 Node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")])).get_canonical_geneMer(),
                                 Node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")])).get_canonical_geneMer()]
         self.assertEqual(actual_backwardPath, expected_backwardPath)
+
+    def test___get_unitigs_of_interest(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3,
+                            1,
+                            1)
+        unitig = Unitigs(graph,
+                        ["gene1","gene4", "gene7"])
+        # execution
+        actual_unitigs = unitig.get_unitigs_of_interest()
+        actual_gene1_count = len(actual_unitigs["gene1"])
+        actual_gene4_count = len(actual_unitigs["gene4"])
+        actual_gene7_count = len(actual_unitigs["gene7"])
+        # assertion
+        expected_gene1_count = 1
+        expected_gene4_count = 5
+        expected_gene7_count = 4
+        self.assertEqual(actual_gene1_count, expected_gene1_count)
+        self.assertEqual(actual_gene4_count, expected_gene4_count)
+        self.assertEqual(actual_gene7_count, expected_gene7_count)
