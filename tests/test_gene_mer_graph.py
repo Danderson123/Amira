@@ -295,14 +295,15 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = ["gene2", "gene6"]
-        # execution
-        actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-        actual_selectedGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in actual_selectedNodes]
-        actual_geneMerCount = len(actual_selectedGenes)
-        # assertion
-        expected_geneMerCount = 5
-        self.assertTrue(all(any(g in ng for g in selectedGenes) for ng in actual_selectedGenes))
-        self.assertEqual(actual_geneMerCount, expected_geneMerCount)
+        for g in range(len(selectedGenes)):
+            # execution
+            actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes[g])]
+            actual_selectedGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in actual_selectedNodes]
+            actual_geneMerCount = len(actual_selectedGenes)
+            # assertion
+            expected_geneMerCount = 3
+            self.assertTrue(all(selectedGenes[g] in ng for ng in actual_selectedGenes))
+            self.assertEqual(actual_geneMerCount, expected_geneMerCount)
 
     def test___get_nodes_containing_all(self):
         # setup
@@ -317,14 +318,16 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = ["gene1", "gene2", "gene3", "gene4", "gene5", "gene6", "gene3", "gene2", "gene1"]
-        # execution
-        actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-        actual_selectedGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in actual_selectedNodes]
-        actual_geneMerCount = len(actual_selectedGenes)
-        # assertion
-        expected_geneMerCount = 6
-        self.assertTrue(all(any(g in ng for g in selectedGenes) for ng in actual_selectedGenes))
-        self.assertEqual(actual_geneMerCount, expected_geneMerCount)
+        expected_counts = [1, 3, 5, 3, 3, 3, 5, 3, 1]
+        for g in range(len(selectedGenes)):
+            # execution
+            actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes[g])]
+            actual_selectedGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in actual_selectedNodes]
+            actual_geneMerCount = len(actual_selectedGenes)
+            # assertion
+            expected_geneMerCount = expected_counts[g]
+            self.assertTrue(all(selectedGenes[g] in ng for ng in actual_selectedGenes))
+            self.assertEqual(actual_geneMerCount, expected_geneMerCount)
 
     def test___get_nodes_containing_gene_not_in_graph(self):
         # setup
@@ -338,72 +341,13 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             1)
         for g in geneMers:
             graph.add_node(g)
-        selectedGenes = ["gene10"]
+        selectedGenes = "gene10"
         # execution
         actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
         actual_selectedGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in actual_selectedNodes]
         # assertion
         expected_selectedGenes = []
         self.assertEqual(actual_selectedGenes, expected_selectedGenes)
-
-    def test___get_nodes_containing_none(self):
-        # setup
-        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "-gene3", "+gene2", "-gene1"]
-        read1 = Read("read1",
-                    genes)
-        geneMers = [x for x in read1.get_geneMers(3)]
-        graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
-        for g in geneMers:
-            graph.add_node(g)
-        selectedGenes = []
-        # execution
-        actual_selectedNodes = [n for n in graph.get_nodes_containing(selectedGenes)]
-        actual_selectedGenes = [[g.get_name() for g in n.get_canonical_geneMer()] for n in actual_selectedNodes]
-        # assertion
-        expected_selectedGenes = []
-        self.assertEqual(actual_selectedGenes, expected_selectedGenes)
-
-    def test___check_no_strand_in_genes_no_strands(self):
-        # setup
-        listOfGenes = ["gene1", "gene2", "gene3"]
-        graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
-        # execution
-        actual_bool = graph.check_no_strand_in_genes(listOfGenes)
-        # assertion
-        expected_bool = True
-        self.assertEqual(actual_bool, expected_bool)
-
-    def test___check_no_strand_in_genes_all_strands(self):
-        # setup
-        listOfGenes = ["+gene1", "-gene2", "+gene3"]
-        graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
-        # execution
-        actual_bool = graph.check_no_strand_in_genes(listOfGenes)
-        # assertion
-        expected_bool = False
-        self.assertEqual(actual_bool, expected_bool)
-
-    def test___check_no_strand_in_genes_one_strand(self):
-        # setup
-        listOfGenes = ["gene1", "-gene2", "gene3"]
-        graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
-        # execution
-        actual_bool = graph.check_no_strand_in_genes(listOfGenes)
-        # assertion
-        expected_bool = False
-        self.assertEqual(actual_bool, expected_bool)
 
     def test___get_nodes_containing_strand(self):
         # setup
@@ -420,6 +364,23 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         selectedGenes = ["gene2", "+gene6"]
         # assertion
         self.assertRaises(AssertionError, graph.get_nodes_containing, selectedGenes)
+
+    def test___get_nodes_containing_strand(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "-gene3", "+gene2", "-gene1"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                            3,
+                            1,
+                            1)
+        for g in geneMers:
+            graph.add_node(g)
+        selectedGenes = ["+gene6"]
+        for g in range(len(selectedGenes)):
+            # assertion
+            self.assertRaises(AssertionError, graph.get_nodes_containing, selectedGenes[g])
 
     def test___create_edges_positive_to_positive(self):
 
