@@ -1,1 +1,2 @@
+pysam
 pytest

@@ -11,9 +11,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___init_empty_GeneMerGraph(self):
         # setup
         graph = GeneMerGraph({},
-                            0,
-                            1,
-                            2)
+                            0)
         # execution
         actual_reads = graph.get_reads()
         actual_kmerSize = graph.get_kmerSize()
@@ -25,7 +23,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_reads = {}
         expected_kmerSize = 0
         expected_minGeneMerCoverage = 1
-        expected_minEdgeCoverage = 2
+        expected_minEdgeCoverage = 1
         expected_nodes = {}
         expected_edges = {}
         self.assertEqual(actual_reads, expected_reads)
@@ -41,9 +39,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene6"]
         graph = GeneMerGraph({"read1": genes,
                             "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         actual_reads = graph.get_reads()
         actual_kmerSize = graph.get_kmerSize()
@@ -81,9 +77,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene6", "+gene1", "-gene2", "+gene3"] # 3 nodes, 8 edges
         graph = GeneMerGraph({"read1": genes,
                             "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         actual_reads = graph.get_reads()
         actual_kmerSize = graph.get_kmerSize()
@@ -120,9 +114,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         for g in geneMers:
             graph.add_node(g)
         # execution
@@ -139,9 +131,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMer = [x for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph({},
-                        3,
-                        1,
-                        1)
+                        3)
         # execution
         actual_returned_node = graph.add_node(geneMer)
         actual_returned_node.increment_node_coverage()
@@ -164,9 +154,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes1)
         geneMer1 = [x for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph([],
-                        3,
-                        1,
-                        1)
+                        3)
         node1 = graph.add_node(geneMer1)
         node1.increment_node_coverage()
         genes2 = ["+gene4", "-gene3", "+gene2"]
@@ -196,9 +184,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMer = [x for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph([],
-                        3,
-                        1,
-                        1)
+                        3)
         graph.add_node(geneMer)
         # execution
         actual_returned_node = graph.add_node(geneMer)
@@ -226,9 +212,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes1)
         geneMer1 = [x for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph([],
-                        3,
-                        1,
-                        1)
+                            3)
         node1 = graph.add_node(geneMer1)
         node1.increment_node_coverage()
         genes2 = ["+gene4", "-gene3", "+gene2"]
@@ -271,9 +255,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes1)
         geneMer1 = [x for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph([],
-                        3,
-                        1,
-                        1)
+                        3)
         graph.add_node(geneMer1)
         genes2 = ["+gene4", "-gene3", "+gene2"]
         read2 = Read("read2",
@@ -289,9 +271,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = ["gene2", "gene6"]
@@ -312,9 +292,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = ["gene1", "gene2", "gene3", "gene4", "gene5", "gene6", "gene3", "gene2", "gene1"]
@@ -336,9 +314,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = "gene10"
@@ -356,9 +332,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = ["gene2", "+gene6"]
@@ -372,9 +346,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         for g in geneMers:
             graph.add_node(g)
         selectedGenes = ["+gene6"]
@@ -393,9 +365,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
         # setup
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(1)
         mock_targetNode = fakeNode(1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -455,9 +425,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
         # setup
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(-1)
         mock_targetNode = fakeNode(-1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -517,9 +485,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
         # setup
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(1)
         mock_targetNode = fakeNode(-1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -579,9 +545,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
         # setup
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(1)
         mock_targetNode = fakeNode(-1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -641,9 +605,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(-1)
         mock_targetNode = fakeNode(1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -683,9 +645,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(-1)
         mock_targetNode = fakeNode(1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -729,9 +689,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(-1)
         mock_targetNode = fakeNode(1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -779,9 +737,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(-1)
         mock_targetNode = fakeNode(1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -816,9 +772,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(-1)
         mock_targetNode = fakeNode(1)
         mock_sourceDirection = mock_sourceNode.get_direction()
@@ -859,9 +813,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(0, -1)
         mock_targetNode = fakeNode(1, 1)
         mock_thirdNode = fakeNode(1, -1)
@@ -916,9 +868,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(0, 1)
         mock_targetNode = fakeNode(1, 1)
         mock_thirdNode = fakeNode(1, 1)
@@ -989,9 +939,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(0,-1)
         mock_targetNode = fakeNode(1, -1)
         mock_thirdNode = fakeNode(1, -1)
@@ -1063,9 +1011,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(0,1)
         mock_targetNode = fakeNode(1, 1)
         mock_thirdNode = fakeNode(1, -1)
@@ -1130,9 +1076,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 return self.direction
 
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         mock_sourceNode = fakeNode(0,-1)
         mock_targetNode = fakeNode(1, 1)
         mock_thirdNode = fakeNode(1, 1)
@@ -1203,9 +1147,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         node = [Node(x) for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         actual_updated_node = graph.add_edge_to_node(node,
                                                     mock_edge)
@@ -1239,9 +1181,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         node = [Node(x) for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge_to_node(node,
                             mock_edge)
         # execution
@@ -1275,9 +1215,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         node = [Node(x) for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         actual_updated_node = graph.add_edge_to_node(node,
                                                     mock_edge)
@@ -1311,9 +1249,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     genes)
         node = [Node(x) for x in read1.get_geneMers(3)][0]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge_to_node(node,
                             mock_edge)
         # execution
@@ -1337,9 +1273,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = geneMers[0]
         targetGeneMer = geneMers[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(sourceGeneMer,
                     targetGeneMer)
         sourceNode = graph.get_node(sourceGeneMer)
@@ -1363,9 +1297,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         targetGeneMer = geneMers[1]
         thirdGeneMer = geneMers[2]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(sourceGeneMer,
                     targetGeneMer)
         graph.add_edge(targetGeneMer,
@@ -1396,9 +1328,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         thirdGeneMer = geneMers[2]
         fourthGeneMer = geneMers[3]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(sourceGeneMer,
                     targetGeneMer)
         graph.add_edge(targetGeneMer,
@@ -1438,9 +1368,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         targetGeneMer = geneMers[1]
         targetGeneMer2 = geneMers2[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(sourceGeneMer,
                     targetGeneMer)
         graph.add_edge(sourceGeneMer,
@@ -1474,9 +1402,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         targetGeneMer = geneMers[1]
         sourceGeneMer2 = geneMers2[0]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(sourceGeneMer,
                     targetGeneMer)
         graph.add_edge(sourceGeneMer2,
@@ -1513,9 +1439,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         middleGeneMer2 = geneMers2[1]
         thirdGeneMer2 = geneMers2[2]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(firstGeneMer,
                     middleGeneMer)
         graph.add_edge(middleGeneMer,
@@ -1556,9 +1480,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = geneMers[0]
         targetGeneMer = geneMers[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         graph.add_edge(sourceGeneMer,
                     targetGeneMer)
         graph.add_edge(sourceGeneMer,
@@ -1583,9 +1505,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = geneMers[0]
         targetGeneMer = geneMers[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
                                                                     targetGeneMer)
         sourceNode = sourceToTargetEdge.get_sourceNode()
@@ -1621,9 +1541,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = geneMers[0]
         targetGeneMer = geneMers[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
                                                                     targetGeneMer)
         sourceNode = sourceToTargetEdge.get_sourceNode()
@@ -1646,9 +1564,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = geneMers[0]
         targetGeneMer = geneMers[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
                                                                     targetGeneMer)
         # execution
@@ -1663,9 +1579,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # setup
         import os
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         graph.write_gml_to_file("tests/test_graph",
                             ["graph\t[", "\t\tnode\t[]", "\t\tedge\t[]", "]"])
@@ -1680,9 +1594,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # setup
         import os
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         graph.write_gml_to_file("tests/tests/test_graph",
                                 ["graph\t[", "\t\tnode\t[]", "\t\tedge\t[]", "]"])
@@ -1703,9 +1615,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = geneMers[0]
         targetGeneMer = geneMers[1]
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(sourceGeneMer,
                                                                     targetGeneMer)
         sourceToTargetEdge.increment_edge_coverage()
@@ -1752,11 +1662,51 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceGeneMer = [x for x in read1.get_geneMers(3)][0]
         sourceNode = Node(sourceGeneMer)
         graph = GeneMerGraph({},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         actual_geneMerString = graph.get_gene_mer_label(sourceNode)
         # assertion
         expected_geneMerString = ["+gene1~~~-gene2~~~+gene3", "-gene3~~~+gene2~~~-gene1"]
         self.assertTrue(any(actual_geneMerString == e for e in expected_geneMerString))
+
+    def test___filter_graph(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3)
+        # execution
+        graph.filter_graph(2,
+                        2)
+        actual_writtenGraph = graph.generate_gml("tests/test_graph")
+        actual_numberOfNodes = graph.get_total_number_of_nodes()
+        actual_numberOfEdges = graph.get_total_number_of_edges()
+        # assertion
+        expected_numberOfNodes = 6
+        expected_numberOfEdges = 10
+        import os
+        self.assertEqual(actual_numberOfNodes, expected_numberOfNodes)
+        self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
+        os.remove("tests/test_graph.gml")
+
+    def test___filter_all_graph(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+                            3)
+        # execution
+        graph.filter_graph(10,
+                        10)
+        actual_writtenGraph = graph.generate_gml("tests/test_graph")
+        actual_numberOfNodes = graph.get_total_number_of_nodes()
+        actual_numberOfEdges = graph.get_total_number_of_edges()
+        # assertion
+        expected_writtenGraph = ['graph\t[', ']']
+        expected_numberOfNodes = 0
+        expected_numberOfEdges = 0
+        import os
+        self.assertEqual(actual_writtenGraph, expected_writtenGraph)
+        self.assertEqual(actual_numberOfNodes, expected_numberOfNodes)
+        self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
+        os.remove("tests/test_graph.gml")

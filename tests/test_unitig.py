@@ -15,9 +15,7 @@ class TestUnitigsConstructor(unittest.TestCase):
     def test___init_Unitigs(self):
         # setup
         graph = GeneMerGraph({"read1": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]},
-                            3,
-                            1,
-                            1)
+                            3)
         # execution
         actual_unitigs = Unitigs(graph,
                                 ["gene4"])
@@ -34,9 +32,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         unitigs = Unitigs(graph,
                         [])
         # execution
@@ -53,9 +49,7 @@ class TestUnitigsConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                        3,
-                        1,
-                        1)
+                        3)
         nodes = []
         for g in geneMers:
             node = graph.add_node(g)
@@ -93,9 +87,7 @@ class TestUnitigsConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                        3,
-                        1,
-                        1)
+                        3)
         nodes = []
         for g in geneMers:
             node = graph.add_node(g)
@@ -119,9 +111,7 @@ class TestUnitigsConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                        3,
-                        1,
-                        1)
+                        3)
         nodes = []
         for g in geneMers:
             node = graph.add_node(g)
@@ -159,9 +149,7 @@ class TestUnitigsConstructor(unittest.TestCase):
                     genes)
         geneMers = [x for x in read1.get_geneMers(3)]
         graph = GeneMerGraph({},
-                        3,
-                        1,
-                        1)
+                        3)
         nodes = []
         for g in geneMers:
             node = graph.add_node(g)
@@ -183,9 +171,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
         genes2 = ["-gene6", "+gene7", "-gene8", "+gene9"]
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         sourceGeneMer = GeneMer([Gene("+gene5"), Gene("-gene6"), Gene("+gene7")])
         sourceNode = graph.add_node(sourceGeneMer)
         sourceNode.increment_node_coverage()
@@ -220,9 +206,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
         genes2 = ["-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         sourceGeneMer = GeneMer([Gene("-gene0"), Gene("+gene1"), Gene("-gene2")])
         sourceNode = graph.add_node(sourceGeneMer)
         sourceNode.increment_node_coverage()
@@ -259,9 +243,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
         genes2 = ["-gene6", "+gene7", "-gene8", "+gene9"]
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         targetGeneMer = GeneMer([Gene("+gene3"), Gene("-gene4"), Gene("+gene5")])
         targetNode = graph.add_node(targetGeneMer)
         targetNode.increment_node_coverage()
@@ -282,7 +264,6 @@ class TestUnitigsConstructor(unittest.TestCase):
                             mock_backward_edge)
         graph.add_edge_to_node(targetNode,
                             mock_rc_backward_edge)
-        graph.generate_gml("after")
         unitig = Unitigs(graph,
                         ["gene5"])
         # execution
@@ -297,9 +278,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         genes1 = ["-gene4", "+gene5", "-gene6", "+gene7"]
         genes2 = ["+gene5","-gene6", "+gene7", "-gene8", "+gene9"]
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         unitig = Unitigs(graph,
                         ["gene9"])
         targetGeneMer = GeneMer([Gene("-gene8"), Gene("+gene9"), Gene("-gene10")])
@@ -336,9 +315,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3,
-                            1,
-                            1)
+                            3)
         unitig = Unitigs(graph,
                         ["gene1","gene4", "gene7"])
         # execution

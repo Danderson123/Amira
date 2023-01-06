@@ -125,12 +125,16 @@ class Unitigs:
         return unitigsOfInterest
 
 class UnitigBuilder:
+
+    def __init__(self,
+                unitigsOfInterest):
+        self._unitigsOfInterest = unitigsOfInterest
+
     def get_unitigs(self,
                 amr_genes: list()) -> list():
-        """ returns all unitigs containing the specified AMR genes  """
-        return
+        """ returns all unitigs containing the specified AMR genes """
+        return self._unitigsOfInterest
     def visualise_unitigs(self,
-                        unitigs: list(),
-                        output_directory: str):
+                        output_path: str):
         """ generate a figure to visualise the genes, order of genes, direction and lengths of genes on unitigs containing AMR genes """
         return
