@@ -302,6 +302,8 @@ class GeneMerGraph:
                         node_coverage,
                         reads):
         """ return a string of a gml node entry """
+        if node_coverage > 100:
+            node_coverage = 100
         node_entry = "\tnode\t[\n"
         node_entry += "\t\tid\t" + str(node_id) + "\n"
         node_entry += '\t\tlabel\t"' + node_string + '"\n'
