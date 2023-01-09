@@ -129,9 +129,6 @@ class Unitigs:
                 # get the linear path for this node
                 node_unitig, unitig_reads = self.get_unitig_for_node(node)
                 if node_unitig:
-                    #from construct_gene import convert_int_strand_to_string
-                    #node_unitig = [n.get_canonical_geneMer() for n in node_unitig]
-                    #node_unitig = [[convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in n] for n in node_unitig]
                     reversed_node_unitig = list(reversed([define_rc_geneMer(n) for n in node_unitig]))
                     if not (node_unitig in all_unitigs or reversed_node_unitig in all_unitigs):
                         all_unitigs.append(node_unitig)
