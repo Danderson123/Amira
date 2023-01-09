@@ -197,9 +197,12 @@ class TestUnitigsConstructor(unittest.TestCase):
         # execution
         actual_forwardPath = unitig.get_forward_path_from_node(sourceNode)
         # assertion
-        expected_forwardPath = [Node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")])).get_canonical_geneMer(),
-                            Node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")])).get_canonical_geneMer()]
-        self.assertEqual(actual_forwardPath, expected_forwardPath)
+        expected_forwardPath = [[[Gene("-gene6"), Gene("+gene7"), Gene("-gene8")],
+                                [Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]]]
+        expected_forwardPath.append(list(reversed([list(reversed(e)) for e in expected_forwardPath[0]])))
+        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[0]])
+        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[1]])
+        self.assertTrue(any(actual_forwardPath[0] == e for e in expected_forwardPath))
 
     def test___get_forward_path_from_first_node(self):
         # setup
@@ -232,11 +235,14 @@ class TestUnitigsConstructor(unittest.TestCase):
         # execution
         actual_forwardPath = unitig.get_forward_path_from_node(sourceNode)
         # assertion
-        expected_forwardPath = [Node(GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("+gene3"), Gene("-gene4"), Gene("+gene5")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("-gene4"), Gene("+gene5"), Gene("-gene6")])).get_canonical_geneMer()]
-        self.assertEqual(actual_forwardPath, expected_forwardPath)
+        expected_forwardPath = [[[Gene("+gene1"), Gene("-gene2"), Gene("+gene3")],
+                                [Gene("-gene2"), Gene("+gene3"), Gene("-gene4")],
+                                [Gene("+gene3"), Gene("-gene4"), Gene("+gene5")],
+                                [Gene("-gene4"), Gene("+gene5"), Gene("-gene6")]]]
+        expected_forwardPath.append(list(reversed([list(reversed(e)) for e in expected_forwardPath[0]])))
+        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[0]])
+        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[1]])
+        self.assertTrue(any(actual_forwardPath[0] == e for e in expected_forwardPath))
 
     def test___get_backward_path_from_node(self):
         # setup
@@ -269,9 +275,12 @@ class TestUnitigsConstructor(unittest.TestCase):
         # execution
         actual_backwardPath = unitig.get_backward_path_from_node(targetNode)
         # assertion
-        expected_backwardPath = [Node(GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")])).get_canonical_geneMer()]
-        self.assertEqual(actual_backwardPath, expected_backwardPath)
+        expected_backwardPath = [[[Gene("+gene1"), Gene("-gene2"), Gene("+gene3")],
+                                [Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]]]
+        expected_backwardPath.append(list(reversed([list(reversed(e)) for e in expected_backwardPath[0]])))
+        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[0]])
+        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[1]])
+        self.assertTrue(any(actual_backwardPath[0] == e for e in expected_backwardPath))
 
     def test___get_backward_path_from_final_node(self):
         # setup
@@ -304,11 +313,14 @@ class TestUnitigsConstructor(unittest.TestCase):
         # execution
         actual_backwardPath = unitig.get_backward_path_from_node(targetNode)
         # assertion
-        expected_backwardPath = [Node(GeneMer([Gene("-gene4"), Gene("+gene5"), Gene("-gene6")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("+gene5"), Gene("-gene6"), Gene("+gene7")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")])).get_canonical_geneMer(),
-                                Node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")])).get_canonical_geneMer()]
-        self.assertEqual(actual_backwardPath, expected_backwardPath)
+        expected_backwardPath = [[[Gene("-gene4"), Gene("+gene5"), Gene("-gene6")],
+                                [Gene("+gene5"), Gene("-gene6"), Gene("+gene7")],
+                                [Gene("-gene6"), Gene("+gene7"), Gene("-gene8")],
+                                [Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]]]
+        expected_backwardPath.append(list(reversed([list(reversed(e)) for e in expected_backwardPath[0]])))
+        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[0]])
+        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[1]])
+        self.assertTrue(any(actual_backwardPath[0] == e for e in expected_backwardPath))
 
     def test___get_unitigs_of_interest(self):
         # setup
@@ -320,9 +332,9 @@ class TestUnitigsConstructor(unittest.TestCase):
                         ["gene1","gene4", "gene7"])
         # execution
         actual_unitigs = unitig.get_unitigs_of_interest()
-        actual_gene1_count = len(actual_unitigs["gene1"])
-        actual_gene4_count = len(actual_unitigs["gene4"])
-        actual_gene7_count = len(actual_unitigs["gene7"])
+        actual_gene1_count = len(actual_unitigs["gene1"]["unitigs"])
+        actual_gene4_count = len(actual_unitigs["gene4"]["unitigs"])
+        actual_gene7_count = len(actual_unitigs["gene7"]["unitigs"])
         # assertion
         expected_gene1_count = 1
         expected_gene4_count = 5

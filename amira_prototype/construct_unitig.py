@@ -1,5 +1,6 @@
 from construct_graph import GeneMerGraph
 from construct_node import Node
+from construct_gene_mer import define_rc_geneMer
 
 class Unitigs:
     def __init__(self,
@@ -68,43 +69,52 @@ class Unitigs:
     def get_forward_path_from_node(self,
                                 node):
         forward_nodes_from_node = []
+        forward_reads = []
         # get the next node in the forward direction
         forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(node)
+        # if we are extending further in the forward direction, get the next canonical gene mer
         while forwardExtend:
-            # if we are extending further in the forward direction, get the next canonical gene mer
-            forward_nodes_from_node.append(forwardNode.get_canonical_geneMer())
+            forward_reads.append([r for r in forwardNode.get_reads()])
             # if we enter the next node in the forward direction, we get the next forward node
             if forwardNodeDirection == 1:
+                forward_nodes_from_node.append(forwardNode.get_canonical_geneMer())
                 forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(forwardNode)
-            # if we enter the next node in the backward direction, we get the next bacckward node
+            # if we enter the next node in the backward direction, we get the next backward node
             else:
+                forward_nodes_from_node.append(forwardNode.get_geneMer().get_rc_geneMer())
                 forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(forwardNode)
-        return forward_nodes_from_node
+        return forward_nodes_from_node, forward_reads
     def get_backward_path_from_node(self,
                                     node):
         backward_nodes_from_node = []
+        backward_reads = []
         # get the next node in the backward direction
         backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(node)
+        # if we are extending further in the backward direction, get the next canonical gene mer
         while backwardExtend:
-            backward_nodes_from_node.append(backwardNode.get_canonical_geneMer())
-            # if we are extending further in the backward direction, get the next canonical gene mer
+            backward_reads.insert(0, [r for r in backwardNode.get_reads()])
             if backwardNodeDirection == -1:
+                backward_nodes_from_node.insert(0, backwardNode.get_geneMer().get_canonical_geneMer())
                 backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(backwardNode)
             # if we enter the next node in the forward direction, we get the next forward node
             else:
+                backward_nodes_from_node.insert(0, backwardNode.get_geneMer().get_rc_geneMer())
                 backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
-        return list(reversed(backward_nodes_from_node))
+        return backward_nodes_from_node, backward_reads
     def get_unitig_for_node(self,
                             node):
         """ builds a unitig starting from the node of interest and expanding in both directions """
         if self.get_graph().get_degree(node) == 2 or self.get_graph().get_degree(node) == 1:
             # get the forward nodes from this node
-            forward_nodes_from_node = self.get_forward_path_from_node(node)
+            forward_nodes_from_node, forward_reads = self.get_forward_path_from_node(node)
             # get the backward nodes from this node
-            backward_nodes_from_node = self.get_backward_path_from_node(node)
+            backward_nodes_from_node, backward_reads = self.get_backward_path_from_node(node)
             # join the backward nodes, this node, and the forward nodes to get the path of nodes
             unitig = backward_nodes_from_node + [node.get_canonical_geneMer()] + forward_nodes_from_node
-            return unitig
+            unitig_reads = backward_reads + [[r for r in node.get_reads()]] + forward_reads
+            return unitig, unitig_reads
+        else:
+            return None, None
     def get_unitigs_of_interest(self):
         """ returns a dictionary of genes of interest and their linear paths in the graph """
         unitigsOfInterest = {}
@@ -113,17 +123,22 @@ class Unitigs:
             # get the graph nodes containing this gene
             nodesOfInterest = self.get_nodes_of_interest(geneOfInterest)
             all_unitigs = []
+            all_unitig_reads = []
             # iterate through the nodes containing this gene
             for node in nodesOfInterest:
                 # get the linear path for this node
-                node_unitig = self.get_unitig_for_node(node)
+                node_unitig, unitig_reads = self.get_unitig_for_node(node)
                 if node_unitig:
-                    from construct_gene import convert_int_strand_to_string
-                    node_unitig = [[convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in n] for n in node_unitig]
-                    if not (node_unitig in all_unitigs or list(reversed(node_unitig)) in all_unitigs):
+                    #from construct_gene import convert_int_strand_to_string
+                    #node_unitig = [n.get_canonical_geneMer() for n in node_unitig]
+                    #node_unitig = [[convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in n] for n in node_unitig]
+                    reversed_node_unitig = list(reversed([define_rc_geneMer(n) for n in node_unitig]))
+                    if not (node_unitig in all_unitigs or reversed_node_unitig in all_unitigs):
                         all_unitigs.append(node_unitig)
+                        all_unitig_reads.append(unitig_reads)
             # populate a dictionary with the gene name and the corresponding unitigs
-            unitigsOfInterest[geneOfInterest] = all_unitigs
+            unitigsOfInterest[geneOfInterest] = {"unitigs": all_unitigs,
+                                                "reads": all_unitig_reads}
         return unitigsOfInterest
 
 class UnitigBuilder:

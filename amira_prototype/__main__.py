@@ -1,17 +1,22 @@
 import argparse
 from cigar import Cigar
+import gzip
+import matplotlib.pyplot as plt
 import os
 import pysam
 import sys
 
 from construct_graph import GeneMerGraph
 from construct_unitig import Unitigs
+from construct_gene import convert_int_strand_to_string
 
 def get_options():
     """define args from the command line"""
     parser = argparse.ArgumentParser(description='Build a prototype gene de Bruijn graph.')
-    parser.add_argument('--input', dest='input_path',
+    parser.add_argument('--samfile', dest='samfile',
                         help='path of Pandora SAM file', required=True)
+    parser.add_argument('--readfile', dest='readfile',
+                        help='path of gzipped long read fastq', required=True)
     parser.add_argument('--output', dest='output_dir', type=str, default="gene_de_Bruijn_graph",
                         help='directory for Amira outputs')
     parser.add_argument('-k', dest='geneMer_size', type=int, default=3,
@@ -40,7 +45,7 @@ def get_read_end(cigarString,
     """ return an int of the 0 based position where the read region stops mapping to the gene """
     regionLength = len(cigarString)
     regionEnd = regionStart + regionLength
-    return regionEnd
+    return regionEnd, regionLength
 
 def convert_pandora_output(pandoraSamPath):
     # load the pseudo SAM
@@ -58,8 +63,8 @@ def convert_pandora_output(pandoraSamPath):
             # get the start base that the region maps to on the read
             regionStart = get_read_start(cigarString)
             # get the end base that the region maps to on the read
-            regionEnd = get_read_end(cigarString,
-                                    regionStart)
+            regionEnd, regionLength = get_read_end(cigarString,
+                                                regionStart)
             # get the name of the gene we have mapped to
             gene_name = read.reference_name
             # append the strand of the match to the name of the gene
@@ -72,11 +77,106 @@ def convert_pandora_output(pandoraSamPath):
                 readDict[readName] = []
             # store the per read gene names, gene starts and gene ends
             readDict[readName].append({"gene name": gene_name,
-                                        "region start": regionStart,
-                                        "region end": regionEnd})
+                                    "region start": regionStart,
+                                    "region end": regionEnd,
+                                    "region length": regionLength})
             # store the per read gene names
             annotatedReads[readName].append(gene_name)
     return annotatedReads, readDict
+
+def get_gene_length(gene,
+                readDict):
+    return 10
+
+def get_node_gene_lengths(readDict,
+                        unitig,
+                        allReads):
+    for i in range(len(unitig)):
+        genes = [convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in unitig[i]]
+        reads = allReads[i]
+        for r in reads:
+            mappedInfo = readDict[r]
+            print(genes, mappedInfo)
+
+def visualise_unitigs(unitigsOfInterest,
+                    readDict):
+    for paralog in unitigsOfInterest:
+        fig, ax = plt.subplots()
+        for unitig in range(len(unitigsOfInterest[paralog]["unitigs"])):
+            height = []
+            get_node_gene_lengths(readDict,
+                                unitigsOfInterest[paralog]["unitigs"][unitig],
+                                unitigsOfInterest[paralog]["reads"][unitig])
+            #union = set().union(*unitigsOfInterest[paralog][unitig])
+            for gene in unitigsOfInterest[paralog][unitig]:
+                geneLength = get_gene_length(gene,
+                                            readDict,
+                                            reads)
+                ax.barh(str(unitig), geneLength, 0.4, left=sum(height), label=gene)
+                height.append(geneLength)
+        ax.set_ylabel(paralog)
+        plt.savefig("sample_plot.pdf")
+
+def parse_fastq_lines(fh):
+    # Initialize a counter to keep track of the current line number
+    line_number = 0
+    # Iterate over the lines in the file
+    for line in fh:
+        # Increment the line number
+        line_number += 1
+        # If the line number is divisible by 4, it's a sequence identifier line
+        if line_number % 4 == 1:
+            # Extract the identifier from the line
+            identifier = line.strip()
+        # If the line number is divisible by 4, it's a sequence line
+        elif line_number % 4 == 2:
+            # Yield the identifier and sequence
+            yield identifier, line.strip()
+
+def parse_fastq(fastq_file):
+    # Initialize an empty dictionary to store the results
+    results = {}
+    # Open the fastq file
+    with gzip.open(fastq_file, 'rt') as fh:
+        # Iterate over the lines in the file
+        for identifier, sequence in parse_fastq_lines(fh):
+            # Add the identifier and sequence to the results dictionary
+            results[identifier] = [sequence]
+    # Return the dictionary of results
+    return results
+
+def write_fastq(fastq_file,
+                data):
+    # Open the fastq file
+    with gzip.open(fastq_file, 'wt') as fh:
+        # Iterate over the data
+        for identifier, sequences in data.items():
+            # Write the identifier line
+            fh.write(f'{identifier}\n')
+            # Write the sequence line
+            fh.write(f'{sequences[0]}\n')
+            # Write the placeholder quality lines
+            fh.write('+\n')
+            fh.write('I' * len(sequences[0]) + '\n')
+
+def separate_reads(unitigsOfInterest,
+                output_dir,
+                readFile):
+    fastqContent = parse_fastq(readFile)
+    for geneOfInterest in unitigsOfInterest:
+        if not os.path.exists(os.path.join(output_dir, geneOfInterest)):
+            os.mkdir(os.path.join(output_dir, geneOfInterest))
+        for i in range(len(unitigsOfInterest[geneOfInterest]["unitigs"])):
+            unitigReads = unitigsOfInterest[geneOfInterest]["reads"][i]
+            subsettedReadData = {}
+            for u in unitigReads:
+                print(u)
+                end
+                subsettedReadData[u: fastqContent[u]]
+            # write the per unitig fastq data
+            filename = os.path.join(output_dir, geneOfInterest, str(i) + "fastq.gz")
+            write_fastq(filename,
+                        subsettedReadData)
 
 def main():
     # get command line options
@@ -85,7 +185,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
     # convert the Pandora SAM file to a dictionary
-    annotatedReads, readDict = convert_pandora_output(args.input_path)
+    annotatedReads, readDict = convert_pandora_output(args.samfile)
     # build the graph
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
@@ -100,6 +200,12 @@ def main():
                     genesOfInterest)
     # get the unitigs of the genes of interest
     unitigsOfInterest = unitigs.get_unitigs_of_interest()
+    # generate a visualisation of the unitigs
+    separate_reads(unitigsOfInterest,
+                args.output_dir,
+                args.readfile)
+    #visualise_unitigs(unitigsOfInterest,
+    #                readDict)
     sys.exit(0)
 
 if __name__ == "__main__":

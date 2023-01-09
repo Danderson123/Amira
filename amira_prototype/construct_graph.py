@@ -28,7 +28,8 @@ class GeneMerGraph:
                     sourceNode.increment_node_coverage()
                     sourceNode.add_read(read.get_readId())
                     if not len(geneMers) == 1:
-                        self.add_node(geneMers[g+1])
+                        targetNode = self.add_node(geneMers[g+1])
+                        targetNode.add_read(read.get_readId())
                         sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(geneMers[g],
                                                                                     geneMers[g+1])
                         sourceToTargetEdge.increment_edge_coverage()
@@ -358,7 +359,6 @@ class GeneMerGraph:
         # iterate through the nodes in the graph
         for sourceNode in self.all_nodes():
             # check that the coverage of the node is greater than the minimum specified node coverage
-            #if sourceNode.get_node_coverage() >= self.get_minNodeCoverage():
             # add the node entry
             nodeEntry = self.write_node_entry(sourceNode.get_node_Id(),
                                             self.get_gene_mer_label(sourceNode),
@@ -371,15 +371,10 @@ class GeneMerGraph:
             # get the edge objects corresponding to the forward edge hashes
             nodeEdges = [self.get_edge_by_hash(edgeHash) for edgeHash in nodeForwardEdgeHashes + nodeBackwardEdgeHashes]
             for edge in nodeEdges:
-                #if edge.get_edge_coverage() >= self.get_minEdgeCoverage():
                 targetNode = edge.get_targetNode()
-                try:
-                    #if targetNode.get_node_coverage() >= self.get_minNodeCoverage():
-                    edgeEntry = self.write_edge_entry(sourceNode.get_node_Id(),
-                                                    targetNode.get_node_Id(),
-                                                    edge.get_edge_coverage())
-                except:
-                    print(edge.get_edge_coverage(), sourceNode.get_node_coverage(), targetNode.get_node_coverage())
+                edgeEntry = self.write_edge_entry(sourceNode.get_node_Id(),
+                                                targetNode.get_node_Id(),
+                                                edge.get_edge_coverage())
                 graph_data.append(edgeEntry)
         graph_data.append("]")
         self.write_gml_to_file(output_file,

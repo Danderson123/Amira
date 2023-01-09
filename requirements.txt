@@ -1,3 +1,4 @@
 cigar
+matplotlib
 pysam
 pytest
