@@ -143,12 +143,17 @@ class Unitigs:
                                                 "reads": all_unitig_reads}
         return unitigsOfInterest
 
-class UnitigBuilder:
-
+class UnitigTools:
     def __init__(self,
-                unitigsOfInterest):
-        self._unitigsOfInterest = unitigsOfInterest
-    def get_unitigs(self) -> dict:
+                graph,
+                genesOfInterest):
+        self._unitigs = Unitigs(graph,
+                            genesOfInterest)
+        self._unitigsOfInterest = self.get_unitigs().get_unitigs_of_interest()
+    def get_unitigs(self) -> Unitigs:
+        """ returns the Unitigs object containing the specified AMR genes """
+        return self._unitigs
+    def get_unitigsOfInterest(self) -> dict:
         """ returns all unitigs containing the specified AMR genes """
         return self._unitigsOfInterest
     def separate_reads(self,
@@ -156,11 +161,11 @@ class UnitigBuilder:
                 readFile):
         fastqContent = parse_fastq(readFile)
         readFiles = []
-        for geneOfInterest in self.get_unitigs():
+        for geneOfInterest in self.get_unitigsOfInterest():
             if not os.path.exists(os.path.join(output_dir, geneOfInterest)):
                 os.mkdir(os.path.join(output_dir, geneOfInterest))
-            for i in range(len(self.get_unitigs()[geneOfInterest]["unitigs"])):
-                unitigReads = self.get_unitigs()[geneOfInterest]["reads"][i]
+            for i in range(len(self.get_unitigsOfInterest()[geneOfInterest]["unitigs"])):
+                unitigReads = self.get_unitigsOfInterest()[geneOfInterest]["reads"][i]
                 subsettedReadData = {}
                 for u in unitigReads:
                     for r in u:
@@ -239,11 +244,11 @@ class UnitigBuilder:
                         geneLengths: dict,
                         output_dir: str):
         """ generate a figure to visualise the genes, order of genes, direction and lengths of genes on unitigs containing AMR genes """
-        for paralog in self.get_unitigs():
-            fig, ax = self.initialise_plots(len(self.get_unitigs()[paralog]["unitigs"]),
+        for paralog in self.get_unitigsOfInterest():
+            fig, ax = self.initialise_plots(len(self.get_unitigsOfInterest()[paralog]["unitigs"]),
                                             paralog)
             count = 1
-            for unitig in self.get_unitigs()[paralog]["unitigs"]:
+            for unitig in self.get_unitigsOfInterest()[paralog]["unitigs"]:
                 height = []
                 unionAll = self.get_geneMer_unionAll(unitig)
                 unitiglengths, minLength = self.get_minimum_gene_length(geneLengths,
@@ -260,8 +265,8 @@ class UnitigBuilder:
                             y,
                             dx,
                             dy,
-                            width = ((len(self.get_unitigs()[paralog]["unitigs"]) + 1) / 1000),
-                            head_width = ((len(self.get_unitigs()[paralog]["unitigs"]) + 1) / 200),
+                            width = ((len(self.get_unitigsOfInterest()[paralog]["unitigs"]) + 1) / 1000),
+                            head_width = ((len(self.get_unitigsOfInterest()[paralog]["unitigs"]) + 1) / 200),
                             head_length=minLength,
                             color = geneColor,
                             length_includes_head=True)

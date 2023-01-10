@@ -7,8 +7,7 @@ import pysam
 import sys
 
 from construct_graph import GeneMerGraph
-from construct_unitig import Unitigs, UnitigBuilder, parse_fastq_lines
-from construct_gene import convert_int_strand_to_string
+from construct_unitig import UnitigTools
 
 def get_options():
     """define args from the command line"""
@@ -101,13 +100,9 @@ def main():
     # import the list of genes of interest
     with open(args.path_to_interesting_genes, "r") as i:
         genesOfInterest = i.read().splitlines()
-    # build the unitig object
-    unitigs = Unitigs(graph,
-                    genesOfInterest)
-    # get the unitigs of the genes of interest
-    unitigsOfInterest = unitigs.get_unitigs_of_interest()
     # initialise the UnitigBuilder class
-    unitigTools = UnitigBuilder(unitigsOfInterest)
+    unitigTools = UnitigTools(graph,
+                                genesOfInterest)
     # generate a visualisation of the unitigs
     readFiles = unitigTools.separate_reads(args.output_dir,
                                         args.readfile)
