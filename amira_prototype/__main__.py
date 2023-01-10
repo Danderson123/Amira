@@ -49,6 +49,13 @@ def get_read_end(cigarString,
     regionEnd = regionStart + regionLength
     return regionEnd, regionLength
 
+def determine_gene_strand(read):
+    if not read.is_forward:
+        gene_name = "-" + read.reference_name
+    else:
+        gene_name = "+" + read.reference_name
+    return gene_name
+
 def convert_pandora_output(pandoraDir):
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(os.path.join(pandoraDir, os.path.basename(pandoraDir) + ".filtered.sam"), "r")
@@ -56,32 +63,25 @@ def convert_pandora_output(pandoraDir):
     readDict = {}
     # iterate through the read regions
     for read in pandora_sam_content.fetch():
+        # convert the cigarsting to a Cigar object
+        cigarString = Cigar(read.cigarstring)
         # check if the read has mapped to any regions
         if read.is_mapped:
-            # read the CIGAR string for the mapped read region
-            cigarString = Cigar(read.cigarstring)
-            # get the read name
-            readName = read.query_name
             # get the start base that the region maps to on the read
             regionStart = get_read_start(cigarString)
             # get the end base that the region maps to on the read
             regionEnd, regionLength = get_read_end(cigarString,
                                                 regionStart)
-            # get the name of the gene we have mapped to
-            gene_name = read.reference_name
             # append the strand of the match to the name of the gene
-            if not read.is_forward:
-                gene_name = "-" + gene_name
-            else:
-                gene_name = "+" + gene_name
-            if not readName in annotatedReads:
-                annotatedReads[readName] = []
+            gene_name = determine_gene_strand(read)
+            if not read.query_name in annotatedReads:
+                annotatedReads[read.query_name] = []
             if not gene_name[1:] in readDict:
                 readDict[gene_name[1:]] = []
             # store the per read gene names, gene starts and gene ends
             readDict[gene_name[1:]].append(regionLength)
             # store the per read gene names
-            annotatedReads[readName].append(gene_name)
+            annotatedReads[read.query_name].append(gene_name)
     return annotatedReads, readDict
 
 def main():
