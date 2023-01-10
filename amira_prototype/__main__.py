@@ -1,5 +1,6 @@
 import argparse
 from cigar import Cigar
+from collections import Counter
 import gzip
 import matplotlib.pyplot as plt
 import os
@@ -106,27 +107,56 @@ def visualise_unitigs(unitigsOfInterest,
                     geneLengths,
                     output_dir):
     for paralog in unitigsOfInterest:
+        plt.rc('font', size=2)
         fig, ax = plt.subplots()
+        # set the x-spine
+        ax.spines['left'].set_position('zero')
+        # turn off the right spine/ticks
+        ax.spines['right'].set_color('none')
+        # set the y-spine
+        ax.spines['bottom'].set_position('zero')
+        # turn off the top spine/ticks
+        ax.spines['top'].set_color('none')
+        ax.set_ylim([0, len(unitigsOfInterest[paralog]["unitigs"]) + 1])
+        # set the acis labels
+        ax.set_ylabel(paralog)
+        ax.set_xlabel("Unitig length (bp)")
         count = 1
         for unitig in unitigsOfInterest[paralog]["unitigs"]:
             height = []
-            union = set().union(*unitig)
-            for gene in union:
-                geneLength = get_gene_length(gene,
-                                            geneLengths)
-                if gene.get_name() == paralog:
+            unionAll = unitig[0]
+            for geneMer in unitig[1:]:
+                unionAll.append(geneMer[-1])
+            unitiglengths = [max(geneLengths[g.get_name()]) for g in unionAll]
+            minLength = min(unitiglengths)
+            for gene in range(len(unionAll)):
+                geneLength = unitiglengths[gene]
+                if unionAll[gene].get_name() == paralog:
                     colour = "r"
                 else:
                     colour = "g"
-                if gene.get_strand() == 1:
-                    ax.arrow(sum(height), count, sum(height) + geneLength, 0, width = 0.05, head_width=0.2, head_length=500, color = colour, length_includes_head=True)
+                if unionAll[gene].get_strand() == 1:
+                    x = sum(height)
+                    y = count
+                    dx = geneLength
+                    dy = 0
                 else:
-                    ax.arrow(sum(height) + geneLength, count, -1 * geneLength, 0, width = 0.05, head_width=0.2, head_length=500, color = colour, length_includes_head=True)
+                    x = sum(height) + geneLength
+                    y = count
+                    dx = geneLength * -1
+                    dy = 0
+                ax.arrow(x,
+                        y,
+                        dx,
+                        dy,
+                        width = ((len(unitigsOfInterest[paralog]["unitigs"]) + 1) / 1000),
+                        head_width = ((len(unitigsOfInterest[paralog]["unitigs"]) + 1) / 200),
+                        head_length=minLength,
+                        color = colour,
+                        length_includes_head=True)
                 height.append(geneLength)
             count +=1
         plt.yticks([i for i in range(1, count)])
-        ax.set_ylabel(paralog)
-        ax.set_xlabel("Length (bp)")
         plotFilename = os.path.join(output_dir, paralog, paralog) + ".pdf"
         plt.savefig(plotFilename)
 

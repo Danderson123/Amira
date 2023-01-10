@@ -2,4 +2,3 @@ cigar
 matplotlib
 pysam
 pytest
-git+git://github.com/lbcb-sci/raven.git@master
