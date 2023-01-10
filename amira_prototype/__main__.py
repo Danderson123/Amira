@@ -1,6 +1,5 @@
 import argparse
 from cigar import Cigar
-from collections import Counter
 import gzip
 import matplotlib.pyplot as plt
 import os
