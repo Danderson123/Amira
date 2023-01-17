@@ -2,3 +2,4 @@ cigar
 matplotlib
 pysam
 pytest
+tqdm
