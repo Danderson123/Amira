@@ -2,6 +2,7 @@ import gzip
 import matplotlib.pyplot as plt
 import os
 import subprocess
+from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
 from construct_node import Node
@@ -161,32 +162,37 @@ class UnitigTools:
                 readFile):
         fastqContent = parse_fastq(readFile)
         readFiles = []
-        for geneOfInterest in self.get_unitigsOfInterest():
+        for geneOfInterest in tqdm(self.get_unitigsOfInterest()):
             if not os.path.exists(os.path.join(output_dir, geneOfInterest)):
                 os.mkdir(os.path.join(output_dir, geneOfInterest))
             for i in range(len(self.get_unitigsOfInterest()[geneOfInterest]["unitigs"])):
+                if not os.path.exists(os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i))):
+                    os.mkdir(os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i)))
                 unitigReads = self.get_unitigsOfInterest()[geneOfInterest]["reads"][i]
                 subsettedReadData = {}
                 for u in unitigReads:
                     for r in u:
                         subsettedReadData[r] =  fastqContent[r]
                 # write the per unitig fastq data
-                filename = os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i) + ".fastq.gz")
+                filename = os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i), geneOfInterest + "_" + str(i) + ".fastq.gz")
                 write_fastq(filename,
                             subsettedReadData)
                 readFiles.append(filename)
         return readFiles
-    def run_raven(self,
+    def run_flye(self,
                 inputFastq,
-                raven_path):
-        outputConsensus = inputFastq.replace(".fastq.gz", ".fasta")
-        raven_command = " ".join([raven_path,
+                flye_path):
+        flye_command = " ".join([flye_path,
+                                "--nano-raw",
+                                inputFastq,
                                 "-t",
                                 "8",
-                                inputFastq,
-                                ">",
-                                outputConsensus])
-        subprocess.run(raven_command, shell=True, check=True)
+                                "--out-dir",
+                                os.path.join(os.path.dirname(inputFastq), "flye_output")])
+        try:
+            subprocess.run(flye_command, shell=True, check=True)
+        except:
+            print(inputFastq)
     def initialise_plots(self,
                         unitigCount,
                         paralog):
@@ -217,7 +223,13 @@ class UnitigTools:
         if currentGene == geneOfInterest:
             color = "r"
         else:
-            color = "g"
+            if "tnp" in currentGene:
+                color = "green"
+            else:
+                if "rec" in currentGene:
+                    color = "lawngreen"
+                else:
+                    color = "gray"
         return color
     def get_gene_coordinates(self,
                             geneStrand,
@@ -244,7 +256,7 @@ class UnitigTools:
                         geneLengths: dict,
                         output_dir: str):
         """ generate a figure to visualise the genes, order of genes, direction and lengths of genes on unitigs containing AMR genes """
-        for paralog in self.get_unitigsOfInterest():
+        for paralog in tqdm(self.get_unitigsOfInterest()):
             fig, ax = self.initialise_plots(len(self.get_unitigsOfInterest()[paralog]["unitigs"]),
                                             paralog)
             count = 1

@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 
 from construct_node import Node
 from construct_edge import Edge
@@ -18,7 +19,7 @@ class GeneMerGraph:
         self._nodes = {}
         self._edges = {}
         # initialise the graph
-        for readId in self.get_reads():
+        for readId in tqdm(self.get_reads()):
             read = Read(readId,
                         self.get_reads()[readId])
             geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
@@ -352,7 +353,10 @@ class GeneMerGraph:
         # return a string of the gene mer genes and strands
         return "~~~".join(geneMerGenes)
     def generate_gml(self,
-                    output_file):
+                    output_file: str,
+                    geneMerSize: int,
+                    min_node_coverage: int,
+                    min_edge_coverage: int):
         """ Write a gml of the filtered graph to the output directory. Returns the written content as a list """
         graph_data = ["graph\t["]
         self.assign_Id_to_nodes()
@@ -377,6 +381,10 @@ class GeneMerGraph:
                                                 edge.get_edge_coverage())
                 graph_data.append(edgeEntry)
         graph_data.append("]")
+        output_file = ".".join([output_file,
+                                str(geneMerSize),
+                                str(min_node_coverage),
+                                str(min_edge_coverage)])
         self.write_gml_to_file(output_file,
                             graph_data)
         return graph_data

@@ -1623,7 +1623,10 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceToTargetEdge.get_sourceNode().increment_node_coverage()
         reverseTargetToSourceEdge.get_sourceNode().increment_node_coverage()
         # execution
-        actual_writtenGraph = graph.generate_gml("tests/test_graph")
+        actual_writtenGraph = graph.generate_gml("tests/test_graph",
+                                                3,
+                                                1,
+                                                1)
         # assertion
         expected_writtenGraph = [['graph\t[',
                                 '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
@@ -1650,9 +1653,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                 '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
                                 ']']]
         import os
-        self.assertTrue(os.path.exists("tests/test_graph.gml"))
+        self.assertTrue(os.path.exists("tests/test_graph.3.1.1.gml"))
         self.assertTrue(any(actual_writtenGraph == e for e in expected_writtenGraph))
-        os.remove("tests/test_graph.gml")
+        os.remove("tests/test_graph.3.1.1.gml")
 
     def test___get_gene_mer_label(self):
         # setup
@@ -1678,7 +1681,10 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         graph.filter_graph(2,
                         2)
-        actual_writtenGraph = graph.generate_gml("tests/test_graph")
+        actual_writtenGraph = graph.generate_gml("tests/test_graph",
+                                                3,
+                                                2,
+                                                2)
         actual_numberOfNodes = graph.get_total_number_of_nodes()
         actual_numberOfEdges = graph.get_total_number_of_edges()
         # assertion
@@ -1687,7 +1693,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         import os
         self.assertEqual(actual_numberOfNodes, expected_numberOfNodes)
         self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
-        os.remove("tests/test_graph.gml")
+        os.remove("tests/test_graph.3.2.2.gml")
 
     def test___filter_all_graph(self):
         # setup
@@ -1698,7 +1704,10 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         graph.filter_graph(10,
                         10)
-        actual_writtenGraph = graph.generate_gml("tests/test_graph")
+        actual_writtenGraph = graph.generate_gml("tests/test_graph",
+                                                3,
+                                                10,
+                                                10)
         actual_numberOfNodes = graph.get_total_number_of_nodes()
         actual_numberOfEdges = graph.get_total_number_of_edges()
         # assertion
@@ -1709,4 +1718,4 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_writtenGraph, expected_writtenGraph)
         self.assertEqual(actual_numberOfNodes, expected_numberOfNodes)
         self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
-        os.remove("tests/test_graph.gml")
+        os.remove("tests/test_graph.3.10.10.gml")
