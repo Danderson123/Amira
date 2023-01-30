@@ -14,7 +14,7 @@ def get_options():
     """define args from the command line"""
     parser = argparse.ArgumentParser(description='Build a prototype gene de Bruijn graph.')
     parser.add_argument('--pandora', dest='pandoraSam',
-                        help='Pandora map SAM file path', required=True)
+                        help='Pandora map SBAMAM file path', required=True)
     parser.add_argument('--readfile', dest='readfile',
                         help='path of gzipped long read fastq', required=True)
     parser.add_argument('--output', dest='output_dir', type=str, default="gene_de_Bruijn_graph",
@@ -28,7 +28,11 @@ def get_options():
     parser.add_argument('--gene-path', dest='path_to_interesting_genes',
                         help='path to a newline delimited file of genes of interest', required=True)
     parser.add_argument('--flye-path', dest='flye_path',
-                        help='path to Flye binary', required=True)
+                        help='path to Flye binary', default=None, required=False)
+    parser.add_argument('--raven-path', dest='raven_path',
+                        help='path to Raven binary', default=None, required=False)
+    parser.add_argument('--threads', dest='threads', type=int, default=1,
+                        help='number of threads to use')
     args = parser.parse_args()
     return args
 
@@ -58,7 +62,7 @@ def determine_gene_strand(read):
 
 def convert_pandora_output(pandoraSam):
     # load the pseudo SAM
-    pandora_sam_content = pysam.AlignmentFile(pandoraSam, "r")
+    pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
     annotatedReads = {}
     readDict = {}
     # iterate through the read regions
@@ -110,15 +114,23 @@ def main():
         genesOfInterest = i.read().splitlines()
     # initialise the UnitigBuilder class
     unitigTools = UnitigTools(graph,
-                                genesOfInterest)
+                            genesOfInterest)
     # generate a visualisation of the unitigs
-    sys.stderr.write("\nAmira: separating paralog copies\n")
+    sys.stderr.write("\nAmira: separating paralog reads\n")
     readFiles = unitigTools.separate_reads(args.output_dir,
                                         args.readfile)
     # run flye on the subsetted reads
-    for r in readFiles:
-        unitigTools.run_flye(r,
-                        args.flye_path)
+    if args.flye_path:
+        for r in readFiles:
+            unitigTools.run_flye(r,
+                        args.flye_path,
+                        str(args.threads))
+    # run raven on subsetted reads and pandora consensus
+    if args.raven_path:
+        for r in readFiles:
+            unitigTools.run_raven(r,
+                                args.raven_path,
+                                str(args.threads))
     # make plots to visualise unitigs
     sys.stderr.write("\nAmira: generating unitig plots")
     unitigTools.visualise_unitigs(readDict,

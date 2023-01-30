@@ -163,36 +163,47 @@ class UnitigTools:
         fastqContent = parse_fastq(readFile)
         readFiles = []
         for geneOfInterest in tqdm(self.get_unitigsOfInterest()):
-            if not os.path.exists(os.path.join(output_dir, geneOfInterest)):
-                os.mkdir(os.path.join(output_dir, geneOfInterest))
-            for i in range(len(self.get_unitigsOfInterest()[geneOfInterest]["unitigs"])):
-                if not os.path.exists(os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i))):
-                    os.mkdir(os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i)))
-                unitigReads = self.get_unitigsOfInterest()[geneOfInterest]["reads"][i]
-                subsettedReadData = {}
-                for u in unitigReads:
-                    for r in u:
-                        subsettedReadData[r] =  fastqContent[r]
-                # write the per unitig fastq data
-                filename = os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i), geneOfInterest + "_" + str(i) + ".fastq.gz")
-                write_fastq(filename,
-                            subsettedReadData)
-                readFiles.append(filename)
+            if not len(self.get_unitigsOfInterest()[geneOfInterest]["unitigs"]) == 0:
+                if not os.path.exists(os.path.join(output_dir, geneOfInterest)):
+                    os.mkdir(os.path.join(output_dir, geneOfInterest))
+                for i in range(len(self.get_unitigsOfInterest()[geneOfInterest]["unitigs"])):
+                    if not os.path.exists(os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i))):
+                        os.mkdir(os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i)))
+                    unitigReads = self.get_unitigsOfInterest()[geneOfInterest]["reads"][i]
+                    subsettedReadData = {}
+                    for u in unitigReads:
+                        for r in u:
+                            subsettedReadData[r] =  fastqContent[r]
+                    # write the per unitig fastq data
+                    filename = os.path.join(output_dir, geneOfInterest, geneOfInterest + "_" + str(i), geneOfInterest + "_" + str(i) + ".fastq.gz")
+                    write_fastq(filename,
+                                subsettedReadData)
+                    readFiles.append(filename)
         return readFiles
     def run_flye(self,
                 inputFastq,
-                flye_path):
+                flye_path,
+                threads):
         flye_command = " ".join([flye_path,
                                 "--nano-raw",
                                 inputFastq,
                                 "-t",
-                                "8",
+                                threads,
                                 "--out-dir",
                                 os.path.join(os.path.dirname(inputFastq), "flye_output")])
-        try:
-            subprocess.run(flye_command, shell=True, check=True)
-        except:
-            print(inputFastq)
+        subprocess.run(flye_command, shell=True, check=True)
+    def run_raven(self,
+                inputFastq,
+                raven_path,
+                threads):
+        outputConsensus = os.path.join(os.path.dirname(inputFastq, "raven_assembly.fa"))
+        raven_command = " ".join([raven_path,
+                                "-t",
+                                threads,
+                                inputFastq,
+                                ">",
+                                outputConsensus])
+        subprocess.run(raven_command, shell=True, check=True)
     def initialise_plots(self,
                         unitigCount,
                         paralog):
@@ -219,17 +230,21 @@ class UnitigTools:
         return unionAll
     def get_gene_colour(self,
                         currentGene,
-                        geneOfInterest):
+                        geneOfInterest,
+                        allAMRGenes):
         if currentGene == geneOfInterest:
-            color = "r"
+            color = "green"
         else:
-            if "tnp" in currentGene:
-                color = "green"
+            if currentGene in allAMRGenes:
+                color = "red"
             else:
-                if "rec" in currentGene:
-                    color = "lawngreen"
+                if "tnp" in currentGene:
+                    color = ""
                 else:
-                    color = "gray"
+                    if "rec" in currentGene:
+                        color = ""
+                    else:
+                        color = "lightgrey"
         return color
     def get_gene_coordinates(self,
                             geneStrand,
@@ -256,37 +271,40 @@ class UnitigTools:
                         geneLengths: dict,
                         output_dir: str):
         """ generate a figure to visualise the genes, order of genes, direction and lengths of genes on unitigs containing AMR genes """
-        for paralog in tqdm(self.get_unitigsOfInterest()):
-            fig, ax = self.initialise_plots(len(self.get_unitigsOfInterest()[paralog]["unitigs"]),
-                                            paralog)
-            count = 1
-            for unitig in self.get_unitigsOfInterest()[paralog]["unitigs"]:
-                height = []
-                unionAll = self.get_geneMer_unionAll(unitig)
-                unitiglengths, minLength = self.get_minimum_gene_length(geneLengths,
-                                                                unionAll)
-                for gene in range(len(unionAll)):
-                    geneLength = unitiglengths[gene]
-                    geneColor = self.get_gene_colour(unionAll[gene].get_name(),
-                                                    paralog)
-                    x, y, dx, dy = self.get_gene_coordinates(unionAll[gene].get_strand(),
-                                                            height,
-                                                            geneLength,
-                                                            count)
-                    ax.arrow(x,
-                            y,
-                            dx,
-                            dy,
-                            width = ((len(self.get_unitigsOfInterest()[paralog]["unitigs"]) + 1) / 1000),
-                            head_width = ((len(self.get_unitigsOfInterest()[paralog]["unitigs"]) + 1) / 200),
-                            head_length=minLength,
-                            color = geneColor,
-                            length_includes_head=True)
-                    height.append(geneLength)
-                count +=1
-            plt.yticks([i for i in range(1, count)])
-            plotFilename = os.path.join(output_dir, paralog, paralog) + ".pdf"
-            plt.savefig(plotFilename)
+        allAMRGenes = set(list(self.get_unitigsOfInterest().keys()))
+        for paralog in tqdm(allAMRGenes):
+            if not len(self.get_unitigsOfInterest()[paralog]["unitigs"]) == 0:
+                fig, ax = self.initialise_plots(len(self.get_unitigsOfInterest()[paralog]["unitigs"]),
+                                                paralog)
+                count = 1
+                for unitig in self.get_unitigsOfInterest()[paralog]["unitigs"]:
+                    height = []
+                    unionAll = self.get_geneMer_unionAll(unitig)
+                    unitiglengths, minLength = self.get_minimum_gene_length(geneLengths,
+                                                                    unionAll)
+                    for gene in range(len(unionAll)):
+                        geneLength = unitiglengths[gene]
+                        geneColor = self.get_gene_colour(unionAll[gene].get_name(),
+                                                        paralog,
+                                                        allAMRGenes)
+                        x, y, dx, dy = self.get_gene_coordinates(unionAll[gene].get_strand(),
+                                                                height,
+                                                                geneLength,
+                                                                count)
+                        ax.arrow(x,
+                                y,
+                                dx,
+                                dy,
+                                width = ((len(self.get_unitigsOfInterest()[paralog]["unitigs"]) + 1) / 1000),
+                                head_width = ((len(self.get_unitigsOfInterest()[paralog]["unitigs"]) + 1) / 200),
+                                head_length=minLength,
+                                color = geneColor,
+                                length_includes_head=True)
+                        height.append(geneLength)
+                    count +=1
+                plt.yticks([i for i in range(1, count)])
+                plotFilename = os.path.join(output_dir, paralog, paralog) + ".pdf"
+                plt.savefig(plotFilename)
 
 def parse_fastq_lines(fh):
     # Initialize a counter to keep track of the current line number
