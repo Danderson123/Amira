@@ -1,11 +1,8 @@
 import argparse
 from cigar import Cigar
-import gzip
-import matplotlib.pyplot as plt
 import os
 import pysam
 import sys
-from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
 from construct_unitig import UnitigTools

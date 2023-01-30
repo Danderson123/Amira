@@ -191,7 +191,10 @@ class UnitigTools:
                                 threads,
                                 "--out-dir",
                                 os.path.join(os.path.dirname(inputFastq), "flye_output")])
-        subprocess.run(flye_command, shell=True, check=True)
+        try:
+            subprocess.run(flye_command, shell=True, check=True)
+        except:
+            pass
     def run_raven(self,
                 inputFastq,
                 raven_path,
@@ -203,7 +206,10 @@ class UnitigTools:
                                 inputFastq,
                                 ">",
                                 outputConsensus])
-        subprocess.run(raven_command, shell=True, check=True)
+        try:
+            subprocess.run(raven_command, shell=True, check=True)
+        except:
+            pass
     def initialise_plots(self,
                         unitigCount,
                         paralog):
