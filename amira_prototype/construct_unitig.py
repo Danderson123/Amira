@@ -217,7 +217,7 @@ class UnitigTools:
         def run_raven(inputFastq,
                     raven_path,
                     raven_threads):
-            outputConsensus = os.path.join(os.path.dirname(inputFastq, "raven_assembly.fa"))
+            outputConsensus = os.path.join(os.path.dirname(inputFastq), "raven_assembly.fa")
             raven_command = " ".join([raven_path,
                                     "-t",
                                     str(raven_threads),
