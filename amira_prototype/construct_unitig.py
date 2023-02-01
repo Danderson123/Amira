@@ -194,7 +194,7 @@ class UnitigTools:
                             "--nano-raw",
                             inputFastq,
                             "-t",
-                            flye_threads,
+                            str(flye_threads),
                             "--out-dir",
                             os.path.join(os.path.dirname(inputFastq), "flye_output")])
             try:
