@@ -1,7 +1,9 @@
 import gzip
+from joblib import Parallel, delayed
 import matplotlib.pyplot as plt
 import os
 import subprocess
+import sys
 from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
@@ -180,36 +182,62 @@ class UnitigTools:
                                 subsettedReadData)
                     readFiles.append(filename)
         return readFiles
-    def run_flye(self,
-                inputFastq,
+    def multithread_flye(self,
+                        readFiles,
+                        flye_path,
+                        threads):
+
+        def run_flye(inputFastq,
                 flye_path,
-                threads):
-        flye_command = " ".join([flye_path,
-                                "--nano-raw",
-                                inputFastq,
-                                "-t",
-                                threads,
-                                "--out-dir",
-                                os.path.join(os.path.dirname(inputFastq), "flye_output")])
-        try:
-            subprocess.run(flye_command, shell=True, check=True)
-        except:
-            pass
-    def run_raven(self,
-                inputFastq,
-                raven_path,
-                threads):
-        outputConsensus = os.path.join(os.path.dirname(inputFastq, "raven_assembly.fa"))
-        raven_command = " ".join([raven_path,
-                                "-t",
-                                threads,
-                                inputFastq,
-                                ">",
-                                outputConsensus])
-        try:
-            subprocess.run(raven_command, shell=True, check=True)
-        except:
-            pass
+                flye_threads):
+            flye_command = " ".join([flye_path,
+                            "--nano-raw",
+                            inputFastq,
+                            "-t",
+                            flye_threads,
+                            "--out-dir",
+                            os.path.join(os.path.dirname(inputFastq), "flye_output")])
+            sys.stderr.write(flye_command)
+            try:
+                subprocess.run(flye_command, shell=True, check=True)
+            except:
+                pass
+
+        job_list = [
+            readFiles[i:i + threads] for i in range(0, len(readFiles), threads)
+        ]
+        for subset in tqdm(job_list):
+            Parallel(n_jobs=threads)(delayed(run_flye)(r,
+                                                flye_path,
+                                                1) for r in subset)
+    def multithread_raven(self,
+                        readFiles,
+                        raven_path,
+                        threads):
+
+        def run_raven(inputFastq,
+                    raven_path,
+                    raven_threads):
+            outputConsensus = os.path.join(os.path.dirname(inputFastq, "raven_assembly.fa"))
+            raven_command = " ".join([raven_path,
+                                    "-t",
+                                    str(raven_threads),
+                                    inputFastq,
+                                    ">",
+                                    outputConsensus])
+            sys.stderr.write(raven_command)
+            try:
+                subprocess.run(raven_command, shell=True, check=True)
+            except:
+                pass
+
+        job_list = [
+            readFiles[i:i + threads] for i in range(0, len(readFiles), threads)
+        ]
+        for subset in tqdm(job_list):
+            Parallel(n_jobs=threads)(delayed(run_raven)(r,
+                                                    raven_path,
+                                                    1) for r in subset)
     def initialise_plots(self,
                         unitigCount,
                         paralog):

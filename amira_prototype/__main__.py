@@ -3,6 +3,7 @@ from cigar import Cigar
 import os
 import pysam
 import sys
+from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
 from construct_unitig import UnitigTools
@@ -118,16 +119,16 @@ def main():
                                         args.readfile)
     # run flye on the subsetted reads
     if args.flye_path:
-        for r in readFiles:
-            unitigTools.run_flye(r,
-                        args.flye_path,
-                        str(args.threads))
+        sys.stderr.write("\nAmira: assembling paralog reads with Flye\n")
+        unitigTools.multithread_flye(readFiles,
+                                    args.flye_path,
+                                    args.threads)
     # run raven on subsetted reads and pandora consensus
     if args.raven_path:
-        for r in readFiles:
-            unitigTools.run_raven(r,
-                                args.raven_path,
-                                str(args.threads))
+        sys.stderr.write("\nAmira: assembling paralog reads with Raven\n")
+        unitigTools.multithread_raven(readFiles,
+                                    args.raven_path,
+                                    args.threads)
     # make plots to visualise unitigs
     sys.stderr.write("\nAmira: generating unitig plots")
     unitigTools.visualise_unitigs(readDict,

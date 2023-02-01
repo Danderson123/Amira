@@ -1,4 +1,5 @@
 cigar
+joblib
 matplotlib
 pysam
 pytest
