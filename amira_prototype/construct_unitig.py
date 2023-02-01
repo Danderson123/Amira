@@ -197,7 +197,6 @@ class UnitigTools:
                             flye_threads,
                             "--out-dir",
                             os.path.join(os.path.dirname(inputFastq), "flye_output")])
-            sys.stderr.write(flye_command)
             try:
                 subprocess.run(flye_command, shell=True, check=True)
             except:
@@ -225,7 +224,6 @@ class UnitigTools:
                                     inputFastq,
                                     ">",
                                     outputConsensus])
-            sys.stderr.write(raven_command)
             try:
                 subprocess.run(raven_command, shell=True, check=True)
             except:
