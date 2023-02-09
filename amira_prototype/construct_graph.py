@@ -279,13 +279,13 @@ class GeneMerGraph:
         minEdgeCoverage = self.set_minEdgeCoverage(minEdgeCoverage)
         # filter the nodes
         nodesToRemove = set()
-        for nodeHash in self.get_nodes():
+        for nodeHash in tqdm(self.get_nodes()):
             # mark a node for removal if the coverage is less than the specified coverage
             if not self.get_nodes()[nodeHash].get_node_coverage() > minNodeCoverage - 1:
                 nodesToRemove.add(self.get_nodes()[nodeHash])
         # filter the edges
         edgesToRemove = set()
-        for edgeHash in self.get_edges():
+        for edgeHash in tqdm(self.get_edges()):
             # mark an edge for removal if the coverage is less than the specified coverage
             if not self.get_edges()[edgeHash].get_edge_coverage() > minEdgeCoverage - 1:
                 edgesToRemove.add(edgeHash)

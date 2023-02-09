@@ -115,8 +115,8 @@ def main():
                             genesOfInterest)
     # generate a visualisation of the unitigs
     sys.stderr.write("\nAmira: separating paralog reads\n")
-    readFiles = unitigTools.separate_reads(args.output_dir,
-                                        args.readfile)
+    readFiles, unitig_mapping = unitigTools.separate_reads(args.output_dir,
+                                                        args.readfile)
     # run flye on the subsetted reads
     if args.flye_path:
         sys.stderr.write("\nAmira: assembling paralog reads with Flye\n")
@@ -130,8 +130,9 @@ def main():
                                     args.raven_path,
                                     args.threads)
     # make plots to visualise unitigs
-    sys.stderr.write("\nAmira: generating unitig plots")
+    sys.stderr.write("\nAmira: generating unitig plots\n")
     unitigTools.visualise_unitigs(readDict,
+                                unitig_mapping,
                                 args.output_dir)
     sys.exit(0)
 

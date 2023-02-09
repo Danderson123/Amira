@@ -55,7 +55,7 @@ class Gene:
     def get_name(self) -> str:
         """ return the name of the gene without strand information """
         return self.name
-    def get_strand(self) -> str:
+    def get_strand(self) -> int:
         """ return the integer strand of the gene without gene name information"""
         return self.strand
     def reverse_gene(self):
