@@ -344,7 +344,7 @@ class UnitigTools:
                     geneColor = self.get_gene_colour(listOfGenes[gene][1:],
                                                     allAMRGenes)
                     # get the coordinate for this gene
-                    x, y, dx, dy = self.get_gene_coordinates(listOfGenes[gene][:2],
+                    x, y, dx, dy = self.get_gene_coordinates(listOfGenes[gene][0],
                                                             height,
                                                             unitiglengths[gene],
                                                             unitigId)
@@ -354,7 +354,7 @@ class UnitigTools:
                             dx,
                             dy,
                             width = 0.015,
-                            head_width = 0.15,
+                            head_width = 0.13,
                             head_length=50,
                             color = geneColor,
                             length_includes_head=True)
