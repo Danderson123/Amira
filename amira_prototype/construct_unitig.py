@@ -113,7 +113,7 @@ class Unitigs:
     def get_unitig_for_node(self,
                             node):
         """ builds a unitig starting from the node of interest and expanding in both directions """
-        if self.get_graph().get_degree(node) == 2 or self.get_graph().get_degree(node) == 1:
+        if self.get_graph().get_degree(node) == 2 or self.get_graph().get_degree(node) == 1 or self.get_graph().get_degree(node) == 0:
             # get the forward nodes from this node
             forward_nodes_from_node, forward_reads = self.get_forward_path_from_node(node)
             # get the backward nodes from this node
