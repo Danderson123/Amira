@@ -299,12 +299,12 @@ class UnitigTools:
                 map_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " " + file
                 map_command += " > " + os.path.join(outputDir, gene, "02.read.mapped.sam")
                 subprocess.run(map_command, shell=True, check=True)
-                # polish the pandora consensus
-                racon_command = racon_path + " -t 1 -w " + str(len(fastqContent[gene]["sequence"])) + " "
-                racon_command += file + " " + os.path.join(outputDir, gene, "02.read.mapped.sam") + " "
-                racon_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " "
-                racon_command += "> " + os.path.join(outputDir, gene, "03.polished.consensus.fasta")
                 try:
+                    # polish the pandora consensus
+                    racon_command = racon_path + " -t 1 -w " + str(len(fastqContent[gene]["sequence"])) + " "
+                    racon_command += file + " " + os.path.join(outputDir, gene, "02.read.mapped.sam") + " "
+                    racon_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " "
+                    racon_command += "> " + os.path.join(outputDir, gene, "03.polished.consensus.fasta")
                     subprocess.run(racon_command, shell=True, check=True)
                     # trim the buffer
                     with open(os.path.join(outputDir, gene, "03.polished.consensus.fasta"), "r") as i:
