@@ -11,8 +11,8 @@ from construct_unitig import UnitigTools
 def get_options():
     """define args from the command line"""
     parser = argparse.ArgumentParser(description='Build a prototype gene de Bruijn graph.')
-    parser.add_argument('--pandora', dest='pandoraSam',
-                        help='Pandora map SBAMAM file path', required=True)
+    parser.add_argument('--pandoraSam', dest='pandoraSam',
+                        help='Pandora map SAM file path', required=True)
     parser.add_argument('--readfile', dest='readfile',
                         help='path of gzipped long read fastq', required=True)
     parser.add_argument('--output', dest='output_dir', type=str, default="gene_de_Bruijn_graph",
@@ -29,6 +29,13 @@ def get_options():
                         help='path to Flye binary', default=None, required=False)
     parser.add_argument('--raven-path', dest='raven_path',
                         help='path to Raven binary', default=None, required=False)
+    parser.add_argument('--use-consensus', dest='use_pandora_consensus',
+                        help='polish the pandora consensus of each gene to recover AMR alleles',
+                        action='store_true' , default=None, required=False)
+    parser.add_argument("--pandora-consensus", dest="pandoraConsensus",
+                        help='path to the pandora consensus fastq for this sample', default=None, required=False)
+    parser.add_argument('--racon-path', dest='racon_path',
+                        help='path to Racon binary', default=None, required=False)
     parser.add_argument('--threads', dest='threads', type=int, default=1,
                         help='number of threads to use')
     args = parser.parse_args()
@@ -129,6 +136,14 @@ def main():
         unitigTools.multithread_raven(readFiles,
                                     args.raven_path,
                                     args.threads)
+    # use each gene's pandora consensus as the basis for polishing
+    if args.use_pandora_consensus:
+        sys.stderr.write("\nAmira: polishing Pandora AMR gene consensus sequences\n")
+        unitigTools.polish_pandora_consensus(readFiles,
+                                            args.racon_path,
+                                            args.pandoraConsensus,
+                                            genesOfInterest,
+                                            args.threads)
     # make plots to visualise unitigs
     sys.stderr.write("\nAmira: generating unitig plots\n")
     unitigTools.visualise_unitigs(readDict,

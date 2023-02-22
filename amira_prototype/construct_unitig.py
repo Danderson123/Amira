@@ -269,6 +269,63 @@ class UnitigTools:
             Parallel(n_jobs=threads)(delayed(run_raven)(r,
                                                     raven_path,
                                                     1) for r in subset)
+    def polish_pandora_consensus(self,
+                            readFiles,
+                            racon_path,
+                            consensusFastq,
+                            genesOfInterest,
+                            threads):
+
+        def run_racon(file,
+                    genesOfInterest,
+                    fastqContent):
+            # get the AMR genes in this unitig
+            with open(os.path.join(os.path.dirname(file), "annotated_genes.txt"), "r") as inGenes:
+                unitigGenes = [g[1:] for g in inGenes.read().split("\n") if g[1:] in genesOfInterest]
+            # define the output file
+            outputDir = os.path.join(os.path.dirname(file), "pandora.polished.consensus")
+            if not os.path.exists(outputDir):
+                os.mkdir(outputDir)
+            # make a temp file for each AMR gene consensus sequence
+            for gene in unitigGenes:
+                # make the gene output dir
+                if not os.path.exists(os.path.join(outputDir, gene)):
+                    os.mkdir(os.path.join(outputDir, gene))
+                # write out the pandora consensus
+                with open(os.path.join(outputDir, gene, "01.pandora.consensus.fasta"), "w") as outFasta:
+                    outFasta.write(">" + gene + "\n" + "N"*500 + fastqContent[gene]["sequence"] + "N"*500 + "\n")
+                # map the reads to the consensus file
+                map_command = "panRG_building_tools/minimap2-2.24_x64-linux/minimap2 -a --MD -t 1 -x asm20 "
+                map_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " " + file
+                map_command += " > " + os.path.join(outputDir, gene, "02.read.mapped.sam")
+                subprocess.run(map_command, shell=True, check=True)
+                # polish the pandora consensus
+                racon_command = racon_path + " -t 1 -w " + str(len(fastqContent[gene]["sequence"])) + " "
+                racon_command += file + " " + os.path.join(outputDir, gene, "02.read.mapped.sam") + " "
+                racon_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " "
+                racon_command += "> " + os.path.join(outputDir, gene, "03.polished.consensus.fasta")
+                try:
+                    subprocess.run(racon_command, shell=True, check=True)
+                    # trim the buffer
+                    with open(os.path.join(outputDir, gene, "03.polished.consensus.fasta"), "r") as i:
+                        racon_seq = i.read()
+                    header = racon_seq.split("\n")[0]
+                    sequence = "\n".join(racon_seq.split("\n")[1:]).replace("N", "")
+                    with open(os.path.join(outputDir, gene, "04.polished.consensus.trimmed.fasta"), "w") as outTrimmed:
+                        outTrimmed.write(">" + header + "\n" + sequence + "\n")
+                except:
+                    pass
+
+        # load the pandora consensus fastq
+        fastqContent = parse_fastq(consensusFastq)
+        # iterate through the reads for each unitig
+        job_list = [
+            readFiles[i:i + threads] for i in range(0, len(readFiles), threads)
+        ]
+        for subset in tqdm(job_list):
+            Parallel(n_jobs=threads)(delayed(run_racon)(r,
+                                                    genesOfInterest,
+                                                    fastqContent) for r in subset)
     def initialise_plots(self,
                         unitigCount):
         #plt.rc('font', size=2)
