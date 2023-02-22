@@ -292,19 +292,22 @@ class UnitigTools:
                 if not os.path.exists(os.path.join(outputDir, gene)):
                     os.mkdir(os.path.join(outputDir, gene))
                 # write out the pandora consensus
-                with open(os.path.join(outputDir, gene, "01.pandora.consensus.fasta"), "w") as outFasta:
-                    outFasta.write(">" + gene + "\n" + "N"*500 + fastqContent[gene]["sequence"] + "N"*500 + "\n")
+                try:
+                    with open(os.path.join(outputDir, gene, "01.pandora.consensus.fasta"), "w") as outFasta:
+                        outFasta.write(">" + gene + "\n" + "N"*500 + fastqContent[gene]["sequence"] + "N"*500 + "\n")
+                except KeyError:
+                    continue
                 # map the reads to the consensus file
                 map_command = "minimap2 -a --MD -t 1 -x asm20 "
                 map_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " " + file
                 map_command += " > " + os.path.join(outputDir, gene, "02.read.mapped.sam")
                 subprocess.run(map_command, shell=True, check=True)
+                # polish the pandora consensus
+                racon_command = racon_path + " -t 1 -w " + str(len(fastqContent[gene]["sequence"])) + " "
+                racon_command += file + " " + os.path.join(outputDir, gene, "02.read.mapped.sam") + " "
+                racon_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " "
+                racon_command += "> " + os.path.join(outputDir, gene, "03.polished.consensus.fasta")
                 try:
-                    # polish the pandora consensus
-                    racon_command = racon_path + " -t 1 -w " + str(len(fastqContent[gene]["sequence"])) + " "
-                    racon_command += file + " " + os.path.join(outputDir, gene, "02.read.mapped.sam") + " "
-                    racon_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " "
-                    racon_command += "> " + os.path.join(outputDir, gene, "03.polished.consensus.fasta")
                     subprocess.run(racon_command, shell=True, check=True)
                     # trim the buffer
                     with open(os.path.join(outputDir, gene, "03.polished.consensus.fasta"), "r") as i:
