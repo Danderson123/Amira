@@ -295,7 +295,7 @@ class UnitigTools:
                 with open(os.path.join(outputDir, gene, "01.pandora.consensus.fasta"), "w") as outFasta:
                     outFasta.write(">" + gene + "\n" + "N"*500 + fastqContent[gene]["sequence"] + "N"*500 + "\n")
                 # map the reads to the consensus file
-                map_command = "panRG_building_tools/minimap2-2.24_x64-linux/minimap2 -a --MD -t 1 -x asm20 "
+                map_command = "minimap2 -a --MD -t 1 -x asm20 "
                 map_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " " + file
                 map_command += " > " + os.path.join(outputDir, gene, "02.read.mapped.sam")
                 subprocess.run(map_command, shell=True, check=True)
