@@ -287,7 +287,14 @@ class UnitigTools:
             if not os.path.exists(outputDir):
                 os.mkdir(outputDir)
             # make a temp file for each AMR gene consensus sequence
+            geneCounts = {}
             for gene in unitigGenes:
+                if unitigGenes.count(gene) > 1:
+                    if not gene in geneCounts:
+                        geneCounts[gene] = 0
+                    else:
+                        geneCounts[gene] += 1
+                    gene = gene + "_" + str(geneCounts[gene])
                 # make the gene output dir
                 if not os.path.exists(os.path.join(outputDir, gene)):
                     os.mkdir(os.path.join(outputDir, gene))
