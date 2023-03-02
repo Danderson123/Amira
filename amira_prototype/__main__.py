@@ -6,7 +6,8 @@ import sys
 from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
-from construct_unitig import UnitigTools
+from construct_unitig import UnitigTools, Unitigs
+from construct_read import Read
 
 def get_options():
     """define args from the command line"""
@@ -31,13 +32,15 @@ def get_options():
                         help='path to Raven binary', default=None, required=False)
     parser.add_argument('--use-consensus', dest='use_pandora_consensus',
                         help='polish the pandora consensus of each gene to recover AMR alleles',
-                        action='store_true' , default=None, required=False)
+                        action='store_true', default=False, required=False)
     parser.add_argument("--pandora-consensus", dest="pandoraConsensus",
                         help='path to the pandora consensus fastq for this sample', default=None, required=False)
     parser.add_argument('--racon-path', dest='racon_path',
                         help='path to Racon binary', default=None, required=False)
     parser.add_argument('--threads', dest='threads', type=int, default=1,
                         help='number of threads to use')
+    parser.add_argument('--debug', dest='debug', action='store_true', default=False,
+                        help='Amira debugging')
     args = parser.parse_args()
     return args
 
@@ -93,6 +96,191 @@ def convert_pandora_output(pandoraSam):
             annotatedReads[read.query_name].append(gene_name)
     return annotatedReads, readDict
 
+def plot_gene_counts(annotatedReads,
+                    outputDir):
+    import matplotlib.pyplot as plt
+    # make the output dir if it doesn't exist
+    if not os.path.exists(outputDir):
+        os.mkdir(outputDir)
+    # keep track of the number of genes per read
+    geneCounts = {}
+    for readId in annotatedReads:
+        numberOfGenes = len(annotatedReads[readId])
+        if not numberOfGenes in geneCounts:
+            geneCounts[numberOfGenes] = 0
+        geneCounts[numberOfGenes] += 1
+    # plot a bar chart of the number of genes per read
+    plt.hist(list(geneCounts.keys()), weights=list(geneCounts.values()), bins=50, density = False)
+    plt.ylabel('Frequency')
+    plt.xlabel('Number of genes')
+    # save the bar chart
+    plt.savefig(os.path.join(outputDir, "read_gene_count_distribution.pdf"))
+
+def enumerate_paths(graph,
+                    outputDir):
+    uniqueReadPaths = {}
+    # iterate through nodes in the graph
+    nonUniqueReads = {}
+    nodePaths = {}
+    for node in graph.all_nodes():
+        # if this node contains an AMR gene and is branching
+        if node.get_color() == 2:
+            # get forward nodes
+            possible_forward_nodes = [graph.get_edge_by_hash(h) for h in node.get_forward_edge_hashes()]
+            # get backward nodes
+            possible_backward_nodes = [graph.get_edge_by_hash(h) for h in node.get_backward_edge_hashes()]
+            # iterate through forward nodes
+            for fw in possible_forward_nodes:
+                if not fw.get_targetNode() == node:
+                    fw_targetNode = fw.get_targetNode()
+                else:
+                    fw_targetNode = fw.get_sourceNode()
+                if not graph.get_degree(fw_targetNode) > 2:
+                    # iterate through backward nodes
+                    for bw in possible_backward_nodes:
+                        if not bw.get_targetNode() == node:
+                            bw_targetNode = bw.get_targetNode()
+                        else:
+                            bw_targetNode = bw.get_sourceNode()
+                        if not graph.get_degree(bw_targetNode) > 2:
+                            # hash the path
+                            pathHash = hash(tuple(list(sorted([fw_targetNode.__hash__(), bw_targetNode.__hash__()]))))
+                            # store the pathHash as being associated with these nodes
+                            for h in [fw_targetNode.__hash__(), bw_targetNode.__hash__(), node.__hash__()]:
+                                if not h in nodePaths:
+                                    nodePaths[h] = set()
+                                nodePaths[h].add(str(pathHash))
+                            # store the reads in the path
+                            fw_reads = [r for r in fw_targetNode.get_reads()]
+                            bw_reads = [r for r in bw_targetNode.get_reads()]
+                            for read in list(set(fw_reads + bw_reads)):
+                                if not read in uniqueReadPaths:
+                                    uniqueReadPaths[read] = pathHash
+                                else:
+                                    if not uniqueReadPaths[read] == pathHash:
+                                        if not read in nonUniqueReads:
+                                            nonUniqueReads[read] = set()
+                                        nonUniqueReads[read].add(pathHash)
+    for d in nonUniqueReads:
+        del uniqueReadPaths[d]
+    # add non unique reads
+    uniqueCounts = {}
+    for read in uniqueReadPaths:
+        if not uniqueReadPaths[read] in uniqueCounts:
+            uniqueCounts[uniqueReadPaths[read]] = {"unique": [], "non-unique": []}
+        uniqueCounts[uniqueReadPaths[read]]["unique"].append(read)
+    for read in nonUniqueReads:
+        for path in list(nonUniqueReads[read]):
+            if not path in uniqueCounts:
+                uniqueCounts[path] = {"unique": [], "non-unique": []}
+            uniqueCounts[path]["non-unique"].append(read)
+    # write to a tab-delimited file
+    if os.path.exists(os.path.join(outputDir, "path_reads.tab")):
+        os.remove(os.path.join(outputDir, "path_reads.tab"))
+    for pathHash in uniqueCounts:
+        uniqueProportion = str(len(uniqueCounts[pathHash]["unique"])) + "/" + str(len(uniqueCounts[pathHash]["unique"]) + len(uniqueCounts[pathHash]["non-unique"]))
+        with open(os.path.join(outputDir, "path_reads.tab"), "a+") as o:
+            o.write(str(pathHash) + "\t" + uniqueProportion + "\t" + ", ".join(uniqueCounts[pathHash]["unique"]) + "\n")
+    return nodePaths
+
+def get_path_unique_reads(unitig,
+                    outputDir):
+    # get all nodes containing AMR genes
+    nodeOfInterest = {}
+    seen_paths = []
+    graph = unitig.get_graph()
+    for node in tqdm(graph.all_nodes()):
+        if node.get_color() == 2:
+            # get forward nodes
+            possible_forward_nodes = [graph.get_edge_by_hash(h) for h in node.get_forward_edge_hashes()]
+            # get backward nodes
+            possible_backward_nodes = [graph.get_edge_by_hash(h) for h in node.get_backward_edge_hashes()]
+            # iterate through forward nodes
+            all_fw_paths = []
+            for fw in possible_forward_nodes:
+                if not fw.get_targetNode() == node:
+                    fw_targetNode = fw.get_targetNode()
+                else:
+                    fw_targetNode = fw.get_sourceNode()
+                if not graph.get_degree(fw_targetNode) > 2:
+                    fw_path = unitig.get_node_forward_path_from_node(fw_targetNode)
+                else:
+                    fw_path = None
+            all_fw_paths.append(fw_path)
+            # iterate through backward nodes
+            all_bw_paths = []
+            for bw in possible_backward_nodes:
+                if not bw.get_targetNode() == node:
+                    bw_targetNode = bw.get_targetNode()
+                else:
+                    bw_targetNode = bw.get_sourceNode()
+                if not graph.get_degree(bw_targetNode) > 2:
+                    bw_path = unitig.get_node_backward_path_from_node(bw_targetNode)
+                else:
+                    bw_path = None
+                all_bw_paths.append(bw_path)
+            # enumerate all possible paths
+            for f in all_fw_paths:
+                if f:
+                    for b in all_bw_paths:
+                        if b:
+                            # hash the path
+                            path = b + [node] + f
+                            pathHash = hash(tuple([n.__hash__() for n in path]))
+                            nodeOfInterest[pathHash] = path
+    for node in tqdm(graph.all_nodes()):
+        if node.get_color() == 1:
+            fw_path = unitig.get_node_forward_path_from_node(node)
+            bw_path = unitig.get_node_backward_path_from_node(node)
+            pathNodes = bw_path + [node] + fw_path
+            pathHash = hash(tuple([n.__hash__() for n in pathNodes if n]))
+            if not any(all(pathNodes in s) for s in seen_paths):
+                nodeOfInterest[pathHash] = pathNodes
+    # get all reads unique to each path
+    readPaths = {}
+    pathReads = {}
+    readablePaths = {}
+    for p in tqdm(nodeOfInterest):
+        all_reads = set()
+        for node in nodeOfInterest[p]:
+            for r in node.get_reads():
+                all_reads.add(r)
+        for r in list(all_reads):
+            if not r in readPaths:
+                readPaths[r] = p
+            else:
+                if not readPaths[r] == p:
+                    readPaths[r] = None
+                    pathReads[p] = []
+        readablePaths[p] = [graph.get_gene_mer_label(n) for n in nodeOfInterest[p]]
+    for r in readPaths:
+        if readPaths[r]:
+            if not readPaths[r] in pathReads:
+                pathReads[readPaths[r]] = []
+            pathReads[readPaths[r]].append(r)
+    if os.path.exists(os.path.join(outputDir, "unique_reads.tab")):
+        os.remove(os.path.join(outputDir, "unique_reads.tab"))
+    for path in pathReads:
+        with open(os.path.join(outputDir, "unique_reads.tab"), "a+") as o:
+            o.write(str(path) + "\t" + ", ".join(pathReads[path]) + "\n")
+    import json
+    with open(os.path.join(outputDir, "readable_paths.json"), "w") as o:
+        o.write(json.dumps(readablePaths))
+
+def get_unique_reads_for_branched(unitig,
+                                outputDir):
+    graph = unitig.get_graph()
+    readNode = {}
+    for node in tqdm(graph.all_nodes()):
+        if node.get_color() == 2:
+            for read in node.get_reads():
+                if not read in readNode:
+                    readNode[read] = graph.get_gene_mer_label(node)
+                else:
+                    if not readNode[read] == graph.get_gene_mer_label(node):
+                        readNode[read] = None
+    nodeReads = {}
+
 def main():
     # get command line options
     args = get_options()
@@ -102,6 +290,9 @@ def main():
     # convert the Pandora SAM file to a dictionary
     sys.stderr.write("\nAmira: loading Pandora SAM\n")
     annotatedReads, readDict = convert_pandora_output(args.pandoraSam)
+    # import the list of genes of interest
+    with open(args.path_to_interesting_genes, "r") as i:
+        genesOfInterest = i.read().splitlines()
     # build the graph
     sys.stderr.write("\nAmira: building gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
@@ -109,14 +300,44 @@ def main():
     sys.stderr.write("\nAmira: filtering gene-mer graph\n")
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
+    # if debugging then color nodes with AMR genes
+    if args.debug:
+        # plot a histogram of gene counts per read
+        plot_gene_counts(annotatedReads,
+                        os.path.join(args.output_dir,
+                                    "debug"))
+        # add a color attribute to each node
+        for node in tqdm(graph.all_nodes()):
+            node.color_node(genesOfInterest)
+        # get the nodes containing AMR genes
+        unitig = Unitigs(graph,
+                        genesOfInterest)
+        # get reads unique to each node with a degree > 2 and containing an AMR gene
+        get_unique_reads_for_branched(graph,
+                                    os.path.join(args.output_dir,
+                                            "debug"))
+       # get_path_unique_reads(unitig,
+        #                    os.path.join(args.output_dir,
+         #                       "debug"))
+        # enumerate paths
+        #nodePaths = enumerate_paths(graph,
+         #                       os.path.join(args.output_dir,
+          #                      "debug"))
+        # write a debug graph
+        graph_data = graph.generate_debug_gml(os.path.join(args.output_dir,
+                                                        "debug",
+                                                        "debug_gene_mer_graph"),
+                                                args.geneMer_size,
+                                                args.node_min_coverage,
+                                                args.edge_min_coverage,
+                                                nodePaths)
+        sys.exit(0)
+    # write the graph
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
                     args.node_min_coverage,
                     args.edge_min_coverage)
-    # import the list of genes of interest
-    with open(args.path_to_interesting_genes, "r") as i:
-        genesOfInterest = i.read().splitlines()
     # initialise the UnitigBuilder class
     unitigTools = UnitigTools(graph,
                             genesOfInterest)

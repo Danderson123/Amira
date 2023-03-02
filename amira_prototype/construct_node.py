@@ -11,6 +11,7 @@ class Node:
         self.listOfReads = []
         self.forwardEdgeHashes = []
         self.backwardEdgeHashes = []
+        self._color = None
     def get_geneMer(self):
         """ return the GeneMer object represented by this node """
         return self.geneMer
@@ -27,6 +28,9 @@ class Node:
     def get_node_coverage(self) -> int:
         """ return the number of time we have seen this geneMer """
         return self.nodeCoverage
+    def get_color(self):
+        """ return the color of this node for debugging purposes """
+        return self._color
     def increment_node_coverage(self) -> int:
         """ increase the coverage of this node by 1 and return the new coverage """
         self.nodeCoverage += 1
@@ -88,6 +92,28 @@ class Node:
     def get_node_Id(self):
         """ return the integer node ID for this node """
         return self.nodeId
+    def color_node(self,
+                listOfAMRGenes):
+        """
+        adds a color attribute to this node for debugging purposes
+        - 0: node contains no AMR gene
+        - 1: node contains an AMR gene and is not at a junction
+        - 2: node contains an AMR gene and is at a junction
+        - 3: node does not contain an AMR gene but is connected to a node containing an AMR gene
+        """
+        # get the canonical geneMer for this node
+        geneMer = self.get_canonical_geneMer()
+        # get the genes in this gene mer
+        geneNames = [g.get_name() for g in geneMer]
+        # see if there are any AMR genes in this node
+        if not any(g in listOfAMRGenes for g in geneNames):
+            self._color = 0
+        else:
+            degree = len(self.get_forward_edge_hashes()) + len(self.get_backward_edge_hashes())
+            if not degree > 2:
+                self._color = 1
+            else:
+                self._color = 2
     def __eq__(self,
             otherNode):
         """ check if two nodes are identical """

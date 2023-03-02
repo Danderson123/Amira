@@ -110,6 +110,37 @@ class Unitigs:
                 backward_nodes_from_node.insert(0, backwardNode.get_geneMer().get_rc_geneMer())
                 backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
         return backward_nodes_from_node, backward_reads
+    def get_node_forward_path_from_node(self,
+                                node):
+        forward_nodes_from_node = []
+        # get the next node in the forward direction
+        forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(node)
+        # if we are extending further in the forward direction, get the next canonical gene mer
+        while forwardExtend:
+            # if we enter the next node in the forward direction, we get the next forward node
+            if forwardNodeDirection == 1:
+                forward_nodes_from_node.append(forwardNode)
+                forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(forwardNode)
+            # if we enter the next node in the backward direction, we get the next backward node
+            else:
+                forward_nodes_from_node.append(forwardNode)
+                forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(forwardNode)
+        return forward_nodes_from_node
+    def get_node_backward_path_from_node(self,
+                                    node):
+        backward_nodes_from_node = []
+        # get the next node in the backward direction
+        backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(node)
+        # if we are extending further in the backward direction, get the next canonical gene mer
+        while backwardExtend:
+            if backwardNodeDirection == -1:
+                backward_nodes_from_node.insert(0, backwardNode)
+                backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(backwardNode)
+            # if we enter the next node in the forward direction, we get the next forward node
+            else:
+                backward_nodes_from_node.insert(0, backwardNode)
+                backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
+        return backward_nodes_from_node
     def get_unitig_for_node(self,
                             node):
         """ builds a unitig starting from the node of interest and expanding in both directions """
