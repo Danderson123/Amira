@@ -22,23 +22,39 @@ class GeneMerGraph:
         for readId in tqdm(self.get_reads()):
             read = Read(readId,
                         self.get_reads()[readId])
+            # get the gene mers on this read
             geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
-            if not len(geneMers) == 0:
+            # if there are no gene mers there is nothing to add to the graph
+            if len(geneMers) == 0:
+                continue
+            if not len(geneMers) == 1:
+                # iterate through all the gene-mers except the last
                 for g in range(len(geneMers) - 1):
+                    # add a source node to the graph
                     sourceNode = self.add_node(geneMers[g])
+                    # increase the source node coverage by 1
                     sourceNode.increment_node_coverage()
+                    # add the read id to the source node attributes
                     sourceNode.add_read(read.get_readId())
-                    if not len(geneMers) == 1:
-                        targetNode = self.add_node(geneMers[g+1])
-                        targetNode.add_read(read.get_readId())
-                        sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(geneMers[g],
-                                                                                    geneMers[g+1])
-                        sourceToTargetEdge.increment_edge_coverage()
-                        reverseTargetToSourceEdge.increment_edge_coverage()
-                if not len(geneMers) == 1:
-                    targetNodeHash = geneMers[-1].__hash__()
-                    targetNode = self.get_node_by_hash(targetNodeHash)
-                    targetNode.increment_node_coverage()
+                    # add the target node to the graph
+                    targetNode = self.add_node(geneMers[g+1])
+                    # add the read id to the target node attributes
+                    targetNode.add_read(read.get_readId())
+                    # add an edge from source to target and target to source
+                    sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(geneMers[g],
+                                                                                geneMers[g+1])
+                    # increment the edge coverages by 1
+                    sourceToTargetEdge.increment_edge_coverage()
+                    reverseTargetToSourceEdge.increment_edge_coverage()
+                targetNodeHash = geneMers[-1].__hash__()
+                targetNode = self.get_node_by_hash(targetNodeHash)
+                # increment the coverage of the target if it is the last gene mer in the read
+                targetNode.increment_node_coverage()
+            else:
+                # add a single node to the graph if there is only 1 gene mer
+                sourceNode = self.add_node(geneMers[0])
+                sourceNode.increment_node_coverage()
+                sourceNode.add_read(read.get_readId())
     def get_reads(self):
         """ return a dictionary of all reads and their genes """
         return self._reads
@@ -302,7 +318,8 @@ class GeneMerGraph:
                         node_id,
                         node_string,
                         node_coverage,
-                        reads):
+                        reads,
+                        nodeColor):
         """ return a string of a gml node entry """
         if node_coverage > 100:
             node_coverage = 100
@@ -311,6 +328,8 @@ class GeneMerGraph:
         node_entry += '\t\tlabel\t"' + node_string + '"\n'
         node_entry += "\t\tcoverage\t" + str(node_coverage) + "\n"
         node_entry += '\t\treads\t"' + ",".join(reads) + '"\n'
+        if nodeColor:
+            node_entry += '\t\tcolor\t"' + str(nodeColor) + '"\n'
         node_entry += "\t]"
         return node_entry
     def write_edge_entry(self,
@@ -362,12 +381,12 @@ class GeneMerGraph:
         self.assign_Id_to_nodes()
         # iterate through the nodes in the graph
         for sourceNode in self.all_nodes():
-            # check that the coverage of the node is greater than the minimum specified node coverage
             # add the node entry
             nodeEntry = self.write_node_entry(sourceNode.get_node_Id(),
                                             self.get_gene_mer_label(sourceNode),
                                             sourceNode.get_node_coverage(),
-                                            [read for read in sourceNode.get_reads()])
+                                            [read for read in sourceNode.get_reads()],
+                                            sourceNode.get_color())
             graph_data.append(nodeEntry)
             # get the forward edges for this node
             nodeForwardEdgeHashes = sourceNode.get_forward_edge_hashes()

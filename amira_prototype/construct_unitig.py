@@ -28,141 +28,258 @@ class Unitigs:
         """ extracts the graph nodes containing the genes of interest and returns them as a list """
         return self.get_graph().get_nodes_containing(geneOfInterest)
     def get_forward_node_from_node(self,
-                                sourceNode: Node) -> list:
+                                sourceNode: Node,
+                                allAMRHashes) -> list:
         """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
         # get the list of forward edge hashes for this node
         nodeForwardEdges = sourceNode.get_forward_edge_hashes()
         if len(nodeForwardEdges) > 0:
+            targetNodes = []
+            targetNodeDirections = []
             # iterate through the edge hashes
             for edge_hash in nodeForwardEdges:
                 # get the edge object corresponding to this edge hash
                 edge = self.get_graph().get_edges()[edge_hash]
                 # get the target node for this edge
                 targetNode = edge.get_targetNode()
-                # get the degree of the target node
-                targetNodeDegree = self.get_graph().get_degree(targetNode)
-                # if the degree of the target node is 1 or 2 we can extend the linear path to the next node
-                if targetNodeDegree == 2 or targetNodeDegree == 1:
+                # check if the target node contains an AMR gene
+                if targetNode.__hash__() in allAMRHashes:
+                    targetNodes.append(edge.get_targetNode())
                     # get the direction we are going into the target node
-                    targetNodeDirection = edge.get_targetNodeDirection()
-                    return True, targetNode, targetNodeDirection
-                # else we cannot extend the linear path
-                else:
-                    return False, None, None
+                    targetNodeDirections.append(edge.get_targetNodeDirection())
+            return targetNodes, targetNodeDirections
         else:
-            return False, None, None
+            return None, None
     def get_backward_node_from_node(self,
-                                sourceNode: Node) -> list:
+                                sourceNode: Node,
+                                allAMRHashes) -> list:
         """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
         # get the list of forward edge hashes for this node
         nodeBackwardEdges = sourceNode.get_backward_edge_hashes()
         if len(nodeBackwardEdges) > 0:
+            targetNodes = []
+            targetNodeDirections = []
             # iterate through the edge hashes
             for edge_hash in nodeBackwardEdges:
                 # get the edge object corresponding to this edge hash
                 edge = self.get_graph().get_edges()[edge_hash]
                 # get the target node for this edge
                 targetNode = edge.get_targetNode()
-                # get the degree of the target node
-                targetNodeDegree = self.get_graph().get_degree(targetNode)
-                # if the degree of the target node is 1 or 2 we can extend the linear path to the next node
-                if targetNodeDegree == 2 or targetNodeDegree == 1:
+                # check if the target node contains an AMR gene
+                if targetNode.__hash__() in allAMRHashes:
+                    targetNodes.append(edge.get_targetNode())
                     # get the direction we are going into the target node
-                    targetNodeDirection = edge.get_targetNodeDirection()
-                    return True, targetNode, targetNodeDirection
-                else:
-                    # else we cannot extend the linear path
-                    return False, None, None
-        else:
-            return False, None, None
-    def get_forward_path_from_node(self,
-                                node):
-        forward_nodes_from_node = []
-        forward_reads = []
-        # get the next node in the forward direction
-        forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(node)
-        # if we are extending further in the forward direction, get the next canonical gene mer
-        while forwardExtend:
-            forward_reads.append([r for r in forwardNode.get_reads()])
-            # if we enter the next node in the forward direction, we get the next forward node
-            if forwardNodeDirection == 1:
-                forward_nodes_from_node.append(forwardNode.get_canonical_geneMer())
-                forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(forwardNode)
-            # if we enter the next node in the backward direction, we get the next backward node
-            else:
-                forward_nodes_from_node.append(forwardNode.get_geneMer().get_rc_geneMer())
-                forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(forwardNode)
-        return forward_nodes_from_node, forward_reads
-    def get_backward_path_from_node(self,
-                                    node):
-        backward_nodes_from_node = []
-        backward_reads = []
-        # get the next node in the backward direction
-        backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(node)
-        # if we are extending further in the backward direction, get the next canonical gene mer
-        while backwardExtend:
-            backward_reads.insert(0, [r for r in backwardNode.get_reads()])
-            if backwardNodeDirection == -1:
-                backward_nodes_from_node.insert(0, backwardNode.get_geneMer().get_canonical_geneMer())
-                backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(backwardNode)
-            # if we enter the next node in the forward direction, we get the next forward node
-            else:
-                backward_nodes_from_node.insert(0, backwardNode.get_geneMer().get_rc_geneMer())
-                backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
-        return backward_nodes_from_node, backward_reads
-    def get_unitig_for_node(self,
-                            node):
-        """ builds a unitig starting from the node of interest and expanding in both directions """
-        if self.get_graph().get_degree(node) == 2 or self.get_graph().get_degree(node) == 1 or self.get_graph().get_degree(node) == 0:
-            # get the forward nodes from this node
-            forward_nodes_from_node, forward_reads = self.get_forward_path_from_node(node)
-            # get the backward nodes from this node
-            backward_nodes_from_node, backward_reads = self.get_backward_path_from_node(node)
-            # join the backward nodes, this node, and the forward nodes to get the path of nodes
-            unitig = backward_nodes_from_node + [node.get_canonical_geneMer()] + forward_nodes_from_node
-            unitig_reads = backward_reads + [[r for r in node.get_reads()]] + forward_reads
-            return unitig, unitig_reads
+                    targetNodeDirections.append(edge.get_targetNodeDirection())
+            return targetNodes, targetNodeDirections
         else:
             return None, None
-    def hash_unitig(self,
-                    unitigGeneMers: list,
-                    reverseUnitigGeneMers: list) -> int:
-        """ return the hash of a unitig to check if we have seen it before """
-        geneMerHashes = [hash(tuple([gene.__hash__() for gene in geneMer])) for geneMer in unitigGeneMers]
-        reverseGeneMerHashes = [hash(tuple([gene.__hash__() for gene in geneMer])) for geneMer in reverseUnitigGeneMers]
-        untigHash = sorted([hash(tuple(geneMerHashes)), hash(tuple(reverseGeneMerHashes))])[0]
-        return untigHash
-    def get_unitigs_of_interest(self):
-        """ returns a dictionary of unitigs containing AMR genes of interest and a dictionary of reads per unitig"""
-        unitigGenesOfInterest = {}
-        unitigsReadsOfInterest = {}
+    def get_all_nodes_containing_AMR_genes(self):
+        """ return a dictionary of nodes containing AMR genes """
+        AMRNodes = {}
         # iterate through the list of specified genes
         for geneOfInterest in self.get_selected_genes():
             # get the graph nodes containing this gene
             nodesOfInterest = self.get_nodes_of_interest(geneOfInterest)
-            # iterate through the nodes containing this gene
-            for node in nodesOfInterest:
-                # get the linear path for this node
-                node_unitig, unitig_reads = self.get_unitig_for_node(node)
-                if node_unitig:
-                    reversed_node_unitig = list(reversed([define_rc_geneMer(n) for n in node_unitig]))
-                    untigHash = self.hash_unitig(node_unitig,
-                                                reversed_node_unitig)
-                    if not untigHash in unitigGenesOfInterest:
-                        unitigGenesOfInterest[untigHash] = []
-                        unitigsReadsOfInterest[untigHash] = []
-                    # add the read to the reads for this unitig if it doesn't exist already
-                    for geneMerReads in unitig_reads:
-                        for read in geneMerReads:
-                            if not read in unitigsReadsOfInterest[untigHash]:
-                                unitigsReadsOfInterest[untigHash].append(read)
-                    # add the gene and it's strand to the genes for this unitig
-                    unitigGenesOfInterest[untigHash] = [convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in node_unitig[0]]
-                    for geneMer in node_unitig[1:]:
-                        gene_strand = convert_int_strand_to_string(geneMer[-1].get_strand())
-                        gene_name = geneMer[-1].get_name()
-                        unitigGenesOfInterest[untigHash].append(gene_strand + gene_name)
-        return unitigGenesOfInterest, unitigsReadsOfInterest
+            # add nodes of interest to the AMR node set
+            for n in nodesOfInterest:
+                AMRNodes[n.__hash__()] = n
+        return AMRNodes
+    def get_AMR_anchors(self,
+                        AMRNodes):
+        nodeAnchors = set()
+        # get nodes that are anchors for traversing in the forward direction of the graph
+        for nodeHash in AMRNodes:
+            # get the forward edges for this node
+            forward_edges = [self.get_graph().get_edge_by_hash(h) for h in AMRNodes[nodeHash].get_forward_edge_hashes()]
+            # get the backward edges for this node
+            backward_edges = [self.get_graph().get_edge_by_hash(h) for h in AMRNodes[nodeHash].get_backward_edge_hashes()]
+            # get the forward edges that contain an AMR gene
+            forwardAMRNodes = [e.get_targetNode() for e in forward_edges if e.get_targetNode().__hash__() in AMRNodes]
+            # get the backward edges that contain an AMR gene
+            backwardAMRNodes = [e.get_targetNode() for e in backward_edges if e.get_targetNode().__hash__() in AMRNodes]
+            # if the number of backward neighbors is not 1 then this is a forward anchor
+            if not len(forwardAMRNodes) == 1:
+                nodeAnchors.add(nodeHash)
+            if not len(backwardAMRNodes) == 1:
+                nodeAnchors.add(nodeHash)
+        return nodeAnchors
+    def get_node_geneMer(self,
+                        node,
+                        nodeDirection):
+        if nodeDirection == 1:
+            return node.get_canonical_geneMer()
+        else:
+            return node.get_geneMer().get_rc_geneMer()
+    def check_if_node_in_anchors(self,
+                                nodeHash,
+                                nodeAnchors):
+        if nodeHash in nodeAnchors:
+            return False
+        else:
+            return True
+    def get_path_start_and_ends(self,
+                            complex_paths):
+            starts = {}
+            ends = {}
+            for pathHash in complex_paths:
+                path = complex_paths[pathHash]
+                # let's get the start and end node of the path
+                start_node = tuple(path[0])
+                end_node = tuple(path[-1])
+                # add the starts and to a dictionary
+                if not start_node in starts:
+                    starts[start_node] = []
+                starts[start_node].append(pathHash)
+                if not end_node in ends:
+                    ends[end_node] = []
+                ends[end_node].append(pathHash)
+            return starts, ends
+    def get_path_pairs_to_merge(self,
+                            starts,
+                            ends):
+        pathsToMerge = []
+        for nodeHash in ends:
+            if nodeHash in starts:
+                for firstPath in ends[nodeHash]:
+                    for secondPath in starts[nodeHash]:
+                        if not firstPath == secondPath:
+                            pathsToMerge.append((firstPath, secondPath))
+        return pathsToMerge
+    def merge_paths(self,
+                    pathsToMerge,
+                    complex_paths,
+                    allPathReads):
+        allMergedPaths = {}
+        allMergedPathReads = {}
+        seenPathHashes = set()
+        pathId = 1
+        for p in pathsToMerge:
+            # get the first path to merge
+            firstPath = complex_paths[p[0]]
+            # get the first path reads
+            firstPathReads = allPathReads[p[0]]
+            # get the second path to merge
+            secondPath = complex_paths[p[1]]
+            # get the second path reads
+            secondPathReads = allPathReads[p[1]]
+            # check to see that there is at least 1 read supporting merging these paths
+            if not set(firstPathReads).isdisjoint(secondPathReads):
+                # merge the paths
+                mergedPath = firstPath + secondPath[1:]
+                # merge the path reads
+                mergedReads = list(set(firstPathReads + secondPathReads))
+                # add the merged path information to a dictionary
+                allMergedPaths[pathId] = mergedPath
+                # add the merged read information to a dictionary
+                allMergedPathReads[pathId] = mergedReads
+                # keep track of which paths we have merged
+                seenPathHashes.add(p[0])
+                seenPathHashes.add(p[1])
+                # increment the path ID
+                pathId += 1
+        for pathHash in complex_paths:
+            # retrieve information for paths that have not been merged
+            if not pathHash in seenPathHashes:
+                # store unmerged paths in the path dict
+                allMergedPaths[pathId] = complex_paths[pathHash]
+                # store unmerged path reads in the read dict
+                allMergedPathReads[pathId] = allPathReads[pathHash]
+                seenPathHashes.add(pathHash)
+                # increment path ID
+                pathId += 1
+        return allMergedPaths, allMergedPathReads
+    def simplify_paths(self,
+                    complex_paths,
+                    all_path_reads):
+        """ returns a dictionary of merged & enumerated paths """
+        starts, ends = self.get_path_start_and_ends(complex_paths)
+        pathsToMerge = self.get_path_pairs_to_merge(starts,
+                                                    ends)
+        mergedPaths, mergedReads = self.merge_paths(pathsToMerge,
+                                        complex_paths,
+                                        all_path_reads)
+        return mergedPaths, mergedReads
+    def get_unitigs_of_interest(self):
+        # isolate nodes containing AMR genes
+        AMRNodes = self.get_all_nodes_containing_AMR_genes()
+        # get AMR nodes that can act as anchors
+        nodeAnchors = self.get_AMR_anchors(AMRNodes)
+        # get the forward path for all forward anchors until we hit a backward anchor
+        complex_paths = {}
+        simple_paths = {}
+        all_path_reads = {}
+        # get a set of all node hashes we are interested in
+        allAMRHashes = set(AMRNodes.keys())
+        for nodeHash in tqdm(list(nodeAnchors)):
+            # get forward paths
+            fw_node_list, fw_node_direction_list = self.get_forward_node_from_node(AMRNodes[nodeHash],
+                                                                                allAMRHashes)
+            bw_node_list, bw_node_direction_list = self.get_backward_node_from_node(AMRNodes[nodeHash],
+                                                                                allAMRHashes)
+            if fw_node_list and bw_node_list:
+                fw_node_list += bw_node_list
+                fw_node_direction_list += bw_node_direction_list
+            if not fw_node_list and bw_node_list:
+                fw_node_list = bw_node_list
+                fw_node_direction_list = bw_node_direction_list
+            if fw_node_list:
+                for n in range(len(fw_node_list)):
+                    next_node = fw_node_list[n]
+                    next_node_direction = fw_node_direction_list[n]
+                    next_node_geneMer = self.get_node_geneMer(next_node,
+                                                        next_node_direction)
+                    path = [AMRNodes[nodeHash].get_canonical_geneMer(), next_node_geneMer]
+                    pathNodeHashes = [AMRNodes[nodeHash].__hash__(), next_node.__hash__()]
+                    pathReads = set([r for r in next_node.get_reads()])#set([r for r in AMRNodes[nodeHash].get_reads()] + [r for r in next_node.get_reads()])
+                    pathNodes = [AMRNodes[nodeHash], next_node]
+                    # check if a node is an anchor, if so get the path
+                    extend = self.check_if_node_in_anchors(next_node.__hash__(),
+                                                        nodeAnchors)
+                    while extend:
+                        if next_node_direction == 1:
+                            next_node_list, next_node_direction_list = self.get_forward_node_from_node(next_node,
+                                                                                                    allAMRHashes)
+                        else:
+                            next_node_list, next_node_direction_list = self.get_backward_node_from_node(next_node,
+                                                                                                    allAMRHashes)
+                        next_node = next_node_list[0]
+                        next_node_direction = next_node_direction_list[0]
+                        next_node_geneMer = self.get_node_geneMer(next_node,
+                                                            next_node_direction)
+                        path.append(next_node_geneMer)
+                        pathNodes.append(next_node)
+                        pathNodeHashes.append(next_node.__hash__())
+                        # if the next node is an anchor we end the extension
+                        extend = self.check_if_node_in_anchors(next_node.__hash__(),
+                                                        nodeAnchors)
+                        if extend:
+                            # add the reads to the read set
+                            for read in next_node.get_reads():
+                                pathReads.add(read)
+                    # get a hash for the path. This is the same for the forward and reverse path
+                    pathNodeHashes = sorted([pathNodeHashes, list(reversed(pathNodeHashes))])[0]
+                    pathHash = hash(tuple(pathNodeHashes))
+                    # we can say a path is simple or complicated depending on whether it includes a branching node at either end
+                    if not (self.get_graph().get_degree(pathNodes[0]) > 2 or self.get_graph().get_degree(pathNodes[-1]) > 2):
+                        path_dict = simple_paths
+                    else:
+                        path_dict = complex_paths
+                    # add a list of genes and their strands to the relevant path dictionary
+                    path_dict[pathHash] = path
+                    # initialise the dictionary of reads per path
+                    if not pathHash in all_path_reads:
+                        all_path_reads[pathHash] = list(pathReads)
+            else:
+                if self.get_graph().get_degree(AMRNodes[nodeHash]) == 0:
+                    # this is a singleton
+                    pathHash = hash(AMRNodes[nodeHash].__hash__())
+                    simple_paths[pathHash] = [AMRNodes[nodeHash].get_canonical_geneMer()]#[convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in AMRNodes[nodeHash].get_canonical_geneMer()]
+                    all_path_reads[pathHash] = [r for r in AMRNodes[nodeHash].get_reads()]
+        complex_paths.update(simple_paths)
+        # if a path is complex due to a junction, we can make a unitig longer by enumerating all possible paths through the junction
+        mergedPaths, mergedPathReads = self.simplify_paths(complex_paths,
+                                                        all_path_reads)
+        return simple_paths, all_path_reads
 
 class UnitigTools:
     def __init__(self,
@@ -170,50 +287,60 @@ class UnitigTools:
                 genesOfInterest):
         self._unitigs = Unitigs(graph,
                             genesOfInterest)
-        self._unitigGenesOfInterest, self._unitigsReadsOfInterest = self.get_unitigs().get_unitigs_of_interest()
+        self._unitigsOfInterest, self._unitigReadsOfInterest = self.get_unitigs().get_unitigs_of_interest()
     def get_unitigs(self) -> Unitigs:
         """ returns the Unitigs object containing the specified AMR genes """
         return self._unitigs
-    def get_unitigGenesOfInterest(self) -> dict:
+    def get_unitigsOfInterest(self) -> dict:
         """ returns all unitigs containing the specified AMR genes """
-        return self._unitigGenesOfInterest
+        return self._unitigsOfInterest
     def get_unitigReadsOfInterest(self) -> dict:
         """ returns all unitigs containing the specified AMR genes """
-        return self._unitigsReadsOfInterest
+        return self._unitigReadsOfInterest
+    def convert_paths_to_genes(self,
+                            pathGeneMers):
+        geneMerGenes = [convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in pathGeneMers[0]]
+        for geneMer in pathGeneMers[1:]:
+            gene_strand = convert_int_strand_to_string(geneMer[-1].get_strand())
+            gene_name = geneMer[-1].get_name()
+            geneMerGenes.append(gene_strand + gene_name)
+        return geneMerGenes
     def separate_reads(self,
                 output_dir,
                 readFile):
         fastqContent = parse_fastq(readFile)
         readFiles = []
         # get the untig genes and reads
-        unitigGenesOfInterest = self.get_unitigGenesOfInterest()
+        unitigsOfInterest = self.get_unitigsOfInterest()
         unitigsReadsOfInterest = self.get_unitigReadsOfInterest()
-        # assign an integer id to each unitig
-        unitig_count = 1
         # store the unitig hash to integer mappings
         unitig_mapping = {}
+        # make the output directory if it doesn't exist
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
         # iterate through the unitigs
-        for unitig in tqdm(unitigGenesOfInterest):
-            if not len(unitigGenesOfInterest[unitig]) == 0:
+        for path in tqdm(unitigsOfInterest):
+            if not len(unitigsOfInterest[path]) == 0:
                 # make the output directory
-                if not os.path.exists(os.path.join(output_dir, str(unitig_count))):
-                    os.mkdir(os.path.join(output_dir, str(unitig_count)))
+                if not os.path.exists(os.path.join(output_dir, str(path))):
+                    os.mkdir(os.path.join(output_dir, str(path)))
+                # get a readable list of genes in this path
+                readableGenes = self.convert_paths_to_genes(unitigsOfInterest[path])
                 # write out the list of genes
-                with open(os.path.join(output_dir, str(unitig_count), "annotated_genes.txt"), "w") as outGenes:
-                    outGenes.write("\n".join(unitigGenesOfInterest[unitig]))
+                with open(os.path.join(output_dir, str(path), "annotated_genes.txt"), "w") as outGenes:
+                    outGenes.write("\n".join(readableGenes))
                 # subset the reads for this unitig
-                unitigReads = unitigsReadsOfInterest[unitig]
+                unitigReads = unitigsReadsOfInterest[path]
                 subsettedReadData = {}
                 for r in unitigReads:
                     subsettedReadData[r] =  fastqContent[r]
                 # write the per unitig fastq data
-                readFileName = os.path.join(output_dir, str(unitig_count), str(unitig_count) + ".fastq.gz")
+                readFileName = os.path.join(output_dir, str(path), str(path) + ".fastq.gz")
                 write_fastq(readFileName,
                             subsettedReadData)
                 readFiles.append(readFileName)
                 # update the unitig IDs
-                unitig_mapping[unitig] = unitig_count
-                unitig_count += 1
+                unitig_mapping[path] = path
         return readFiles, unitig_mapping
     def multithread_flye(self,
                         readFiles,
@@ -388,7 +515,7 @@ class UnitigTools:
                         output_dir: str):
         """ generate a figure to visualise the genes, order of genes, direction and lengths of genes on unitigs containing AMR genes """
         allAMRGenes = self.get_unitigs().get_selected_genes()
-        unitigGenesOfInterest = self.get_unitigGenesOfInterest()
+        unitigGenesOfInterest = self.get_unitigsOfInterest()
         # initialise the unitig figure
         fig, ax = self.initialise_plots(len(unitigGenesOfInterest))
         # get minimum length of all genes

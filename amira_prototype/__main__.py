@@ -38,6 +38,8 @@ def get_options():
                         help='path to Racon binary', default=None, required=False)
     parser.add_argument('--threads', dest='threads', type=int, default=1,
                         help='number of threads to use')
+    parser.add_argument('--debug', dest='debug', action='store_true', default=False,
+                        help='Amira debugging')
     args = parser.parse_args()
     return args
 
@@ -65,7 +67,8 @@ def determine_gene_strand(read):
         gene_name = "+" + read.reference_name.replace("~~~", ";")
     return gene_name
 
-def convert_pandora_output(pandoraSam):
+def convert_pandora_output(pandoraSam,
+                        genesOfInterest):
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
     annotatedReads = {}
@@ -91,6 +94,13 @@ def convert_pandora_output(pandoraSam):
             readDict[gene_name[1:]].append(regionLength)
             # store the per read gene names
             annotatedReads[read.query_name].append(gene_name)
+    to_delete = []
+    for r in annotatedReads:
+        if not any(g[1:] in genesOfInterest for g in annotatedReads[r]):
+            to_delete.append(r)
+    for t in to_delete:
+        del annotatedReads[t]
+    assert not len(annotatedReads) == 0
     return annotatedReads, readDict
 
 def main():
@@ -99,9 +109,13 @@ def main():
     # make the output directory if it does not exist
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
+    # import the list of genes of interest
+    with open(args.path_to_interesting_genes, "r") as i:
+        genesOfInterest = i.read().splitlines()
     # convert the Pandora SAM file to a dictionary
     sys.stderr.write("\nAmira: loading Pandora SAM\n")
-    annotatedReads, readDict = convert_pandora_output(args.pandoraSam)
+    annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
+                                                    set(genesOfInterest))
     # build the graph
     sys.stderr.write("\nAmira: building gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
@@ -109,20 +123,22 @@ def main():
     sys.stderr.write("\nAmira: filtering gene-mer graph\n")
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
+    if args.debug:
+        # color nodes in the graph
+        for node in graph.all_nodes():
+            node.color_node(genesOfInterest)
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
                     args.node_min_coverage,
                     args.edge_min_coverage)
-    # import the list of genes of interest
-    with open(args.path_to_interesting_genes, "r") as i:
-        genesOfInterest = i.read().splitlines()
     # initialise the UnitigBuilder class
+    sys.stderr.write("\nAmira: getting viable paths\n")
     unitigTools = UnitigTools(graph,
                             genesOfInterest)
     # generate a visualisation of the unitigs
     sys.stderr.write("\nAmira: separating paralog reads\n")
-    readFiles, unitig_mapping = unitigTools.separate_reads(args.output_dir,
+    readFiles, unitig_mapping = unitigTools.separate_reads(os.path.join(args.output_dir, "unitigs"),
                                                         args.readfile)
     # run flye on the subsetted reads
     if args.flye_path:

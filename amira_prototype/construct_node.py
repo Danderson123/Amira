@@ -11,6 +11,7 @@ class Node:
         self.listOfReads = []
         self.forwardEdgeHashes = []
         self.backwardEdgeHashes = []
+        self._color = None
     def get_geneMer(self):
         """ return the GeneMer object represented by this node """
         return self.geneMer
@@ -95,3 +96,27 @@ class Node:
     def __hash__(self):
         """ return a hash of the canonical gene mer to check if two nodes represent the same gene-mer """
         return self.geneMerHash
+    def get_color(self):
+        """ return the color of this node for debugging purposes """
+        return self._color
+    def color_node(self,
+                listOfAMRGenes):
+        """
+        adds a color attribute to this node for debugging purposes
+        - 0: node contains no AMR gene
+        - 1: node contains an AMR gene and is not at a junction
+        - 2: node contains an AMR gene and is at a junction
+        """
+        # get the canonical geneMer for this node
+        geneMer = self.get_canonical_geneMer()
+        # get the genes in this gene mer
+        geneNames = [g.get_name() for g in geneMer]
+        # see if there are any AMR genes in this node
+        if not any(g in listOfAMRGenes for g in geneNames):
+            self._color = 0
+        else:
+            degree = len(self.get_forward_edge_hashes()) + len(self.get_backward_edge_hashes())
+            if not degree > 2:
+                self._color = 1
+            else:
+                self._color = 2

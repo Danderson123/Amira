@@ -68,14 +68,16 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph.add_edge_to_node(nodes[1],
                             mock_rc_forward_edge)
         unitig = Unitigs(graph,
-                        [])
+                        ["gene2"])
+        AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # execution
-        actual_extend, actual_targetNode, actual_targetDirection = unitig.get_forward_node_from_node(nodes[0])
+        actual_targetNode, actual_targetDirection = unitig.get_forward_node_from_node(nodes[0],
+                                                                                    set(AMRNodes.keys()))
+        actual_targetNode = actual_targetNode[0]
+        actual_targetDirection = actual_targetDirection[0]
         # assertion
-        expected_extend = True
         expected_targetNode = nodes[1]
         expected_targetDirection = 1
-        self.assertEqual(actual_extend, expected_extend)
         self.assertEqual(actual_targetNode, expected_targetNode)
         self.assertEqual(actual_targetDirection, expected_targetDirection)
 
@@ -92,14 +94,14 @@ class TestUnitigsConstructor(unittest.TestCase):
             node = graph.add_node(g)
             nodes.append(node)
         unitig = Unitigs(graph,
-                        [])
+                        ["gene2"])
+        AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # execution
-        actual_extend, actual_targetNode, actual_targetDirection = unitig.get_forward_node_from_node(nodes[0])
+        actual_targetNode, actual_targetDirection = unitig.get_forward_node_from_node(nodes[0],
+                                                                                    set(AMRNodes.keys()))
         # assertion
-        expected_extend = False
         expected_targetNode = None
         expected_targetDirection = None
-        self.assertEqual(actual_extend, expected_extend)
         self.assertEqual(actual_targetNode, expected_targetNode)
         self.assertEqual(actual_targetDirection, expected_targetDirection)
 
@@ -130,14 +132,16 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph.add_edge_to_node(nodes[1],
                             mock_rc_backward_edge)
         unitig = Unitigs(graph,
-                        [])
+                        ["gene2"])
+        AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # execution
-        actual_extend, actual_targetNode, actual_targetDirection = unitig.get_backward_node_from_node(nodes[0])
+        actual_targetNode, actual_targetDirection = unitig.get_backward_node_from_node(nodes[0],
+                                                                                    set(AMRNodes.keys()))
+        actual_targetNode = actual_targetNode[0]
+        actual_targetDirection = actual_targetDirection[0]
         # assertion
-        expected_extend = True
         expected_targetNode = nodes[1]
         expected_targetDirection = -1
-        self.assertEqual(actual_extend, expected_extend)
         self.assertEqual(actual_targetNode, expected_targetNode)
         self.assertEqual(actual_targetDirection, expected_targetDirection)
 
@@ -154,238 +158,108 @@ class TestUnitigsConstructor(unittest.TestCase):
             node = graph.add_node(g)
             nodes.append(node)
         unitig = Unitigs(graph,
-                        [])
+                        ["gene2"])
+        AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # execution
-        actual_extend, actual_targetNode, actual_targetDirection = unitig.get_backward_node_from_node(nodes[0])
+        actual_targetNode, actual_targetDirection = unitig.get_backward_node_from_node(nodes[0],
+                                                                                    set(AMRNodes.keys()))
         # assertion
-        expected_extend = False
         expected_targetNode = None
         expected_targetDirection = None
-        self.assertEqual(actual_extend, expected_extend)
         self.assertEqual(actual_targetNode, expected_targetNode)
         self.assertEqual(actual_targetDirection, expected_targetDirection)
 
-    def test___get_forward_path_from_node(self):
-        # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
-        genes2 = ["-gene6", "+gene7", "-gene8", "+gene9"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3)
-        sourceGeneMer = GeneMer([Gene("+gene5"), Gene("-gene6"), Gene("+gene7")])
-        sourceNode = graph.add_node(sourceGeneMer)
-        sourceNode.increment_node_coverage()
-        targetNode = graph.get_node(GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")]))
-        mock_forward_edge = Edge(sourceNode,
-                                targetNode,
-                                1,
-                                GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")]).get_geneMerDirection())
-        mock_rc_forward_edge = Edge(targetNode,
-                                    sourceNode,
-                                    GeneMer([Gene("-gene6"), Gene("+gene7"), Gene("-gene8")]).get_geneMerDirection() * -1,
-                                    -1)
-        mock_forward_edge.increment_edge_coverage()
-        mock_rc_forward_edge.increment_edge_coverage()
-        graph.add_edges_to_graph(mock_forward_edge,
-                                mock_rc_forward_edge)
-        graph.add_edge_to_node(sourceNode,
-                            mock_forward_edge)
-        graph.add_edge_to_node(targetNode,
-                            mock_rc_forward_edge)
-        unitig = Unitigs(graph,
-                        ["gene5"])
+   # def test___get_unitigs_of_interest(self):
+    #    # setup
+     #   genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+      #  genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+       # graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+       #                     3)
+       # unitig = Unitigs(graph,
+      #                  ["gene1","gene4", "gene7"])
         # execution
-        actual_forwardPath = unitig.get_forward_path_from_node(sourceNode)
+       # actual_unitigGenesOfInterest, actual_unitigsReadsOfInterest = unitig.get_unitigs_of_interest()
+       # actual_unitig_count = len(actual_unitigGenesOfInterest)
+       # actual_unitig_read_count = len(actual_unitigsReadsOfInterest)
         # assertion
-        expected_forwardPath = [[[Gene("-gene6"), Gene("+gene7"), Gene("-gene8")],
-                                [Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]]]
-        expected_forwardPath.append(list(reversed([list(reversed(e)) for e in expected_forwardPath[0]])))
-        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[0]])
-        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[1]])
-        self.assertTrue(any(actual_forwardPath[0] == e for e in expected_forwardPath))
+       # expected_unitig_count = 7
+       # expected_unitig_read_count = 7
+       # self.assertEqual(actual_unitig_count, expected_unitig_count)
+       # self.assertEqual(actual_unitig_read_count, expected_unitig_read_count)
 
-    def test___get_forward_path_from_first_node(self):
+ #   def test___visualise_unitigs(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
-        genes2 = ["-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3)
-        sourceGeneMer = GeneMer([Gene("-gene0"), Gene("+gene1"), Gene("-gene2")])
-        sourceNode = graph.add_node(sourceGeneMer)
-        sourceNode.increment_node_coverage()
-        targetNode = graph.get_node(GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]))
-        mock_forward_edge = Edge(sourceNode,
-                                targetNode,
-                                1,
-                                GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]).get_geneMerDirection())
-        mock_rc_forward_edge = Edge(targetNode,
-                                    sourceNode,
-                                    GeneMer([Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]).get_geneMerDirection() * -1,
-                                    -1)
-        mock_forward_edge.increment_edge_coverage()
-        mock_rc_forward_edge.increment_edge_coverage()
-        graph.add_edges_to_graph(mock_forward_edge,
-                                mock_rc_forward_edge)
-        graph.add_edge_to_node(sourceNode,
-                            mock_forward_edge)
-        graph.add_edge_to_node(targetNode,
-                            mock_rc_forward_edge)
-        unitig = Unitigs(graph,
-                        ["gene0"])
-        # execution
-        actual_forwardPath = unitig.get_forward_path_from_node(sourceNode)
-        # assertion
-        expected_forwardPath = [[[Gene("+gene1"), Gene("-gene2"), Gene("+gene3")],
-                                [Gene("-gene2"), Gene("+gene3"), Gene("-gene4")],
-                                [Gene("+gene3"), Gene("-gene4"), Gene("+gene5")],
-                                [Gene("-gene4"), Gene("+gene5"), Gene("-gene6")]]]
-        expected_forwardPath.append(list(reversed([list(reversed(e)) for e in expected_forwardPath[0]])))
-        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[0]])
-        expected_forwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_forwardPath[1]])
-        self.assertTrue(any(actual_forwardPath[0] == e for e in expected_forwardPath))
+#        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+#        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+#        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+#                            3)
+#        unitig = Unitigs(graph,
+##                        ["gene1","gene4", "gene7"])
+#        unitigTools = UnitigTools(graph,
+#                                ["gene1","gene4", "gene7"])
+#        unitig_mappings = {}
+#        unitigs = unitigTools.get_unitigGenesOfInterest()
+#        count = 1
+#        for u in unitigs:
+#            unitig_mappings[u] = count
+#            count += 1
+#        # execution
+#        unitigTools.visualise_unitigs({"gene1": [1500], "gene2": [3000], "gene3": [1000], "gene4": [90], "gene5": [600], "gene6": [2000], "gene7": [100], "gene8": [1000], "gene9": [4000], "gene10": [400]},
+#                            unitig_mappings,
+#                            "tests")
+ #       # assertion
+#        import os
+ #       self.assertTrue(os.path.exists("tests/context_plots.pdf"))
+ #       os.remove("tests/context_plots.pdf")
 
-    def test___get_backward_path_from_node(self):
+    def test___get_all_nodes_containing_AMR_genes(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
-        genes2 = ["-gene6", "+gene7", "-gene8", "+gene9"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3},
                             3)
-        targetGeneMer = GeneMer([Gene("+gene3"), Gene("-gene4"), Gene("+gene5")])
-        targetNode = graph.add_node(targetGeneMer)
-        targetNode.increment_node_coverage()
-        sourceNode = graph.get_node(GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]))
-        mock_backward_edge = Edge(sourceNode,
-                                targetNode,
-                                GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]).get_geneMerDirection(),
-                                1)
-        mock_rc_backward_edge = Edge(targetNode,
-                                    sourceNode,
-                                    -1,
-                                    GeneMer([Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]).get_geneMerDirection() * -1)
-        mock_backward_edge.increment_edge_coverage()
-        mock_rc_backward_edge.increment_edge_coverage()
-        graph.add_edges_to_graph(mock_backward_edge,
-                                mock_rc_backward_edge)
-        graph.add_edge_to_node(sourceNode,
-                            mock_backward_edge)
-        graph.add_edge_to_node(targetNode,
-                            mock_rc_backward_edge)
         unitig = Unitigs(graph,
-                        ["gene5"])
+                        ["gene7", "gene4", "gene1"])
         # execution
-        actual_backwardPath = unitig.get_backward_path_from_node(targetNode)
+        actual_AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # assertion
-        expected_backwardPath = [[[Gene("+gene1"), Gene("-gene2"), Gene("+gene3")],
-                                [Gene("-gene2"), Gene("+gene3"), Gene("-gene4")]]]
-        expected_backwardPath.append(list(reversed([list(reversed(e)) for e in expected_backwardPath[0]])))
-        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[0]])
-        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[1]])
-        self.assertTrue(any(actual_backwardPath[0] == e for e in expected_backwardPath))
+        expected_numberAMRNodes = 15
+        self.assertEqual(len(actual_AMRNodes), expected_numberAMRNodes)
 
-    def test___get_backward_path_from_final_node(self):
+    def test___get_AMR_anchors(self):
         # setup
-        genes1 = ["-gene4", "+gene5", "-gene6", "+gene7"]
-        genes2 = ["+gene5","-gene6", "+gene7", "-gene8", "+gene9"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3},
                             3)
         unitig = Unitigs(graph,
-                        ["gene9"])
-        targetGeneMer = GeneMer([Gene("-gene8"), Gene("+gene9"), Gene("-gene10")])
-        targetNode = graph.add_node(targetGeneMer)
-        targetNode.increment_node_coverage()
-        sourceNode = graph.get_node(GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]))
-        mock_backward_edge = Edge(sourceNode,
-                                targetNode,
-                                GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]).get_geneMerDirection(),
-                                1)
-        mock_rc_backward_edge = Edge(targetNode,
-                                    sourceNode,
-                                    -1,
-                                    GeneMer([Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]).get_geneMerDirection() * -1)
-        mock_backward_edge.increment_edge_coverage()
-        mock_rc_backward_edge.increment_edge_coverage()
-        graph.add_edges_to_graph(mock_backward_edge,
-                                mock_rc_backward_edge)
-        graph.add_edge_to_node(sourceNode,
-                            mock_backward_edge)
-        graph.add_edge_to_node(targetNode,
-                            mock_rc_backward_edge)
+                        ["gene7", "gene4", "gene1"])
+        AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # execution
-        actual_backwardPath = unitig.get_backward_path_from_node(targetNode)
+        actual_AMRanchors = unitig.get_AMR_anchors(AMRNodes)
         # assertion
-        expected_backwardPath = [[[Gene("-gene4"), Gene("+gene5"), Gene("-gene6")],
-                                [Gene("+gene5"), Gene("-gene6"), Gene("+gene7")],
-                                [Gene("-gene6"), Gene("+gene7"), Gene("-gene8")],
-                                [Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]]]
-        expected_backwardPath.append(list(reversed([list(reversed(e)) for e in expected_backwardPath[0]])))
-        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[0]])
-        expected_backwardPath.append([[g.reverse_gene() for g in gmer] for gmer in expected_backwardPath[1]])
-        self.assertTrue(any(actual_backwardPath[0] == e for e in expected_backwardPath))
-
-    def test___get_unitig_for_node(self):
-        # setup
-        genes1 = ["-gene4", "+gene5", "-gene6", "+gene7"]
-        genes2 = ["+gene5","-gene6", "+gene7", "-gene8", "+gene9"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3)
-        unitig = Unitigs(graph,
-                        ["gene9"])
-        node = unitig.get_nodes_of_interest("gene9")[0]
-        # execution
-        actual_unitig, actual_reads = unitig.get_unitig_for_node(node)
-        # assertion
-        expected_unitigs = [[[Gene("-gene4"), Gene("+gene5"), Gene("-gene6")],
-                                [Gene("+gene5"), Gene("-gene6"), Gene("+gene7")],
-                                [Gene("-gene6"), Gene("+gene7"), Gene("-gene8")],
-                                [Gene("+gene7"), Gene("-gene8"), Gene("+gene9")]],
-                            [[Gene("-gene9"), Gene("+gene8"), Gene("-gene7")],
-                                [Gene("+gene8"), Gene("-gene7"), Gene("+gene6")],
-                                [Gene("-gene7"), Gene("+gene6"), Gene("-gene5")],
-                                [Gene("+gene6"), Gene("-gene5"), Gene("+gene4")]],
-                            [[Gene("+gene4"), Gene("-gene5"), Gene("+gene6")],
-                                [Gene("-gene5"), Gene("+gene6"), Gene("-gene7")],
-                                [Gene("+gene6"), Gene("-gene7"), Gene("+gene8")],
-                                [Gene("-gene7"), Gene("+gene8"), Gene("-gene9")]],
-                            [[Gene("+gene9"), Gene("-gene8"), Gene("+gene7")],
-                                [Gene("-gene8"), Gene("+gene7"), Gene("-gene6")],
-                                [Gene("+gene7"), Gene("-gene6"), Gene("+gene5")],
-                                [Gene("-gene6"), Gene("+gene5"), Gene("-gene4")]]]
-        expected_reads =  [['read1'], ['read1', 'read2'], ['read2'], ['read2']]
-        self.assertTrue(any(actual_unitig == expected_unitig for expected_unitig in expected_unitigs))
-        self.assertTrue(actual_reads == expected_reads or actual_reads == list(reversed(expected_reads)))
-
-    def test___hash_unitig(self):
-        # setup
-        genes1 = ["-gene4", "+gene5", "-gene6", "+gene7"]
-        genes2 = ["+gene5","-gene6", "+gene7", "-gene8", "+gene9"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3)
-        unitig = Unitigs(graph,
-                        ["gene9"])
-        node = unitig.get_nodes_of_interest("gene9")[0]
-        returned_unitig, returned_reads = unitig.get_unitig_for_node(node)
-        # execution
-        actual_unitig_hash = unitig.hash_unitig(returned_unitig,
-                                                list(reversed(returned_unitig)))
-        actual_reversed_unitig_hash =  unitig.hash_unitig(list(reversed(returned_unitig)),
-                                                        returned_unitig)
-        # assertion
-        expected_geneMer_hash = [hash(tuple([gene.__hash__() for gene in geneMer])) for geneMer in returned_unitig]
-        expected_reversed_geneMer_hash = [hash(tuple([gene.__hash__() for gene in geneMer])) for geneMer in list(reversed(returned_unitig))]
-        expected_unitig_hash = sorted([hash(tuple(expected_geneMer_hash)), hash(tuple(expected_reversed_geneMer_hash))])[0]
-        self.assertEqual(actual_unitig_hash, actual_reversed_unitig_hash)
-        self.assertEqual(actual_unitig_hash, expected_unitig_hash)
-        self.assertEqual(actual_reversed_unitig_hash, expected_unitig_hash)
+        expected_anchor_count = 6
+        self.assertEqual(len(actual_AMRanchors), expected_anchor_count)
 
     def test___get_unitigs_of_interest(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
+        genes4 = ["+gene7", "-gene2", "+gene0"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3, "read4": genes4},
                             3)
         unitig = Unitigs(graph,
-                        ["gene1","gene4", "gene7"])
+                        ["gene7", "gene4", "gene1"])
         # execution
+        graph.generate_gml("test",
+                    3,
+                    1,
+                    1)
         actual_unitigGenesOfInterest, actual_unitigsReadsOfInterest = unitig.get_unitigs_of_interest()
+        print(actual_unitigGenesOfInterest)
         actual_unitig_count = len(actual_unitigGenesOfInterest)
         actual_unitig_read_count = len(actual_unitigsReadsOfInterest)
         # assertion
@@ -393,28 +267,3 @@ class TestUnitigsConstructor(unittest.TestCase):
         expected_unitig_read_count = 7
         self.assertEqual(actual_unitig_count, expected_unitig_count)
         self.assertEqual(actual_unitig_read_count, expected_unitig_read_count)
-
-    def test___visualise_unitigs(self):
-        # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2},
-                            3)
-        unitig = Unitigs(graph,
-                        ["gene1","gene4", "gene7"])
-        unitigTools = UnitigTools(graph,
-                                ["gene1","gene4", "gene7"])
-        unitig_mappings = {}
-        unitigs = unitigTools.get_unitigGenesOfInterest()
-        count = 1
-        for u in unitigs:
-            unitig_mappings[u] = count
-            count += 1
-        # execution
-        unitigTools.visualise_unitigs({"gene1": [1500], "gene2": [3000], "gene3": [1000], "gene4": [90], "gene5": [600], "gene6": [2000], "gene7": [100], "gene8": [1000], "gene9": [4000], "gene10": [400]},
-                            unitig_mappings,
-                            "tests")
-        # assertion
-        import os
-        self.assertTrue(os.path.exists("tests/context_plots.pdf"))
-        os.remove("tests/context_plots.pdf")

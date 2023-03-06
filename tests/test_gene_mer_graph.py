@@ -107,6 +107,38 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         [print(edge.get_edge_coverage()) for edge in list(graph.get_edges().values())]
         self.assertTrue(all(edge.get_edge_coverage() == expected_edge_coverage for edge in list(graph.get_edges().values())))
 
+    def test__init_two_genemers_one_read(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"] # 2 nodes, 1 edge
+        graph = GeneMerGraph({"read1": genes},
+                            3)
+        # execution
+        actual_reads = graph.get_reads()
+        actual_kmerSize = graph.get_kmerSize()
+        actual_minGeneMerCoverage = graph.get_minNodeCoverage()
+        actual_minEdgeCoverage = graph.get_minEdgeCoverage()
+        actual_number_nodes = graph.get_total_number_of_nodes()
+        actual_number_edges = graph.get_total_number_of_edges()
+        actual_node_1_coverage = graph.get_nodes()[list(graph.get_nodes().keys())[0]].get_node_coverage()
+        # assertion
+        expected_reads = {"read1": genes}
+        expected_kmerSize = 3
+        expected_minGeneMerCoverage = 1
+        expected_minEdgeCoverage = 1
+        expected_number_nodes = 2
+        expected_number_edges = 2
+        expected_node_1_coverage = 1
+        expected_edge_coverage = 1
+        self.assertEqual(actual_reads, expected_reads)
+        self.assertEqual(actual_kmerSize, expected_kmerSize)
+        self.assertEqual(actual_minGeneMerCoverage, expected_minGeneMerCoverage)
+        self.assertEqual(actual_minEdgeCoverage, expected_minEdgeCoverage)
+        self.assertEqual(actual_number_edges, expected_number_edges)
+        self.assertEqual(actual_number_nodes, expected_number_nodes)
+        self.assertEqual(actual_node_1_coverage, expected_node_1_coverage)
+        self.assertTrue(all(node.get_node_coverage() == 1 for node in list(graph.get_nodes().values())[1:]))
+        self.assertTrue(all(edge.get_edge_coverage() == expected_edge_coverage for edge in list(graph.get_edges().values())))
+
     def test___all_nodes(self):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "-gene3", "+gene2", "-gene1"]
