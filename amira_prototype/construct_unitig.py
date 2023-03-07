@@ -318,16 +318,18 @@ class UnitigTools:
         # make the output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
+        # assign integers to paths for readability
+        pathId = 1
         # iterate through the unitigs
         for path in tqdm(unitigsOfInterest):
             if not len(unitigsOfInterest[path]) == 0:
                 # make the output directory
-                if not os.path.exists(os.path.join(output_dir, str(path))):
-                    os.mkdir(os.path.join(output_dir, str(path)))
+                if not os.path.exists(os.path.join(output_dir, str(pathId))):
+                    os.mkdir(os.path.join(output_dir, str(pathId)))
                 # get a readable list of genes in this path
                 readableGenes = self.convert_paths_to_genes(unitigsOfInterest[path])
                 # write out the list of genes
-                with open(os.path.join(output_dir, str(path), "annotated_genes.txt"), "w") as outGenes:
+                with open(os.path.join(output_dir, str(pathId), "annotated_genes.txt"), "w") as outGenes:
                     outGenes.write("\n".join(readableGenes))
                 # subset the reads for this unitig
                 unitigReads = unitigsReadsOfInterest[path]
@@ -335,12 +337,12 @@ class UnitigTools:
                 for r in unitigReads:
                     subsettedReadData[r] =  fastqContent[r]
                 # write the per unitig fastq data
-                readFileName = os.path.join(output_dir, str(path), str(path) + ".fastq.gz")
+                readFileName = os.path.join(output_dir, str(pathId), str(pathId) + ".fastq.gz")
                 write_fastq(readFileName,
                             subsettedReadData)
                 readFiles.append(readFileName)
                 # update the unitig IDs
-                unitig_mapping[path] = path
+                unitig_mapping[path] = pathId
         return readFiles, unitig_mapping
     def multithread_flye(self,
                         readFiles,
@@ -525,8 +527,8 @@ class UnitigTools:
             if not len(unitigGenesOfInterest[unitig]) == 0:
                 # get the ID for this unitig hash
                 unitigId = unitig_mapping[unitig]
-                # get the list of genes on this unitig
-                listOfGenes = unitigGenesOfInterest[unitig]
+                # get a readable list of genes in this path
+                listOfGenes = self.convert_paths_to_genes(unitigGenesOfInterest[unitig])
                 # get the lengths of genes on this unitig
                 unitiglengths = self.get_minimum_gene_length(geneLengths,
                                                         listOfGenes)
