@@ -343,6 +343,8 @@ class UnitigTools:
                 readFiles.append(readFileName)
                 # update the unitig IDs
                 unitig_mapping[path] = pathId
+                # increment the path ID
+                pathId += 1
         return readFiles, unitig_mapping
     def multithread_flye(self,
                         readFiles,
