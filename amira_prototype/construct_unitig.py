@@ -285,6 +285,12 @@ class Unitigs:
                     pathHash = hash(AMRNodes[nodeHash].__hash__())
                     simple_paths[pathHash] = [AMRNodes[nodeHash].get_canonical_geneMer()]#[convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in AMRNodes[nodeHash].get_canonical_geneMer()]
                     all_path_reads[pathHash] = [r for r in AMRNodes[nodeHash].get_reads()]
+                    for r in AMRNodes[nodeHash].get_reads():
+                        if not r in uniqueReads:
+                            uniqueReads[r] = pathHash
+                        else:
+                            if not uniqueReads[r] == pathHash:
+                                uniqueReads[r] = None
         complex_paths.update(simple_paths)
         # if a path is complex due to a junction, we can make a unitig longer by enumerating all possible paths through the junction
         mergedPaths, mergedPathReads = self.simplify_paths(complex_paths,
