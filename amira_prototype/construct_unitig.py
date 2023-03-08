@@ -208,6 +208,8 @@ class Unitigs:
         complex_paths = {}
         simple_paths = {}
         all_path_reads = {}
+        # check that the reads we are giving to each path are unique to avoid false positive calls
+        uniqueReads = {}
         # get a set of all node hashes we are interested in
         allAMRHashes = set(AMRNodes.keys())
         for nodeHash in tqdm(list(nodeAnchors)):
@@ -268,7 +270,15 @@ class Unitigs:
                     path_dict[pathHash] = path
                     # initialise the dictionary of reads per path
                     if not pathHash in all_path_reads:
-                        all_path_reads[pathHash] = list(pathReads)
+                        pathReads = list(pathReads)
+                        all_path_reads[pathHash] = pathReads
+                        # get reads that are unique to only a single path
+                        for r in pathReads:
+                            if not r in uniqueReads:
+                                uniqueReads[r] = pathHash
+                            else:
+                                if not uniqueReads[r] == pathHash:
+                                    uniqueReads[r] = None
             else:
                 if self.get_graph().get_degree(AMRNodes[nodeHash]) == 0:
                     # this is a singleton
@@ -279,7 +289,7 @@ class Unitigs:
         # if a path is complex due to a junction, we can make a unitig longer by enumerating all possible paths through the junction
         mergedPaths, mergedPathReads = self.simplify_paths(complex_paths,
                                                         all_path_reads)
-        return simple_paths, all_path_reads
+        return simple_paths, all_path_reads, uniqueReads
 
 class UnitigTools:
     def __init__(self,
@@ -287,7 +297,7 @@ class UnitigTools:
                 genesOfInterest):
         self._unitigs = Unitigs(graph,
                             genesOfInterest)
-        self._unitigsOfInterest, self._unitigReadsOfInterest = self.get_unitigs().get_unitigs_of_interest()
+        self._unitigsOfInterest, self._unitigReadsOfInterest, self._uniqueReads = self.get_unitigs().get_unitigs_of_interest()
     def get_unitigs(self) -> Unitigs:
         """ returns the Unitigs object containing the specified AMR genes """
         return self._unitigs
@@ -297,6 +307,9 @@ class UnitigTools:
     def get_unitigReadsOfInterest(self) -> dict:
         """ returns all unitigs containing the specified AMR genes """
         return self._unitigReadsOfInterest
+    def get_uniqueReads(self) -> dict:
+        """ returns a dictionary of reads that are unique to a single path """
+        return self._uniqueReads
     def convert_paths_to_genes(self,
                             pathGeneMers):
         geneMerGenes = [convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in pathGeneMers[0]]
@@ -313,6 +326,8 @@ class UnitigTools:
         # get the untig genes and reads
         unitigsOfInterest = self.get_unitigsOfInterest()
         unitigsReadsOfInterest = self.get_unitigReadsOfInterest()
+        # get unique reads
+        uniqueReads = self.get_uniqueReads()
         # store the unitig hash to integer mappings
         unitig_mapping = {}
         # make the output directory if it doesn't exist
@@ -335,7 +350,9 @@ class UnitigTools:
                 unitigReads = unitigsReadsOfInterest[path]
                 subsettedReadData = {}
                 for r in unitigReads:
-                    subsettedReadData[r] =  fastqContent[r]
+                    # only use reads that are unique to this path
+                    if uniqueReads[r]:
+                        subsettedReadData[r] =  fastqContent[r]
                 # write the per unitig fastq data
                 readFileName = os.path.join(output_dir, str(pathId), str(pathId) + ".fastq.gz")
                 write_fastq(readFileName,

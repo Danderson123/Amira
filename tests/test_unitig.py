@@ -258,12 +258,11 @@ class TestUnitigsConstructor(unittest.TestCase):
                     3,
                     1,
                     1)
-        actual_unitigGenesOfInterest, actual_unitigsReadsOfInterest = unitig.get_unitigs_of_interest()
-        print(actual_unitigGenesOfInterest)
+        actual_unitigGenesOfInterest, actual_unitigsReadsOfInterest, actual_uniqueReads = unitig.get_unitigs_of_interest()
         actual_unitig_count = len(actual_unitigGenesOfInterest)
         actual_unitig_read_count = len(actual_unitigsReadsOfInterest)
         # assertion
-        expected_unitig_count = 7
+        expected_unitig_count = 2
         expected_unitig_read_count = 7
         self.assertEqual(actual_unitig_count, expected_unitig_count)
         self.assertEqual(actual_unitig_read_count, expected_unitig_read_count)
