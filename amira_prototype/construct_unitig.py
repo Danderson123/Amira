@@ -27,52 +27,59 @@ class Unitigs:
                             geneOfInterest):
         """ extracts the graph nodes containing the genes of interest and returns them as a list """
         return self.get_graph().get_nodes_containing(geneOfInterest)
-    def get_forward_node_from_node(self,
-                                sourceNode: Node,
-                                allAMRHashes) -> list:
-        """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
-        # get the list of forward edge hashes for this node
-        nodeForwardEdges = sourceNode.get_forward_edge_hashes()
-        if len(nodeForwardEdges) > 0:
-            targetNodes = []
-            targetNodeDirections = []
-            # iterate through the edge hashes
-            for edge_hash in nodeForwardEdges:
-                # get the edge object corresponding to this edge hash
-                edge = self.get_graph().get_edges()[edge_hash]
-                # get the target node for this edge
-                targetNode = edge.get_targetNode()
-                # check if the target node contains an AMR gene
-                if targetNode.__hash__() in allAMRHashes:
-                    targetNodes.append(edge.get_targetNode())
-                    # get the direction we are going into the target node
-                    targetNodeDirections.append(edge.get_targetNodeDirection())
-            return targetNodes, targetNodeDirections
-        else:
-            return None, None
-    def get_backward_node_from_node(self,
-                                sourceNode: Node,
-                                allAMRHashes) -> list:
-        """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
-        # get the list of forward edge hashes for this node
-        nodeBackwardEdges = sourceNode.get_backward_edge_hashes()
-        if len(nodeBackwardEdges) > 0:
-            targetNodes = []
-            targetNodeDirections = []
-            # iterate through the edge hashes
-            for edge_hash in nodeBackwardEdges:
-                # get the edge object corresponding to this edge hash
-                edge = self.get_graph().get_edges()[edge_hash]
-                # get the target node for this edge
-                targetNode = edge.get_targetNode()
-                # check if the target node contains an AMR gene
-                if targetNode.__hash__() in allAMRHashes:
-                    targetNodes.append(edge.get_targetNode())
-                    # get the direction we are going into the target node
-                    targetNodeDirections.append(edge.get_targetNodeDirection())
-            return targetNodes, targetNodeDirections
-        else:
-            return None, None
+    # def get_forward_node_from_node(self,
+    #                             sourceNode: Node,
+    #                             allAMRHashes) -> list:
+    #     """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
+    #     # get the list of forward edge hashes for this node
+    #     nodeForwardEdges = sourceNode.get_forward_edge_hashes()
+    #     if len(nodeForwardEdges) > 0:
+    #         targetNodes = []
+    #         targetNodeDirections = []
+    #         # iterate through the edge hashes
+    #         for edge_hash in nodeForwardEdges:
+    #             # get the edge object corresponding to this edge hash
+    #             edge = self.get_graph().get_edges()[edge_hash]
+    #             # get the target node for this edge
+    #             targetNode = edge.get_targetNode()
+    #             # check if the target node contains an AMR gene
+    #             if targetNode.__hash__() in allAMRHashes:
+    #                 targetNodes.append(edge.get_targetNode())
+    #                 # get the direction we are going into the target node
+    #                 targetNodeDirections.append(edge.get_targetNodeDirection())
+    #         return targetNodes, targetNodeDirections
+    #     else:
+    #         return None, None
+    # def get_backward_node_from_node(self,
+    #                             sourceNode: Node,
+    #                             allAMRHashes) -> list:
+    #     """ returns a list of nodes in the forward direction from this node until a branch or end of unitig is reached """
+    #     # get the list of forward edge hashes for this node
+    #     nodeBackwardEdges = sourceNode.get_backward_edge_hashes()
+    #     if len(nodeBackwardEdges) > 0:
+    #         targetNodes = []
+    #         targetNodeDirections = []
+    #         # iterate through the edge hashes
+    #         for edge_hash in nodeBackwardEdges:
+    #             # get the edge object corresponding to this edge hash
+    #             edge = self.get_graph().get_edges()[edge_hash]
+    #             # get the target node for this edge
+    #             targetNode = edge.get_targetNode()
+    #             # check if the target node contains an AMR gene
+    #             if targetNode.__hash__() in allAMRHashes:
+    #                 targetNodes.append(edge.get_targetNode())
+    #                 # get the direction we are going into the target node
+    #                 targetNodeDirections.append(edge.get_targetNodeDirection())
+    #         return targetNodes, targetNodeDirections
+    #     else:
+    #         return None, None
+    # def get_node_geneMer(self,
+    #                     node,
+    #                     nodeDirection):
+    #     if nodeDirection == 1:
+    #         return node.get_canonical_geneMer()
+    #     else:
+    #         return node.get_geneMer().get_rc_geneMer()
     def get_all_nodes_containing_AMR_genes(self):
         """ return a dictionary of nodes containing AMR genes """
         AMRNodes = {}
@@ -87,6 +94,7 @@ class Unitigs:
     def get_AMR_anchors(self,
                         AMRNodes):
         nodeAnchors = set()
+        nodeJunctions = set()
         # get nodes that are anchors for traversing in the forward direction of the graph
         for nodeHash in AMRNodes:
             # get the forward edges for this node
@@ -94,208 +102,372 @@ class Unitigs:
             # get the backward edges for this node
             backward_edges = [self.get_graph().get_edge_by_hash(h) for h in AMRNodes[nodeHash].get_backward_edge_hashes()]
             # get the forward edges that contain an AMR gene
-            forwardAMRNodes = [e.get_targetNode() for e in forward_edges if e.get_targetNode().__hash__() in AMRNodes]
+            forwardAMRNodes = [e.get_targetNode() for e in forward_edges] #if e.get_targetNode().__hash__() in AMRNodes]
             # get the backward edges that contain an AMR gene
-            backwardAMRNodes = [e.get_targetNode() for e in backward_edges if e.get_targetNode().__hash__() in AMRNodes]
+            backwardAMRNodes = [e.get_targetNode() for e in backward_edges] #if e.get_targetNode().__hash__() in AMRNodes]
             # if the number of backward neighbors is not 1 then this is a forward anchor
-            if not len(forwardAMRNodes) == 1:
-                nodeAnchors.add(nodeHash)
-            if not len(backwardAMRNodes) == 1:
-                nodeAnchors.add(nodeHash)
-        return nodeAnchors
-    def get_node_geneMer(self,
-                        node,
-                        nodeDirection):
-        if nodeDirection == 1:
-            return node.get_canonical_geneMer()
-        else:
-            return node.get_geneMer().get_rc_geneMer()
-    def check_if_node_in_anchors(self,
-                                nodeHash,
-                                nodeAnchors):
-        if nodeHash in nodeAnchors:
-            return False
-        else:
-            return True
-    def get_path_start_and_ends(self,
-                            complex_paths):
-            starts = {}
-            ends = {}
-            for pathHash in complex_paths:
-                path = complex_paths[pathHash]
-                # let's get the start and end node of the path
-                start_node = tuple(path[0])
-                end_node = tuple(path[-1])
-                # add the starts and to a dictionary
-                if not start_node in starts:
-                    starts[start_node] = []
-                starts[start_node].append(pathHash)
-                if not end_node in ends:
-                    ends[end_node] = []
-                ends[end_node].append(pathHash)
-            return starts, ends
-    def get_path_pairs_to_merge(self,
-                            starts,
-                            ends):
-        pathsToMerge = []
-        for nodeHash in ends:
-            if nodeHash in starts:
-                for firstPath in ends[nodeHash]:
-                    for secondPath in starts[nodeHash]:
-                        if not firstPath == secondPath:
-                            pathsToMerge.append((firstPath, secondPath))
-        return pathsToMerge
-    def merge_paths(self,
-                    pathsToMerge,
-                    complex_paths,
-                    allPathReads):
-        allMergedPaths = {}
-        allMergedPathReads = {}
-        seenPathHashes = set()
+            if len(forward_edges) + len(backward_edges) > 2:
+                nodeJunctions.add(nodeHash)
+            else:
+                if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
+                    nodeAnchors.add(nodeHash)
+        return nodeAnchors, nodeJunctions
+    def write_clusters(self,
+                    output_dir,
+                    clusters):
+        fastqContent = parse_fastq("/home/daniel/Documents/GitHub/amira_data/E.coli/pandora.paper.data/data/samples/Escherichia_coli_MINF_9A/Escherichia_coli_MINF_9A.nanopore.fastq.gz")
         pathId = 1
-        for p in pathsToMerge:
-            # get the first path to merge
-            firstPath = complex_paths[p[0]]
-            # get the first path reads
-            firstPathReads = allPathReads[p[0]]
-            # get the second path to merge
-            secondPath = complex_paths[p[1]]
-            # get the second path reads
-            secondPathReads = allPathReads[p[1]]
-            # check to see that there is at least 1 read supporting merging these paths
-            if not set(firstPathReads).isdisjoint(secondPathReads):
-                # merge the paths
-                mergedPath = firstPath + secondPath[1:]
-                # merge the path reads
-                mergedReads = list(set(firstPathReads + secondPathReads))
-                # add the merged path information to a dictionary
-                allMergedPaths[pathId] = mergedPath
-                # add the merged read information to a dictionary
-                allMergedPathReads[pathId] = mergedReads
-                # keep track of which paths we have merged
-                seenPathHashes.add(p[0])
-                seenPathHashes.add(p[1])
+        for nodeHash in tqdm(clusters):
+            if len(clusters[nodeHash]) > 1:
+                # make the output directory
+                if not os.path.exists(os.path.join(output_dir, str(pathId))):
+                    os.mkdir(os.path.join(output_dir, str(pathId)))
+                # subset the reads for this unitig
+                unitigReads = list(clusters[nodeHash].keys())
+                subsettedReadData = {}
+                for r in unitigReads:
+                    subsettedReadData[r] =  fastqContent[r]
+                # write the per unitig fastq data
+                readFileName = os.path.join(output_dir, str(pathId), str(pathId) + ".fastq.gz")
+                write_fastq(readFileName,
+                            subsettedReadData)
                 # increment the path ID
                 pathId += 1
-        for pathHash in complex_paths:
-            # retrieve information for paths that have not been merged
-            if not pathHash in seenPathHashes:
-                # store unmerged paths in the path dict
-                allMergedPaths[pathId] = complex_paths[pathHash]
-                # store unmerged path reads in the read dict
-                allMergedPathReads[pathId] = allPathReads[pathHash]
-                seenPathHashes.add(pathHash)
-                # increment path ID
-                pathId += 1
-        return allMergedPaths, allMergedPathReads
-    def simplify_paths(self,
-                    complex_paths,
-                    all_path_reads):
-        """ returns a dictionary of merged & enumerated paths """
-        starts, ends = self.get_path_start_and_ends(complex_paths)
-        pathsToMerge = self.get_path_pairs_to_merge(starts,
-                                                    ends)
-        mergedPaths, mergedReads = self.merge_paths(pathsToMerge,
-                                        complex_paths,
-                                        all_path_reads)
-        return mergedPaths, mergedReads
+    def make_histogram(self,
+                    outputDir,
+                    numbersToPlot,
+                    y_label,
+                    x_label,
+                    histogramFile):
+        import numpy as np
+        # make the output dir if it doesn't exist
+        if not os.path.exists(outputDir):
+            os.mkdir(outputDir)
+        # plot a bar chart of the number of genes per read
+        q25, q75 = np.percentile(numbersToPlot, [25, 75])
+        bin_width = 2 * (q75 - q25) * len(numbersToPlot) ** (-1/3)
+        numBins = round((max(numbersToPlot) - min(numbersToPlot)) / bin_width)
+        fig, ax = plt.subplots()
+        ax.hist(numbersToPlot, bins=numBins, density = False)
+        plt.margins(x=0)
+        ax.set_ylabel(y_label)
+        ax.set_xlabel(x_label)
+        fig.savefig(os.path.join(outputDir, histogramFile))
+        plt.close(fig)
+    def get_informative_reads(self,
+                            AMRNodes,
+                            allReadNodes,
+                            graph,
+                            allAnchors):
+        informativeReads = {}
+        anchorCounts = []
+        seenReads = set()
+        for nodeHash in tqdm(AMRNodes):
+            node = graph.get_node_by_hash(nodeHash)
+            # get the reads for this node
+            nodeReads = [r for r in node.get_reads()]
+            # get the nodes covered by each read
+            nodesOnReads = [allReadNodes[r] for r in nodeReads]
+            # get the anchors and junctions on each read
+            anchorsOnReads = [[n for n in r if n in allAnchors] for r in nodesOnReads]
+            # get the read lengths for this node
+            readLengths = [len(r) for r in anchorsOnReads]
+            for r in range(len(readLengths)):
+                if not nodeReads[r] in seenReads:
+                    anchorCounts.append(readLengths[r])
+                    seenReads.add(nodeReads[r])
+            # the longest reads for this node will be become the representatives
+            for r in range(len(readLengths)):
+                if readLengths[r] > 1 or (readLengths[r] == 1 and len(nodesOnReads[r]) == 1):
+                    startMask = nodesOnReads[r].index(anchorsOnReads[r][0])
+                    endMask = len(nodesOnReads[r]) - 1 - nodesOnReads[r][::-1].index(anchorsOnReads[r][-1])
+                    informativeReads[nodeReads[r]] = nodesOnReads[r][startMask: endMask + 1]
+        return informativeReads
+    def assign_to_regions(self,
+                        informativeReads,
+                        allAnchors):
+        regions = set()
+        for readId in tqdm(informativeReads):
+            this_cluster = set([readId])
+            allRegionNodeAnchors = set([n for n in informativeReads[readId] if n in allAnchors])
+            for otherReadId in informativeReads:
+                if not readId == otherReadId:
+                    otherNodeAnchors = [n for n in informativeReads[otherReadId] if n in allAnchors]
+                    if any(n in allRegionNodeAnchors for n in otherNodeAnchors):
+                        for nodeHash in otherNodeAnchors:
+                            allRegionNodeAnchors.add(nodeHash)
+                        this_cluster.add(otherReadId)
+            this_cluster = tuple(sorted(list(this_cluster)))
+            regions.add(this_cluster)
+        return list(regions)
+    def contains_sublist(self,
+                        allNodes,
+                        subNodes):
+        n = len(subNodes)
+        if any((subNodes == allNodes[i:i+n]) for i in range(len(allNodes)-n+1)):
+            return True
+        else:
+            return False
+    def cluster_region_reads(self,
+                            regions,
+                            informativeReads,
+                            allReadNodes):
+        clusters = {}
+        seenReads = set()
+        for regionReads in tqdm(regions):
+            # convert the read tuple to a list
+            regionReadList = list(regionReads)
+            # get the actual nodes for all the reads in this read list
+            #regionReadNodes = [informativeReads[r] if r in informativeReads else allReadNodes[r] for r in regionReadList]
+            regionReadNodes = [allReadNodes[r] for r in regionReadList]
+            for r1 in range(len(regionReadNodes)):
+                readId = regionReads[r1]
+                if not readId in clusters:
+                    clusters[readId] = set([readId])
+                for r2 in range(len(regionReadNodes)):
+                    otherReadId = regionReads[r2]
+                    if not readId == otherReadId:
+                        if self.contains_sublist(regionReadNodes[r1], regionReadNodes[r2]):
+                            clusters[readId].add(otherReadId)#[otherReadId] = regionReadNodes[r2]
+                            seenReads.add(otherReadId)
+                        else:
+                            if self.contains_sublist(regionReadNodes[r1], list(reversed(regionReadNodes[r2]))):
+                                clusters[readId].add(otherReadId)#[otherReadId] = list(reversed(regionReadNodes[r2]))
+                                seenReads.add(otherReadId)
+        # for r1 in clusters:
+        #     for r2 in clusters[r1]:
+        #         #if r2 in informativeReads:
+        #           #  pathNodes = str(r2) + ":\t" + ", ".join([str(n) for n in informativeReads[r2]])
+        #         #else:
+        #         pathNodes = str(r2) + ":\t" + ", ".join([str(n) for n in allReadNodes[r2]])
+        #         with open("pathClusters_single_included.txt", "a+") as o:
+        #             o.write(pathNodes + "\n")
+        #     with open("pathClusters_single_included.txt", "a+") as o:
+        #             o.write("\n")
+        for r in seenReads:
+            if r in clusters:
+                del clusters[r]
+        # for r1 in clusters:
+        #     for r2 in clusters[r1]:
+        #         #if r2 in informativeReads:
+        #             #pathNodes = str(r2) + ":\t" + ", ".join([str(n) for n in informativeReads[r2]])
+        #         #else:
+        #         pathNodes = str(r2) + ":\t" + ", ".join([str(n) for n in allReadNodes[r2]])
+        #         with open("pathClusters_trimmed_single_included.txt", "a+") as o:
+        #             o.write(pathNodes + "\n")
+        #     with open("pathClusters_trimmed_single_included.txt", "a+") as o:
+        #             o.write("\n")
+        return clusters
+    def supplement_regions(self,
+                        regions,
+                        informativeReads,
+                        allReadNodes):
+        sys.stderr.write("\nSupplementing regions\n")
+        supplementedReads = set()
+        for readId in tqdm(allReadNodes):
+            if not readId in informativeReads:
+                readNodes = set(allReadNodes[readId])
+                if len(readNodes) > 0:
+                    for reg in range(len(regions)):
+                        regionReads = set(list(regions[reg]))
+                        regionNodes = [informativeReads[r] for r in regionReads if not r in supplementedReads]
+                        for regionReadNodes in regionNodes:
+                            if any(n in readNodes for n in regionReadNodes):
+                                regionReads.add(readId)
+                                supplementedReads.add(readId)
+                                continue
+                        regions[reg] = tuple(list(regionReads))
+        return regions
+    def recluster_regions(self,
+                        regions):
+        newRegions = {}
+        seenRegions = set()
+        for regionReads in tqdm(regions):
+            newRegions[regionReads] = list(regionReads)
+            regionReadSet = set(regionReads)
+            for otherRegionReads in regions:
+                if not regionReads == otherRegionReads:
+                    if any(r in regionReadSet for r in list(otherRegionReads)):
+                        newRegions[regionReads] += list(otherRegionReads)
+                        seenRegions.add(otherRegionReads)
+                        continue
+        for r in seenRegions:
+            del newRegions[r]
+        regions = set()
+        for c in newRegions:
+            regions.add(tuple(set(sorted(list(newRegions[c])))))
+        return list(regions)
+    def old_get_unitigs_of_interest(self):
+        # isolate nodes containing AMR genes
+        AMRNodes = self.get_all_nodes_containing_AMR_genes()
+        # get anchors and junctions
+        nodeAnchors, nodeJunctions = self.get_AMR_anchors(AMRNodes)
+        allAnchors = nodeAnchors.union(nodeJunctions)
+        # get the graph
+        graph = self.get_graph()
+        # get the reads as nodes
+        allReadNodes = graph.get_readNodes()
+        # get the longest read for each AMR node
+        informativeReads = self.get_informative_reads(AMRNodes,
+                                                    allReadNodes,
+                                                    graph,
+                                                    allAnchors)
+        # cluster nodes into regions of the graph
+        regions = self.assign_to_regions(informativeReads,
+                                        allAnchors)
+        regions = self.recluster_regions(regions)
+        # for c in regions:
+        #     clusterList = list(c)
+        #     clusterNodes = [str(r) + ":\t" + ", ".join([str(h) for h in informativeReads[r]]) for r in clusterList]
+        #     with open("readClusters_informative.txt", "a+") as o:
+        #         o.write("\n".join(clusterNodes) + "\n\n")
+        # supplement regions with non informative reads
+        regions = self.supplement_regions(regions,
+                                        informativeReads,
+                                        allReadNodes)
+        # for c in regions:
+        #     clusterList = list(c)
+        #     clusterNodes = []
+        #     for r in clusterList:
+        #         if r in informativeReads:
+        #             nodePath = str(r) + ":\t" + ", ".join([str(h) for h in informativeReads[r]])
+        #         else:
+        #             nodePath = str(r) + ":\t" + ", ".join([str(h) for h in allReadNodes[r]])
+        #         clusterNodes.append(nodePath)
+        #     with open("readClusters_single_included.txt", "a+") as o:
+        #         o.write("\n".join(clusterNodes) + "\n\n")
+        # cluster the reads in each region based on the path they follow
+        clusteredRegions = self.cluster_region_reads(regions,
+                                                    informativeReads,
+                                                    allReadNodes)
+        nodes = {}
+        for r in clusteredRegions:
+            nodes[r] = [0]
+        return nodes, clusteredRegions
+        end
     def get_unitigs_of_interest(self):
         # isolate nodes containing AMR genes
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
-        # get AMR nodes that can act as anchors
-        nodeAnchors = self.get_AMR_anchors(AMRNodes)
-        # get the forward path for all forward anchors until we hit a backward anchor
-        complex_paths = {}
-        simple_paths = {}
-        all_path_reads = {}
-        # check that the reads we are giving to each path are unique to avoid false positive calls
-        uniqueReads = {}
-        # get a set of all node hashes we are interested in
-        allAMRHashes = set(AMRNodes.keys())
-        for nodeHash in tqdm(list(nodeAnchors)):
-            # get forward paths
-            fw_node_list, fw_node_direction_list = self.get_forward_node_from_node(AMRNodes[nodeHash],
-                                                                                allAMRHashes)
-            bw_node_list, bw_node_direction_list = self.get_backward_node_from_node(AMRNodes[nodeHash],
-                                                                                allAMRHashes)
-            if fw_node_list and bw_node_list:
-                fw_node_list += bw_node_list
-                fw_node_direction_list += bw_node_direction_list
-            if not fw_node_list and bw_node_list:
-                fw_node_list = bw_node_list
-                fw_node_direction_list = bw_node_direction_list
-            if fw_node_list:
-                for n in range(len(fw_node_list)):
-                    next_node = fw_node_list[n]
-                    next_node_direction = fw_node_direction_list[n]
-                    next_node_geneMer = self.get_node_geneMer(next_node,
-                                                        next_node_direction)
-                    path = [AMRNodes[nodeHash].get_canonical_geneMer(), next_node_geneMer]
-                    pathNodeHashes = [AMRNodes[nodeHash].__hash__(), next_node.__hash__()]
-                    pathReads = set([r for r in next_node.get_reads()])#set([r for r in AMRNodes[nodeHash].get_reads()] + [r for r in next_node.get_reads()])
-                    pathNodes = [AMRNodes[nodeHash], next_node]
-                    # check if a node is an anchor, if so get the path
-                    extend = self.check_if_node_in_anchors(next_node.__hash__(),
-                                                        nodeAnchors)
-                    while extend:
-                        if next_node_direction == 1:
-                            next_node_list, next_node_direction_list = self.get_forward_node_from_node(next_node,
-                                                                                                    allAMRHashes)
-                        else:
-                            next_node_list, next_node_direction_list = self.get_backward_node_from_node(next_node,
-                                                                                                    allAMRHashes)
-                        next_node = next_node_list[0]
-                        next_node_direction = next_node_direction_list[0]
-                        next_node_geneMer = self.get_node_geneMer(next_node,
-                                                            next_node_direction)
-                        path.append(next_node_geneMer)
-                        pathNodes.append(next_node)
-                        pathNodeHashes.append(next_node.__hash__())
-                        # if the next node is an anchor we end the extension
-                        extend = self.check_if_node_in_anchors(next_node.__hash__(),
-                                                        nodeAnchors)
-                        if extend:
-                            # add the reads to the read set
-                            for read in next_node.get_reads():
-                                pathReads.add(read)
-                    # get a hash for the path. This is the same for the forward and reverse path
-                    pathNodeHashes = sorted([pathNodeHashes, list(reversed(pathNodeHashes))])[0]
-                    pathHash = hash(tuple(pathNodeHashes))
-                    # we can say a path is simple or complicated depending on whether it includes a branching node at either end
-                    if not (self.get_graph().get_degree(pathNodes[0]) > 2 or self.get_graph().get_degree(pathNodes[-1]) > 2):
-                        path_dict = simple_paths
-                    else:
-                        path_dict = complex_paths
-                    # add a list of genes and their strands to the relevant path dictionary
-                    path_dict[pathHash] = path
-                    # initialise the dictionary of reads per path
-                    if not pathHash in all_path_reads:
-                        pathReads = list(pathReads)
-                        all_path_reads[pathHash] = pathReads
-                        # get reads that are unique to only a single path
-                        for r in pathReads:
-                            if not r in uniqueReads:
-                                uniqueReads[r] = pathHash
-                            else:
-                                if not uniqueReads[r] == pathHash:
-                                    uniqueReads[r] = None
+        # get anchors and junctions
+        nodeAnchors, nodeJunctions = self.get_AMR_anchors(AMRNodes)
+        # get the graph
+        graph = self.get_graph()
+        # keep track of what clusters reads are assigned to
+        clusterReads = {}
+        clusterReferences = {}
+        clusterId = 1
+        # parse the fastq
+        fastqContent = parse_fastq("/home/daniel/Documents/GitHub/amira_data/E.coli/pandora.paper.data/data/samples/063_STEC/063_STEC.nanopore.fastq.gz")
+        # iterate through nodes containing AMR genes
+        for nodeHash in tqdm(AMRNodes):
+            # get the reads for this node
+            node = graph.get_node_by_hash(nodeHash)
+            nodeReads = [r for r in node.get_reads()]
+            this_cluster = clusterId
+            clusterReferences[this_cluster] = set()
+            clusterReads[this_cluster] = set()
+            for readId in nodeReads:
+                # get the nodes that are anchors for this readID
+                readAnchors = [n.__hash__() for n in graph.get_nodes_containing_read(readId) if n.__hash__() in nodeAnchors or n.__hash__() in nodeJunctions]
+                if len(readAnchors) > 2:
+                    clusterReferences[this_cluster].add(readId)
+                else:
+                    clusterReads[this_cluster].add(readId)
+            clusterId += 1
+        empty = 0
+        not_empty = 0
+        for cluster in tqdm(clusterReferences):
+            if not (len(clusterReferences[cluster]) == 0 and len(clusterReads[cluster]) == 0):
+                subprocess.run("mkdir -p " + os.path.join("/home/daniel/Documents/GitHub/amira_prototype/amira.output/063_STEC.nanopore/read_clusters", str(cluster)),
+                            shell=True,
+                            check=True)
+                not_empty += 1
+                referenceSequences = []
+                for readId in clusterReferences[cluster]:
+                    referenceSequences.append(">" + readId + "\n" + fastqContent[readId]["sequence"])
+                with open(os.path.join("/home/daniel/Documents/GitHub/amira_prototype/amira.output/063_STEC.nanopore/read_clusters", str(cluster), "reference_reads.fasta"), "w") as o:
+                    o.write("\n".join(referenceSequences))
+                querySequences = {}
+                for readId in clusterReads[cluster]:
+                    querySequences[readId] = fastqContent[readId]
+                write_fastq(os.path.join("/home/daniel/Documents/GitHub/amira_prototype/amira.output/063_STEC.nanopore/read_clusters", str(cluster), "query_reads.fastq.gz"),
+                            querySequences)
+                subprocess.run("minimap2 -a --MD -t 8 -x asm20 " + os.path.join("/home/daniel/Documents/GitHub/amira_prototype/amira.output/063_STEC.nanopore/read_clusters", str(cluster), "reference_reads.fasta") + " " + os.path.join("/home/daniel/Documents/GitHub/amira_prototype/amira.output/063_STEC.nanopore/read_clusters", str(cluster), "query_reads.fastq.gz") + " > " + os.path.join("/home/daniel/Documents/GitHub/amira_prototype/amira.output/063_STEC.nanopore/read_clusters", str(cluster), "mapped_to_references.sam"),
+                            shell=True,
+                            check=True)
             else:
-                if self.get_graph().get_degree(AMRNodes[nodeHash]) == 0:
-                    # this is a singleton
-                    pathHash = hash(AMRNodes[nodeHash].__hash__())
-                    simple_paths[pathHash] = [AMRNodes[nodeHash].get_canonical_geneMer()]#[convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in AMRNodes[nodeHash].get_canonical_geneMer()]
-                    all_path_reads[pathHash] = [r for r in AMRNodes[nodeHash].get_reads()]
-                    for r in AMRNodes[nodeHash].get_reads():
-                        if not r in uniqueReads:
-                            uniqueReads[r] = pathHash
-                        else:
-                            if not uniqueReads[r] == pathHash:
-                                uniqueReads[r] = None
-        complex_paths.update(simple_paths)
-        # if a path is complex due to a junction, we can make a unitig longer by enumerating all possible paths through the junction
-        mergedPaths, mergedPathReads = self.simplify_paths(complex_paths,
-                                                        all_path_reads)
-        return simple_paths, all_path_reads, uniqueReads
+                empty += 1
+        print(not_empty, empty)
+        end
+
+    # def get_unitigs_of_interest(self):
+    #     # isolate nodes containing AMR genes
+    #     AMRNodes = self.get_all_nodes_containing_AMR_genes()
+    #     # get anchors and junctions
+    #     nodeAnchors, nodeJunctions = self.get_AMR_anchors(AMRNodes)
+    #     # count how many red nodes have another red node next to them
+    #     graph = self.get_graph()
+    #     sharedReads = {}
+    #     for nodeHash in tqdm(nodeJunctions):
+    #         node = graph.get_node_by_hash(nodeHash)
+    #         fw_neighbors = [graph.get_edge_by_hash(e).get_targetNode() for e in node.get_forward_edge_hashes()]
+    #         bw_neighbors = [graph.get_edge_by_hash(e).get_targetNode() for e in node.get_backward_edge_hashes()]
+    #         for fw_node in fw_neighbors:
+    #             fw_reads = set([r for r in fw_node.get_reads()])
+    #             for bw_node in bw_neighbors:
+    #                 bw_reads = set([r for r in bw_node.get_reads()])
+    #                 readIntersection = fw_reads.intersection(bw_reads)
+    #                 if len(readIntersection) > 4:
+    #                     sharedReads[tuple([fw_node.__hash__(), bw_node.__hash__()])] = readIntersection
+    #     # # go through the shared read sets and see if any share a read
+    #     # newPaths = {}
+    #     # for p1 in tqdm(sharedReads):
+    #     #     intersects = False
+    #     #     for p2 in sharedReads:
+    #     #         if not p1 == p2:
+    #     #             readIntersection = sharedReads[p1].intersection(sharedReads[p2])
+    #     #             if len(readIntersection) > 0:
+    #     #                 pathCombined = list(p1) + list(p2)
+    #     #                 newPaths[tuple(sorted(pathCombined))] = readIntersection
+    #     #                 intersects= True
+    #     #     if not intersects:
+    #     #         newPaths[p1] = sharedReads[p1]
+    #     # import statistics
+    #     # print(len(newPaths), statistics.mean(list(newPaths.values())), statistics.mode(list(newPaths.values())))
+    #     readClusterId = {}
+    #     clusterId = 0
+    #     readsAsClusters = {}
+    #     for p1 in tqdm(sharedReads):
+    #         readSet = sharedReads[p1]
+    #         if any(r in readClusterId for r in readSet):
+    #             for read in readSet:
+    #                 if read in readClusterId:
+    #                     this_id = readClusterId[read]
+    #                     continue
+    #         else:
+    #             this_id = clusterId
+    #             clusterId += 1
+    #         for read in readSet:
+    #             readClusterId[read] = this_id
+    #     for read in readClusterId:
+    #         if not readClusterId[read] in readsAsClusters:
+    #             readsAsClusters[readClusterId[read]] = set()
+    #         readsAsClusters[readClusterId[read]].add(read)
+    #     import statistics
+    #     print(len(readsAsClusters), statistics.mean([len(l) for l in list(readsAsClusters.values())]), statistics.mode([len(l) for l in list(readsAsClusters.values())]))
+    #     fastqContent = parse_fastq("/home/daniel/Documents/GitHub/amira_data/E.coli/pandora.paper.data/data/samples/063_STEC/063_STEC.nanopore.fastq.gz")
+    #     for cluster in readsAsClusters:
+    #         subsettedReadData = {}
+    #         for r in readsAsClusters[cluster]:
+    #             subsettedReadData[r] =  fastqContent[r]
+    #         # write the per unitig fastq data
+    #         if not os.path.exists(os.path.join("new_clustering_amira_output/unitigs", str(cluster))):
+    #             os.mkdir(os.path.join("new_clustering_amira_output/unitigs", str(cluster)))
+    #         readFileName = os.path.join("new_clustering_amira_output/unitigs", str(cluster), str(cluster) + ".fastq.gz")
+    #         write_fastq(readFileName,
+    #                     subsettedReadData)
+        end
+
 
 class UnitigTools:
     def __init__(self,
@@ -303,7 +475,7 @@ class UnitigTools:
                 genesOfInterest):
         self._unitigs = Unitigs(graph,
                             genesOfInterest)
-        self._unitigsOfInterest, self._unitigReadsOfInterest, self._uniqueReads = self.get_unitigs().get_unitigs_of_interest()
+        self._unitigsOfInterest, self._unitigReadsOfInterest = self.get_unitigs().get_unitigs_of_interest()
     def get_unitigs(self) -> Unitigs:
         """ returns the Unitigs object containing the specified AMR genes """
         return self._unitigs
@@ -332,8 +504,6 @@ class UnitigTools:
         # get the untig genes and reads
         unitigsOfInterest = self.get_unitigsOfInterest()
         unitigsReadsOfInterest = self.get_unitigReadsOfInterest()
-        # get unique reads
-        uniqueReads = self.get_uniqueReads()
         # store the unitig hash to integer mappings
         unitig_mapping = {}
         # make the output directory if it doesn't exist
@@ -348,17 +518,15 @@ class UnitigTools:
                 if not os.path.exists(os.path.join(output_dir, str(pathId))):
                     os.mkdir(os.path.join(output_dir, str(pathId)))
                 # get a readable list of genes in this path
-                readableGenes = self.convert_paths_to_genes(unitigsOfInterest[path])
+                #readableGenes = self.convert_paths_to_genes(unitigsOfInterest[path])
                 # write out the list of genes
-                with open(os.path.join(output_dir, str(pathId), "annotated_genes.txt"), "w") as outGenes:
-                    outGenes.write("\n".join(readableGenes))
+                #with open(os.path.join(output_dir, str(pathId), "annotated_genes.txt"), "w") as outGenes:
+                #    outGenes.write("\n".join(readableGenes))
                 # subset the reads for this unitig
                 unitigReads = unitigsReadsOfInterest[path]
                 subsettedReadData = {}
                 for r in unitigReads:
-                    # only use reads that are unique to this path
-                    if uniqueReads[r]:
-                        subsettedReadData[r] =  fastqContent[r]
+                    subsettedReadData[r] =  fastqContent[r]
                 # write the per unitig fastq data
                 readFileName = os.path.join(output_dir, str(pathId), str(pathId) + ".fastq.gz")
                 write_fastq(readFileName,

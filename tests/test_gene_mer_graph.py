@@ -1751,3 +1751,34 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_numberOfNodes, expected_numberOfNodes)
         self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
         os.remove("tests/test_graph.3.10.10.gml")
+
+    def test___add_node_to_read(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes)
+        sourceGeneMer = [x for x in read1.get_geneMers(3)][0]
+        sourceNode = Node(sourceGeneMer)
+        graph = GeneMerGraph({},
+                            3)
+        # execution
+        actual_listOfNodes = graph.add_node_to_read(sourceNode,
+                                                    "read1")
+        actual_readNodeDict = graph.get_readNodes()
+        # assertion
+        expected_listOfNodes = [sourceNode.__hash__()]
+        expected_readNodeDict = {"read1": [sourceNode.__hash__()]}
+        self.assertEqual(actual_listOfNodes, expected_listOfNodes)
+        self.assertEqual(actual_readNodeDict, expected_readNodeDict)
+
+    def test___get_nodes_containing_read_filtered_graph(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1},
+                            3)
+        graph.filter_graph(2,
+                        2)
+        # execution
+        actual_listOfNodes = graph.get_nodes_containing_read("read1")
+        # assertion
+        self.assertEqual(len(actual_listOfNodes), 2)

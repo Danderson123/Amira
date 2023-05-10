@@ -6,6 +6,7 @@ class Node:
                 geneMer: GeneMer):
         self.geneMer = geneMer
         self.canonicalGeneMer = geneMer.get_canonical_geneMer()
+        self.reverseGeneMer = geneMer.get_rc_geneMer()
         self.geneMerHash = geneMer.__hash__()
         self.nodeCoverage = 0
         self.listOfReads = []
@@ -18,6 +19,9 @@ class Node:
     def get_canonical_geneMer(self):
         """ return the list of canonical gene objects represented by this node """
         return self.canonicalGeneMer
+    def get_reverse_geneMer(self):
+        """ return the list of reversed gene objects represented by this node """
+        return self.reverseGeneMer
     def assign_nodeId(self,
                     nodeId):
         self.nodeId = nodeId
@@ -64,7 +68,7 @@ class Node:
         mask = self.get_forward_edge_hashes().index(edgeHash)
         del self.forwardEdgeHashes[mask]
     def get_forward_edge_hashes(self):
-        """ return a list of the hashes of the backward edges """
+        """ return a list of the hashes of the forward edges """
         return self.forwardEdgeHashes
     def add_backward_edge_hash(self,
                         backwardEdgeHash):

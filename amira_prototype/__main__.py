@@ -1,9 +1,7 @@
 import argparse
-from cigar import Cigar
 import os
 import pysam
 import sys
-from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
 from construct_unitig import UnitigTools
@@ -23,6 +21,8 @@ def get_options():
                         help='minimum threshold for gene-mer coverage')
     parser.add_argument('-e', dest='edge_min_coverage', type=int, default=1,
                         help='minimum threshold for edge coverage between gene-mers')
+    parser.add_argument('-g', dest='gene_min_coverage', type=int, default=1,
+                        help='minimum threshold for gene filtering')
     parser.add_argument('--gene-path', dest='path_to_interesting_genes',
                         help='path to a newline delimited file of genes of interest', required=True)
     parser.add_argument('--flye-path', dest='flye_path',
@@ -43,65 +43,124 @@ def get_options():
     args = parser.parse_args()
     return args
 
-def get_read_start(cigarString):
+def get_read_start(cigar):
     """ return an int of the 0 based position where the read region starts mapping to the gene """
-    cigarSplit = list(cigarString.items())
     # check if there are any hard clipped bases at the start of the mapping
-    if "H" in cigarSplit[0]:
-        regionStart = cigarSplit[0][0]
+    if cigar[0][0] == 5:
+        regionStart = cigar[0][1]
     else:
         regionStart = 0
     return regionStart
 
-def get_read_end(cigarString,
+def get_read_end(cigar,
                 regionStart):
     """ return an int of the 0 based position where the read region stops mapping to the gene """
-    regionLength = len(cigarString)
+    regionLength = 0
+    for tuple in cigar:
+        if not tuple[0] == 5:
+            regionLength += tuple[1]
     regionEnd = regionStart + regionLength
     return regionEnd, regionLength
 
 def determine_gene_strand(read):
+    strandlessGene = read.reference_name.replace("~~~", ";").replace(".aln.fas", "").replace(".fasta", "").replace(".fa", "")
     if not read.is_forward:
-        gene_name = "-" + read.reference_name.replace("~~~", ";")
+        gene_name = "-" + strandlessGene
     else:
-        gene_name = "+" + read.reference_name.replace("~~~", ";")
-    return gene_name
+        gene_name = "+" + strandlessGene
+    return gene_name, strandlessGene
 
 def convert_pandora_output(pandoraSam,
-                        genesOfInterest):
+                        genesOfInterest,
+                        geneMinCoverage):
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
     annotatedReads = {}
-    readDict = {}
+    readLengthDict = {}
+    geneCounts = {}
     # iterate through the read regions
     for read in pandora_sam_content.fetch():
         # convert the cigarsting to a Cigar object
-        cigarString = Cigar(read.cigarstring)
+        cigar = read.cigartuples
         # check if the read has mapped to any regions
         if read.is_mapped:
             # get the start base that the region maps to on the read
-            regionStart = get_read_start(cigarString)
+            regionStart = get_read_start(cigar)
             # get the end base that the region maps to on the read
-            regionEnd, regionLength = get_read_end(cigarString,
+            regionEnd, regionLength = get_read_end(cigar,
                                                 regionStart)
             # append the strand of the match to the name of the gene
-            gene_name = determine_gene_strand(read)
+            gene_name, strandlessGene = determine_gene_strand(read)
             if not read.query_name in annotatedReads:
                 annotatedReads[read.query_name] = []
-            if not gene_name[1:] in readDict:
-                readDict[gene_name[1:]] = []
+                readLengthDict[read.query_name] = []
+            # count how many times we see each gene
+            if not strandlessGene in geneCounts:
+                geneCounts[strandlessGene] = 0
+            geneCounts[strandlessGene] += 1
             # store the per read gene names, gene starts and gene ends
-            readDict[gene_name[1:]].append(regionLength)
+            readLengthDict[read.query_name].append((regionStart, regionEnd))
             # store the per read gene names
             annotatedReads[read.query_name].append(gene_name)
     to_delete = []
     for r in annotatedReads:
+        annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
         if not any(g[1:] in genesOfInterest for g in annotatedReads[r]):
             to_delete.append(r)
     for t in to_delete:
         del annotatedReads[t]
     assert not len(annotatedReads) == 0
-    return annotatedReads, readDict
+    return annotatedReads, readLengthDict
+
+def plot_gene_counts(annotatedReads,
+                    outputDir):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    # make the output dir if it doesn't exist
+    if not os.path.exists(outputDir):
+        os.mkdir(outputDir)
+    # keep track of the number of genes per read
+    geneCounts = []
+    geneCountDict = {}
+    for r in annotatedReads:
+        numberOfGenes = len(annotatedReads[r])
+        geneCounts.append(numberOfGenes)
+        geneCountDict[r] = numberOfGenes
+    # plot a bar chart of the number of genes per read
+    q25, q75 = np.percentile(geneCounts, [25, 75])
+    bin_width = 2 * (q75 - q25) * len(geneCounts) ** (-1/3)
+    numBins = round((max(geneCounts) - min(geneCounts)) / bin_width)
+    fig, ax = plt.subplots()
+    ax.hist(geneCounts, bins=numBins, density = False)
+    plt.margins(x=0)
+    ax.set_ylabel('Absolute frequency')
+    ax.set_xlabel('Number of genes')
+    fig.savefig(os.path.join(outputDir, "read_gene_count_distribution.png"))
+    plt.close(fig)
+
+def plot_read_lengths(readFile,
+                    annotatedReads,
+                    outputDir):
+    from construct_unitig import parse_fastq
+    import matplotlib.pyplot as plt
+    import numpy as np
+    readDict = parse_fastq(readFile)
+    readLengths = []
+    for r in readDict:
+        if r in annotatedReads:
+            sequence = readDict[r]["sequence"]
+            readLengths.append(len(sequence))
+    # plot a histogram of read lengths in base pairs
+    q25, q75 = np.percentile(readLengths, [25, 75])
+    bin_width = 2 * (q75 - q25) * len(readLengths) ** (-1/3)
+    numBins = round((max(readLengths) - min(readLengths)) / bin_width)
+    fig, ax = plt.subplots()
+    ax.hist(readLengths, bins=numBins, density = False)
+    plt.margins(x=0)
+    ax.set_ylabel('Absolute frequency')
+    ax.set_xlabel('Length of read (bp)')
+    fig.savefig(os.path.join(outputDir, "read_length_distribution.png"))
+    plt.close(fig)
 
 def main():
     # get command line options
@@ -115,7 +174,8 @@ def main():
     # convert the Pandora SAM file to a dictionary
     sys.stderr.write("\nAmira: loading Pandora SAM\n")
     annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
-                                                    set(genesOfInterest))
+                                                    set(genesOfInterest),
+                                                    args.gene_min_coverage)
     # build the graph
     sys.stderr.write("\nAmira: building gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
