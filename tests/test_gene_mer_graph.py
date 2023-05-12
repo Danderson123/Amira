@@ -5,6 +5,7 @@ sys.path.insert(0, "amira_prototype")
 from construct_graph import GeneMerGraph
 from construct_read import Read
 from construct_node import Node
+from construct_edge import Edge
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
 
@@ -1817,3 +1818,535 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                     (sourceNodes[2].__hash__(), sourceNodes[2].get_geneMer().get_geneMerDirection())
                                     ]}
         self.assertEqual(graph.get_readNodes(), expectedReadNodes)
+
+    def test___remove_node_from_reads_more_than_one_copy(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        graph = GeneMerGraph({},
+                            3)
+        sourceNodes = []
+        for s in read1.get_geneMers(3):
+            sourceNode = graph.add_node(s, [read1])
+            graph.add_node_to_read(sourceNode,
+                                s.get_geneMerDirection(),
+                                read1.get_readId())
+            sourceNodes.append(sourceNode)
+        # execution
+        test_node = sourceNodes[1]
+        graph.remove_node_from_reads(test_node)
+        # assertion
+        expectedReadNodes = {"read1": [
+                    (sourceNodes[0].__hash__(), sourceNodes[0].get_geneMer().get_geneMerDirection()),
+                    (sourceNodes[2].__hash__(), sourceNodes[2].get_geneMer().get_geneMerDirection()),
+                    (sourceNodes[3].__hash__(), sourceNodes[3].get_geneMer().get_geneMerDirection()),
+                    (sourceNodes[4].__hash__(), sourceNodes[4].get_geneMer().get_geneMerDirection())
+                                    ]}
+        self.assertEqual(graph.get_readNodes(), expectedReadNodes)
+
+    def test___get_existing_forward_node_from_node(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        mock_forward_edge = Edge(nodes[0],
+                                nodes[1],
+                                1,
+                                1)
+        mock_rc_forward_edge = Edge(nodes[1],
+                                    nodes[0],
+                                    -1,
+                                    -1)
+        graph.add_edges_to_graph(mock_forward_edge,
+                                mock_rc_forward_edge)
+        graph.add_edge_to_node(nodes[0],
+                            mock_forward_edge)
+        graph.add_edge_to_node(nodes[1],
+                            mock_rc_forward_edge)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_forward_node_from_node(nodes[0])
+        actual_targetNode = actual_targetNode
+        actual_targetDirection = actual_targetDirection
+        # assertion
+        expected_targetNode = nodes[1]
+        expected_targetDirection = 1
+        expected_extend = True
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_existing_forward_node_from_node_in_middle(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        for n in range(len(nodes) - 1):
+            mock_forward_edge = Edge(nodes[n],
+                                    nodes[n+1],
+                                    1,
+                                    1)
+            mock_rc_forward_edge = Edge(nodes[n+1],
+                                        nodes[n],
+                                        -1,
+                                        -1)
+            graph.add_edges_to_graph(mock_forward_edge,
+                                    mock_rc_forward_edge)
+            graph.add_edge_to_node(nodes[n],
+                                mock_forward_edge)
+            graph.add_edge_to_node(nodes[n+1],
+                                mock_rc_forward_edge)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_forward_node_from_node(nodes[0])
+        actual_targetNode = actual_targetNode
+        actual_targetDirection = actual_targetDirection
+        # assertion
+        expected_targetNode = nodes[1]
+        expected_targetDirection = 1
+        expected_extend = True
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_branched_forward_node_from_node(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8"]
+        read1 = Read("read1",
+                    genes1)
+        read2 =  Read("read2",
+                    genes2)
+        geneMers1 = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in geneMers1:
+            node = graph.add_node(g,
+                                [read1])
+            nodes1.append(node)
+        nodes2 = []
+        for g in geneMers2:
+            node = graph.add_node(g,
+                                [read2])
+            nodes2.append(node)
+        for n in [nodes1, nodes2]:
+            mock_forward_edge = Edge(n[1],
+                                    n[2],
+                                    1,
+                                    1)
+            mock_rc_forward_edge = Edge(n[2],
+                                        n[1],
+                                        -1,
+                                        -1)
+            graph.add_edges_to_graph(mock_forward_edge,
+                                    mock_rc_forward_edge)
+            graph.add_edge_to_node(n[1],
+                                mock_forward_edge)
+            graph.add_edge_to_node(n[2],
+                                mock_rc_forward_edge)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_forward_node_from_node(nodes1[0])
+        actual_targetNode = actual_targetNode
+        actual_targetDirection = actual_targetDirection
+        # assertion
+        expected_targetNode = None
+        expected_targetDirection = None
+        expected_extend = False
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_non_existing_forward_node_from_node(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_forward_node_from_node(nodes[0])
+        # assertion
+        expected_targetNode = None
+        expected_targetDirection = None
+        expected_extend = False
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_existing_backward_node_from_node(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        mock_backward_edge = Edge(nodes[0],
+                                nodes[1],
+                                -1,
+                                -1)
+        mock_rc_backward_edge = Edge(nodes[1],
+                                    nodes[0],
+                                    1,
+                                    1)
+        graph.add_edges_to_graph(mock_backward_edge,
+                                mock_rc_backward_edge)
+        graph.add_edge_to_node(nodes[0],
+                            mock_backward_edge)
+        graph.add_edge_to_node(nodes[1],
+                            mock_rc_backward_edge)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_backward_node_from_node(nodes[0])
+        actual_targetNode = actual_targetNode
+        actual_targetDirection = actual_targetDirection
+        # assertion
+        expected_targetNode = nodes[1]
+        expected_targetDirection = -1
+        expected_extend = True
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_non_existing_backward_node_from_node(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_backward_node_from_node(nodes[0])
+        # assertion
+        expected_targetNode = None
+        expected_targetDirection = None
+        expected_extend = False
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_existing_backward_node_from_node_in_middle(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        for n in range(len(nodes) - 1):
+            mock_backward_edge = Edge(nodes[n],
+                                    nodes[n+1],
+                                    -1,
+                                    -1)
+            mock_rc_backward_edge = Edge(nodes[n+1],
+                                        nodes[n],
+                                        1,
+                                        1)
+            graph.add_edges_to_graph(mock_backward_edge,
+                                    mock_rc_backward_edge)
+            graph.add_edge_to_node(nodes[n],
+                                mock_backward_edge)
+            graph.add_edge_to_node(nodes[n+1],
+                                mock_rc_backward_edge)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_backward_node_from_node(nodes[0])
+        actual_targetNode = actual_targetNode
+        actual_targetDirection = actual_targetDirection
+        # assertion
+        expected_targetNode = nodes[1]
+        expected_targetDirection = -1
+        expected_extend = True
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_branched_backward_node_from_node(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8"]
+        read1 = Read("read1",
+                    genes1)
+        read2 =  Read("read2",
+                    genes2)
+        geneMers1 = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in geneMers1:
+            node = graph.add_node(g,
+                                [read1])
+            nodes1.append(node)
+        nodes2 = []
+        for g in geneMers2:
+            node = graph.add_node(g,
+                                [read2])
+            nodes2.append(node)
+        for n in [nodes1, nodes2]:
+            mock_backward_edge = Edge(n[1],
+                                    n[2],
+                                    -1,
+                                    -1)
+            mock_rc_backward_edge = Edge(n[2],
+                                        n[1],
+                                        1,
+                                        1)
+            graph.add_edges_to_graph(mock_backward_edge,
+                                    mock_rc_backward_edge)
+            graph.add_edge_to_node(n[1],
+                                mock_backward_edge)
+            graph.add_edge_to_node(n[2],
+                                mock_rc_backward_edge)
+        # execution
+        actual_extend, actual_targetNode, actual_targetDirection = graph.get_forward_node_from_node(nodes1[0])
+        actual_targetNode = actual_targetNode
+        actual_targetDirection = actual_targetDirection
+        # assertion
+        expected_targetNode = None
+        expected_targetDirection = None
+        expected_extend = False
+        self.assertEqual(actual_targetNode, expected_targetNode)
+        self.assertEqual(actual_targetDirection, expected_targetDirection)
+        self.assertEqual(actual_extend, expected_extend)
+
+    def test___get_forward_path_from_node_linear(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        for n in range(len(nodes) - 1):
+            mock_forward_edge = Edge(nodes[n],
+                                    nodes[n+1],
+                                    1,
+                                    1)
+            mock_rc_forward_edge = Edge(nodes[n+1],
+                                        nodes[n],
+                                        -1,
+                                        -1)
+            graph.add_edges_to_graph(mock_forward_edge,
+                                    mock_rc_forward_edge)
+            graph.add_edge_to_node(nodes[n],
+                                mock_forward_edge)
+            graph.add_edge_to_node(nodes[n+1],
+                                mock_rc_forward_edge)
+        # execution
+        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes[1])
+        actual_path_length = len(actual_forward_path_from_node)
+        # assertion
+        expected_forward_path_from_node = [n.__hash__() for n in nodes[1:]]
+        expected_path_length = 5
+        self.assertEqual(actual_forward_path_from_node, expected_forward_path_from_node)
+        self.assertEqual(actual_path_length, expected_path_length)
+
+    def test___get_forward_path_from_node_branched(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene8", "+gene8"]
+        read1 = Read("read1",
+                    genes1)
+        read2 =  Read("read2",
+                    genes2)
+        geneMers1 = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in geneMers1:
+            node = graph.add_node(g,
+                                [read1])
+            nodes1.append(node)
+        nodes2 = []
+        for g in geneMers2:
+            node = graph.add_node(g,
+                                [read2])
+            nodes2.append(node)
+        for nodes in [nodes1, nodes2]:
+            for n in range(len(nodes) - 1):
+                mock_forward_edge = Edge(nodes[n],
+                                        nodes[n+1],
+                                        1,
+                                        1)
+                mock_rc_forward_edge = Edge(nodes[n+1],
+                                            nodes[n],
+                                            -1,
+                                            -1)
+                graph.add_edges_to_graph(mock_forward_edge,
+                                        mock_rc_forward_edge)
+                graph.add_edge_to_node(nodes[n],
+                                    mock_forward_edge)
+                graph.add_edge_to_node(nodes[n+1],
+                                    mock_rc_forward_edge)
+        # execution
+        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes1[0])
+        actual_path_length = len(actual_forward_path_from_node)
+        # assertion
+        expected_forward_path_from_node = [n.__hash__() for n in nodes1[:2]]
+        expected_path_length = 2
+        self.assertEqual(actual_forward_path_from_node, expected_forward_path_from_node)
+        self.assertEqual(actual_path_length, expected_path_length)
+
+    def test___get_backward_path_from_node_linear(self):
+        # setup
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
+        read1 = Read("read1",
+                    genes)
+        geneMers = [x for x in read1.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes = []
+        for g in geneMers:
+            node = graph.add_node(g,
+                                [read1])
+            nodes.append(node)
+        for n in range(len(nodes) - 1):
+            mock_backward_edge = Edge(nodes[n],
+                                    nodes[n+1],
+                                    -1,
+                                    -1)
+            mock_rc_backward_edge = Edge(nodes[n+1],
+                                        nodes[n],
+                                        1,
+                                        1)
+            graph.add_edges_to_graph(mock_backward_edge,
+                                    mock_rc_backward_edge)
+            graph.add_edge_to_node(nodes[n],
+                                mock_backward_edge)
+            graph.add_edge_to_node(nodes[n+1],
+                                mock_rc_backward_edge)
+        # execution
+        actual_backward_path_from_node = graph.get_backward_path_from_node(nodes[1])
+        actual_path_length = len(actual_backward_path_from_node)
+        # assertion
+        expected_backward_path_from_node = list(reversed([n.__hash__() for n in nodes[1:]]))
+        expected_path_length = 5
+        self.assertEqual(actual_backward_path_from_node, expected_backward_path_from_node)
+        self.assertEqual(actual_path_length, expected_path_length)
+
+    def test___get_backward_path_from_node_branched(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene8", "+gene8"]
+        read1 = Read("read1",
+                    genes1)
+        read2 =  Read("read2",
+                    genes2)
+        geneMers1 = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in geneMers1:
+            node = graph.add_node(g,
+                                [read1])
+            nodes1.append(node)
+        nodes2 = []
+        for g in geneMers2:
+            node = graph.add_node(g,
+                                [read2])
+            nodes2.append(node)
+        for nodes in [nodes1, nodes2]:
+            for n in range(len(nodes) - 1):
+                mock_backward_edge = Edge(nodes[n],
+                                        nodes[n+1],
+                                        -1,
+                                        -1)
+                mock_rc_backward_edge = Edge(nodes[n+1],
+                                            nodes[n],
+                                            1,
+                                            1)
+                graph.add_edges_to_graph(mock_backward_edge,
+                                        mock_rc_backward_edge)
+                graph.add_edge_to_node(nodes[n],
+                                    mock_backward_edge)
+                graph.add_edge_to_node(nodes[n+1],
+                                    mock_rc_backward_edge)
+        # execution
+        actual_backward_path_from_node = graph.get_backward_path_from_node(nodes1[0])
+        actual_path_length = len(actual_backward_path_from_node)
+        # assertion
+        expected_backward_path_from_node = list(reversed([n.__hash__() for n in nodes1[:2]]))
+        expected_path_length = 2
+        self.assertEqual(actual_backward_path_from_node, expected_backward_path_from_node)
+        self.assertEqual(actual_path_length, expected_path_length)
+
+    def test___get_linear_path_for_node(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        read1 = Read("read1",
+                    genes1)
+        read2 = Read("read2",
+                    genes2)
+        geneMers1 = [g for g in read1.get_geneMers(3)]
+        geneMers2 = [g for g in read2.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodeHashes1 = []
+        for g in range(len(geneMers1) - 1):
+            sourceNode = graph.add_node(geneMers1[g],
+                                    [read1])
+            nodeHashes1.append(sourceNode.__hash__())
+            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
+                                                                        geneMers1[g+1])
+        nodeHashes2 = []
+        for g in range(len(geneMers2) - 1):
+            sourceNode = graph.add_node(geneMers2[g],
+                                    [read1])
+            nodeHashes2.append(sourceNode.__hash__())
+            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
+                                                                        geneMers2[g+1])
+        expected_paths = [nodeHashes1[0:2],
+                        nodeHashes1[3:8],
+                        nodeHashes2[3:8]]
+        nodes_to_test = [nodeHashes1[1], nodeHashes1[3], nodeHashes2[3]]
+        for n in range(len(nodes_to_test)):
+            # execution
+            actual_path = graph.get_linear_path_for_node(graph.get_node_by_hash(nodes_to_test[n]))
+            # assertion
+            self.assertTrue((actual_path == expected_paths[n] or actual_path == list(reversed(expected_paths[n]))))

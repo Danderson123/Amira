@@ -518,6 +518,88 @@ class GeneMerGraph:
         # replace the read nodes with the new list
         self.get_readNodes()[readId] = corrected_list
         return self.get_readNodes()[readId]
+    def get_forward_node_from_node(self,
+                            sourceNode) -> list:
+        # get the list of forward edge hashes for this node
+        nodeForwardEdges = sourceNode.get_forward_edge_hashes()
+        if len(nodeForwardEdges) == 1:
+            # iterate through the edge hashes
+            for edge_hash in nodeForwardEdges:
+                # get the edge object corresponding to this edge hash
+                edge = self.get_edges()[edge_hash]
+                # get the target node for this edge
+                targetNode = edge.get_targetNode()
+                # get the degree of the target node
+                targetNodeDegree = self.get_degree(targetNode)
+                # get the direction we are going into the target node
+                targetNodeDirection = edge.get_targetNodeDirection()
+                # if the degree of the target node is 1 or 2 we can extend the linear path to the next node
+                if targetNodeDegree == 2 or targetNodeDegree == 1:
+                    return True, targetNode, targetNodeDirection
+                else:
+                    return False, None, None
+        return False, None, None
+    def get_backward_node_from_node(self,
+                                sourceNode) -> list:
+        # get the list of forward edge hashes for this node
+        nodeBackwardEdges = sourceNode.get_backward_edge_hashes()
+        if len(nodeBackwardEdges) == 1:
+            # iterate through the edge hashes
+            for edge_hash in nodeBackwardEdges:
+                # get the edge object corresponding to this edge hash
+                edge = self.get_edges()[edge_hash]
+                # get the target node for this edge
+                targetNode = edge.get_targetNode()
+                # get the degree of the target node
+                targetNodeDegree = self.get_degree(targetNode)
+                # get the direction we are going into the target node
+                targetNodeDirection = edge.get_targetNodeDirection()
+                # if the degree of the target node is 1 or 2 we can extend the linear path to the next node
+                if targetNodeDegree == 2 or targetNodeDegree == 1:
+                    # get the direction we are going into the target node
+                    return True, targetNode, targetNodeDirection
+                else:
+                    # else we cannot extend the linear path
+                    return False, None, None
+        return False, None, None
+    def get_forward_path_from_node(self,
+                                node: Node) -> list:
+        """ return a list of node hashes in the forward direction from this node """
+        forward_nodes_from_node = [node.__hash__()]
+        # get the next node in the forward direction
+        forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(node)
+        # if we are extending further in the forward direction, get the next canonical gene mer
+        while forwardExtend:
+            # if we enter the next node in the forward direction, we get the next forward node
+            if forwardNodeDirection == 1:
+                forward_nodes_from_node.append(forwardNode.__hash__())
+                forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(forwardNode)
+            # if we enter the next node in the backward direction, we get the next backward node
+            else:
+                forward_nodes_from_node.append(forwardNode.__hash__())
+                forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(forwardNode)
+        return forward_nodes_from_node
+    def get_backward_path_from_node(self,
+                                node: Node) -> list:
+        """ return a list of node hashes in the backward direction from this node """
+        backward_nodes_from_node = [node.__hash__()]
+        # get the next node in the backward direction
+        backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(node)
+        # if we are extending further in the backward direction, get the next canonical gene mer
+        while backwardExtend:
+            if backwardNodeDirection == -1:
+                backward_nodes_from_node.insert(0, backwardNode.__hash__())
+                backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(backwardNode)
+            # if we enter the next node in the forward direction, we get the next forward node
+            else:
+                backward_nodes_from_node.insert(0, backwardNode.__hash__())
+                backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
+        return backward_nodes_from_node
+    def get_linear_path_for_node(self,
+                                node: Node) -> list:
+        """ return a list of nodes that correspond to the linear path that contains the specified node """
+        linear_path = self.get_backward_path_from_node(node)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node)[1:]
+        return linear_path
     def generate_gml(self,
                     output_file: str,
                     geneMerSize: int,
