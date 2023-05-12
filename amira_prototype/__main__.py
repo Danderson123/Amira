@@ -5,6 +5,7 @@ import sys
 
 from construct_graph import GeneMerGraph
 from construct_unitig import UnitigTools
+from preprocess import process_sam
 
 def get_options():
     """define args from the command line"""
@@ -176,6 +177,14 @@ def main():
     annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
                                                     set(genesOfInterest),
                                                     args.gene_min_coverage)
+    #annotatedReads = process_sam(args.pandoraSam,
+    #                        args.readfile,
+    #                        args.output_dir,
+    #                        args.threads,
+    #                        set(genesOfInterest))
+    #import json
+    #with open("read_data.json", "w") as o:
+    #    o.write(json.dumps(annotatedReads))
     # build the graph
     sys.stderr.write("\nAmira: building gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
@@ -187,6 +196,16 @@ def main():
         # color nodes in the graph
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
+        #plot_gene_counts(annotatedReads,
+        #                args.output_dir)
+        #plot_read_lengths(args.readfile,
+        #                annotatedReads,
+        #                args.output_dir)
+        #import json
+        #with open(os.path.join(args.output_dir, "pandoraGenesAnnotatedOnMappedReads.json"), "w") as o:
+        #    o.write(json.dumps(annotatedReads, indent = 2))
+        #with open(os.path.join(args.output_dir, "positionsOfPandoraGenesAnnotatedOnMappedReads.json"), "w") as o:
+        #    o.write(json.dumps(readDict, indent = 2))
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,

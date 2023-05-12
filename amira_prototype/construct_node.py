@@ -43,7 +43,7 @@ class Node:
         for read in self.get_list_of_reads():
             yield read
     def add_read(self,
-                read: Read):
+                read: str):
         """ add a read object to a list of reads for this node """
         if not read in self.get_list_of_reads():
             self.listOfReads.append(read)

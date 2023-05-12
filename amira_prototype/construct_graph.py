@@ -31,19 +31,20 @@ class GeneMerGraph:
             if not len(geneMers) == 1:
                 # iterate through all the gene-mers except the last
                 for g in range(len(geneMers) - 1):
-                    # add a source node to the graph
-                    sourceNode = self.add_node(geneMers[g])
-                    # increase the source node coverage by 1
-                    sourceNode.increment_node_coverage()
                     # get the read id for this read
                     readId = read.get_readId()
-                    # add the read id to the source node attributes
-                    sourceNode.add_read(readId)
-                    # add the target node to the graph
-                    targetNode = self.add_node(geneMers[g+1])
-                    # add the source node to the set of node hashes for this read
+                    # add a source node to the graph
+                    sourceNode = self.add_node(geneMers[g],
+                                            [read])
+                    # add the sourceNode to the read
                     self.add_node_to_read(sourceNode,
-                                        readId)
+                                    geneMers[g].get_geneMerDirection(),
+                                    readId)
+                    # increase the source node coverage by 1
+                    sourceNode.increment_node_coverage()
+                    # add the target node to the graph
+                    targetNode = self.add_node(geneMers[g+1],
+                                            [read])
                     # add an edge from source to target and target to source
                     sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(geneMers[g],
                                                                                 geneMers[g+1])
@@ -52,20 +53,21 @@ class GeneMerGraph:
                     reverseTargetToSourceEdge.increment_edge_coverage()
                 targetNodeHash = geneMers[-1].__hash__()
                 targetNode = self.get_node_by_hash(targetNodeHash)
-                # add the read to the targetNode
-                targetNode.add_read(readId)
                 # increment the coverage of the target if it is the last gene mer in the read
                 targetNode.increment_node_coverage()
                 self.add_node_to_read(targetNode,
+                                    geneMers[-1].get_geneMerDirection(),
                                     readId)
             else:
                 # add a single node to the graph if there is only 1 gene mer
-                sourceNode = self.add_node(geneMers[0])
-                sourceNode.increment_node_coverage()
                 readId = read.get_readId()
-                sourceNode.add_read(readId)
+                sourceNode = self.add_node(geneMers[0],
+                                        [read])
                 self.add_node_to_read(sourceNode,
+                                    geneMers[0].get_geneMerDirection(),
                                     readId)
+                sourceNode.increment_node_coverage()
+
     def get_reads(self):
         """ return a dictionary of all reads and their genes """
         return self._reads
@@ -87,28 +89,27 @@ class GeneMerGraph:
     def get_minNodeCoverage(self):
         """ return the minimum node coverage """
         return self._minNodeCoverage
-    def get_minEdgeCoverage(self):
-        """ return the minimum edge coverage """
-        return self._minEdgeCoverage
     def all_nodes(self):
         """ return a generator for all nodes in the graph and their attributes """
         for nodeHash in self.get_nodes():
             yield self.get_nodes()[nodeHash]
     def add_node_to_read(self,
                         node: Node,
+                        nodeDirection: int,
                         readId: str):
         # add the read ID to the read dict if it is not present
         if not readId in self.get_readNodes():
             self.get_readNodes()[readId] = []
         # add the hash for the node as attributes for this read
-        self.get_readNodes()[readId].append(node.__hash__())
+        self.get_readNodes()[readId].append((node.__hash__(), nodeDirection))
         # each node occurrence will occur in the list (including duplicates)
         return self.get_readNodes()[readId]
     def get_nodes_containing_read(self,
                                 readId):
         """ return a list of nodes that contain a read of interest """
         # get the node hashes that contain this read
-        listOfNodeHashes = list(self.get_readNodes()[readId])
+        listOfNodeHashes = [nodeTuple[0] for nodeTuple in list(self.get_readNodes()[readId])]
+        print(self.get_readNodes()[readId])
         # this function gets the node for a node hash if it has not been filtered from the graph
         listOfNodes = [self.get_node_by_hash(h) for h in listOfNodeHashes if h in self.get_nodes()]
         return listOfNodes
@@ -122,7 +123,8 @@ class GeneMerGraph:
         """ return a node object corresponding to a node hash """
         return self.get_nodes()[nodeHash]
     def add_node(self,
-                geneMer: GeneMer) -> Node:
+                geneMer: GeneMer,
+                reads: list) -> Node:
         """
         Add a gene mer to the graph if it does not exist, else get the node.
         Returns the Node itself
@@ -134,11 +136,15 @@ class GeneMerGraph:
             # add the node to the graph
             self.add_node_to_nodes(node,
                                 nodeHash)
-            # add the reads for this node to the dictionary of reads
-            for readID in node.get_reads():
-                self.add_node_to_read(node,
-                                    readID)
-        return self.get_node_by_hash(nodeHash)
+        else:
+            node = self.get_node_by_hash(nodeHash)
+        # add the reads for this node to the dictionary of reads
+        for r in reads:
+            # self.add_node_to_read(node,
+            #                     geneMer.get_geneMerDirection(),
+            #                     r.get_readId())
+            node.add_read(r.get_readId())
+        return node
     def get_node(self,
                 geneMer: GeneMer) -> Node:
         """ get a node given a GeneMer """
@@ -230,9 +236,11 @@ class GeneMerGraph:
         Returns the updated source and target lists of forward and reverse edges.
         """
         # if the source is not in the graph then add it, else get the node
-        sourceNode = self.add_node(sourceGeneMer)
+        sourceNode = self.add_node(sourceGeneMer,
+                                [])
         # if the target is not in the graph then add it, else get the node
-        targetNode = self.add_node(targetGeneMer)
+        targetNode = self.add_node(targetGeneMer,
+                                [])
         # create the edge objects
         sourceToTargetEdge, reverseTargetToSourceEdge = self.create_edges(sourceNode,
                                                                         targetNode,
@@ -331,7 +339,7 @@ class GeneMerGraph:
                             node_to_remove):
         """ remove a node from the list of nodes annotated on each read and return the modified node list"""
         for readId in node_to_remove.get_reads():
-            self.get_readNodes()[readId] = [nodeHash for nodeHash in self.get_readNodes()[readId] if nodeHash != node_to_remove.__hash__()]
+            self.get_readNodes()[readId] = [nodeTuple for nodeTuple in self.get_readNodes()[readId] if nodeTuple[0] != node_to_remove.__hash__()]
         return self.get_readNodes()[readId]
     def remove_node(self,
                 node: Node):
@@ -449,6 +457,12 @@ class GeneMerGraph:
         # get the canonical gene mer for the node
         geneMer = sourceNode.get_canonical_geneMer()
         return [convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in geneMer]
+    def get_reverse_gene_mer_genes(self,
+                        sourceNode: Node) -> list:
+        """ return a list of genes in the canonical gene mer and their strands"""
+        # get the reversed gene mer for the node
+        geneMer = sourceNode.get_reverse_geneMer()
+        return [convert_int_strand_to_string(g.get_strand()) + g.get_name() for g in geneMer]
     def get_gene_mer_label(self,
                         sourceNode: Node) -> str:
         """ returns a string of the genes in the canonical gene mer for a node and their strands """
@@ -456,24 +470,51 @@ class GeneMerGraph:
         geneMerGenes = self.get_gene_mer_genes(sourceNode)
         # return a string of the gene mer genes and strands
         return "~~~".join(geneMerGenes)
+    def insert_between_nodes(self,
+                            readNodes,
+                            preInsertion,
+                            postInsertion,
+                            node_to_insert):
+        newReadNodes = []
+        i = 0
+        while i < len(readNodes):
+            newReadNodes.append(readNodes[i])
+            if i + 1 < len(readNodes) and ((readNodes[i] == preInsertion and readNodes[i + 1] == postInsertion) or (readNodes[i] == postInsertion and readNodes[i + 1] == preInsertion)):
+                newReadNodes.append(node_to_insert)
+            i += 1
+        return newReadNodes
     def correct_read_nodes(self,
                         readId,
-                        nodes_to_replace,
-                        replacement_list):
+                        replacementDict):
         """ replace a single node hash in a list with the elements in a list and return the new readNode dictionary """
         # get the nodes on this read
-        readNodes = self.get_readNodes()[readId]
-        # replace all occurences of node_to_replace with the replacement
-        sublist_len = len(nodes_to_replace)
+        readNodes = [n[0] for n in self.get_readNodes()[readId]]
+        # get the keys of nodes that are adjacent to the insertion
+        to_replace = list(replacementDict.keys())
+        for i in range(len(to_replace)):
+            if to_replace[i] == "*":
+                preInsertion = to_replace[i-1]
+                postInsertion = to_replace[i+1]
+        # get the indices of the node hashes immediately adjacent to the node to the insertion site
+        newReadNodes= self.insert_between_nodes(readNodes,
+                                            preInsertion,
+                                            postInsertion,
+                                            "*")
         corrected_list = []
-        index = 0
-        while index < len(readNodes):
-            if readNodes[index:index + sublist_len] == nodes_to_replace:
-                corrected_list.extend(replacement_list)
-                index += sublist_len
+        for nodeHash in newReadNodes:
+            if not nodeHash in replacementDict:
+                corrected_list.append((nodeHash,
+                            self.get_node_by_hash(nodeHash).get_geneMer().get_geneMerDirection()))
             else:
-                corrected_list.append(readNodes[index])
-                index += 1
+                corrected_list.append((replacementDict[nodeHash],
+                            self.get_node_by_hash(replacementDict[nodeHash]).get_geneMer().get_geneMerDirection()))
+        for n in range(len(corrected_list)-1):
+            print([{self.get_node_by_hash(k).get_nodeId(): self.get_node_by_hash(v).get_nodeId()} for k, v in replacementDict.items() if not k == "*"],
+                [self.get_node_by_hash(corrected_list[i][0]).get_nodeId() for i in range(len(corrected_list)-1) ],
+                self.get_node_by_hash(corrected_list[n+1][0]).get_nodeId(),
+                readId)
+            assert corrected_list[n][0] in self.get_all_neighbors(self.get_node_by_hash(corrected_list[n+1][0]))
+            assert corrected_list[n+1][0] in self.get_all_neighbors(self.get_node_by_hash(corrected_list[n][0]))
         # replace the read nodes with the new list
         self.get_readNodes()[readId] = corrected_list
         return self.get_readNodes()[readId]
