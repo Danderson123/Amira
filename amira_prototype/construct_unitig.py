@@ -344,7 +344,6 @@ class Unitigs:
         for r in clusteredRegions:
             nodes[r] = [0]
         return nodes, clusteredRegions
-        end
     def get_unitigs_of_interest(self):
         # isolate nodes containing AMR genes
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
@@ -398,7 +397,6 @@ class Unitigs:
             else:
                 empty += 1
         print(not_empty, empty)
-        end
 
     # def get_unitigs_of_interest(self):
     #     # isolate nodes containing AMR genes
@@ -466,8 +464,6 @@ class Unitigs:
     #         readFileName = os.path.join("new_clustering_amira_output/unitigs", str(cluster), str(cluster) + ".fastq.gz")
     #         write_fastq(readFileName,
     #                     subsettedReadData)
-        end
-
 
 class UnitigTools:
     def __init__(self,
