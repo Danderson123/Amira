@@ -2756,7 +2756,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_replacementDict = {1: 1, 2: 2, 3: 7, "*": 8, 4: 9, 5: 5, 6: 6}
         self.assertEqual(actual_replacementDict, expected_replacementDict)
 
-    def test___make_replacement_dict_even(self):     # setup
+    def test___make_replacement_dict_even(self):
         # setup
         graph = GeneMerGraph({},
                             3)

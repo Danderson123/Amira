@@ -1,3 +1,4 @@
+from itertools import combinations
 import os
 from tqdm import tqdm
 
@@ -467,7 +468,7 @@ class GeneMerGraph:
         """ return a list of node objects with the specified degree """
         assert type(degree) == int, "The input degree must be an integer."
         nodesWithDegree = []
-        for node in tqdm(self.all_nodes()):
+        for node in self.all_nodes():
             nodeDegree = self.get_degree(node)
             if nodeDegree == degree:
                 nodesWithDegree.append(node)
@@ -568,6 +569,88 @@ class GeneMerGraph:
         # replace the read nodes with the new list
         self.get_readNodes()[readId] = corrected_list
         return self.get_readNodes()[readId]
+    def get_new_node_annotations(self,
+                                readId):
+        """ traverse a read and return a list of strings representing the new gene annotations and their strands """
+        readNodes = self.get_readNodes()[readId]
+        # store the new annotations in a list
+        newAnnotations = []
+        # iterate through the new readNodes
+        for n in range(len(readNodes)-1):
+            sourceNode = self.get_node_by_hash(readNodes[n][0])
+            targetNode = self.get_node_by_hash(readNodes[n+1][0])
+            # get the edge between the source and target node
+            edgeHash = self.get_edge_hashes_between_nodes(sourceNode,
+                                                        targetNode)
+            edge = self.get_edge_by_hash(edgeHash[0])
+            # add either the forward or reverse gene mer depending on the node direction
+            if n == 0:
+                if edge.get_sourceNodeDirection() == 1:
+                    newAnnotations += self.get_gene_mer_genes(sourceNode)
+                else:
+                    newAnnotations += self.get_reverse_gene_mer_genes(sourceNode)
+            if edge.get_targetNodeDirection() == 1:
+                    newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
+            else:
+                newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
+        return newAnnotations
+    def get_new_read_annotations(self):
+        """ return a dictionary of post-error cleaning read annotations """
+        # get the corrected read node annotations
+        readNodeDict = self.get_readNodes()
+        # convert the nodes to genes by traversing the nodes from start to finish
+        annotatedReads = {}
+        for readId in readNodeDict:
+            annotatedReads[readId] = self.get_new_node_annotations(readId)
+        return annotatedReads
+    def remove_short_linear_paths(self,
+                                min_length):
+        """ remove nodeHash annotations on reads if they belong to a linear path of length < min_length """
+        paths_to_remove = []
+        for node in self.all_nodes():
+            if self.get_degree(node) == 1:
+                path = self.get_linear_path_for_node(node)
+                if len(path) > 0 and (len(path) < min_length or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
+                    paths_to_remove.append(path)
+        removed = set()
+        for path in paths_to_remove:
+            for nodeHash in path:
+                if not nodeHash in removed:
+                    self.remove_node(self.get_node_by_hash(nodeHash))
+                    removed.add(nodeHash)
+    def pop_bubbles(self):
+        """ remove paths from read annotations that correspond to bubbles in the graph """
+        # start by listing all nodes with exactly 3 or 4 neighbors
+        threeOrFourNeighbors = self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)
+        # list all combinations of nodes we're interested in with no duplicates
+        to_compare = combinations(threeOrFourNeighbors, 2)
+        # get all possible paths that link two nodes of length exactly k or k-1
+        for pair in tqdm(to_compare):
+            pair_paths = self.find_paths_between_two_nodes(pair[0],
+                                                        pair[1],
+                                                        self.get_kmerSize())
+            pair_paths = [[n.__hash__() for n in p] for p in pair_paths]
+            pair_paths = [p for p in pair_paths if all(self.get_degree(self.get_node_by_hash(n)) == 2 for n in p[1:-1])]
+            if len(pair_paths) == 2 and not len(pair_paths[0]) == len(pair_paths[1]):
+                nodes_to_replace, replacement_list = min(pair_paths, key=len), max(pair_paths, key=len)
+                replacementDict = self.make_replacement_dict(nodes_to_replace[:],
+                                                    replacement_list[:])
+                pathReads = set()
+                for nodeHash in nodes_to_replace:
+                    for readId in self.get_node_by_hash(nodeHash).get_reads():
+                        pathReads.add(readId)
+                for readId in list(pathReads):
+                    newReadNodes = self.correct_read_nodes(readId,
+                                                        replacementDict)
+    def correct_errors(self,
+                    min_linearPathLength):
+        """ return a dictionary of corrected read annotation to build a new, cleaner gene-mer graph """
+        # clean up short linear paths that look like hairs on the gene-mer graph
+        self.remove_short_linear_paths(min_linearPathLength)
+        # pop bubbles in the graph where a single gene annotation has been missed
+        self.pop_bubbles()
+        # return a dictionary of new read annotations
+        return self.get_new_read_annotations()
     def get_forward_node_from_node(self,
                             sourceNode) -> list:
         # get the list of forward edge hashes for this node

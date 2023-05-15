@@ -177,16 +177,19 @@ def main():
     annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
                                                     set(genesOfInterest),
                                                     args.gene_min_coverage)
-    #annotatedReads = process_sam(args.pandoraSam,
-    #                        args.readfile,
-    #                        args.output_dir,
-    #                        args.threads,
-    #                        set(genesOfInterest))
-    #import json
-    #with open("read_data.json", "w") as o:
-    #    o.write(json.dumps(annotatedReads))
     # build the graph
-    sys.stderr.write("\nAmira: building gene-mer graph\n")
+    sys.stderr.write("\nAmira: building pre-correction gene-mer graph\n")
+    graphToCorrect = GeneMerGraph(annotatedReads,
+                        args.geneMer_size)
+    if args.debug:
+        sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
+        graphToCorrect.generate_gml(os.path.join(args.output_dir, "pre_correction_gene_mer_graph"),
+                                    args.geneMer_size,
+                                    1,
+                                    1)
+    sys.stderr.write("\nCorrecting annotation errors by removing appendages and popping bubbles\n")
+    annotatedReads = graphToCorrect.correct_errors(5)
+    sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
     sys.stderr.write("\nAmira: filtering gene-mer graph\n")
@@ -196,16 +199,11 @@ def main():
         # color nodes in the graph
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
-        #plot_gene_counts(annotatedReads,
-        #                args.output_dir)
-        #plot_read_lengths(args.readfile,
-        #                annotatedReads,
-        #                args.output_dir)
-        #import json
-        #with open(os.path.join(args.output_dir, "pandoraGenesAnnotatedOnMappedReads.json"), "w") as o:
-        #    o.write(json.dumps(annotatedReads, indent = 2))
-        #with open(os.path.join(args.output_dir, "positionsOfPandoraGenesAnnotatedOnMappedReads.json"), "w") as o:
-        #    o.write(json.dumps(readDict, indent = 2))
+        # plot_gene_counts(annotatedReads,
+        #                 args.output_dir)
+        # plot_read_lengths(args.readfile,
+        #                 annotatedReads,
+        #                 args.output_dir)
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
