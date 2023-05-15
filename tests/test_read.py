@@ -130,3 +130,22 @@ class TestReadConstructor(unittest.TestCase):
         expected_number_of_geneMers = 0
         self.assertEqual(actual_number_of_geneMers, expected_number_of_geneMers)
         self.assertEqual(actual_geneMers, expected_geneMers)
+
+    def test_gene_geneMers_reverse_forward(self):
+        # setup
+        read1 = Read("read1",
+                ["+gene1", "-gene2", "+gene3"])
+        read2 = Read("read2",
+                ["+gene3", "-gene2", "+gene1"])
+        # execution
+        actual_geneMers1 = [x for x in read1.get_geneMers(3)]
+        actual_geneObjects1 = [gmer.get_canonical_geneMer() for gmer in actual_geneMers1]
+        actual_geneStrings1 = [[g.get_name() for g in gmer] for gmer in actual_geneObjects1]
+        actual_geneMers2 = [x for x in read2.get_geneMers(3)]
+        actual_geneObjects2 = [gmer.get_canonical_geneMer() for gmer in actual_geneMers2]
+        actual_geneStrings2 = [[g.get_name() for g in gmer] for gmer in actual_geneObjects2]
+        # assertion
+        self.assertNotEqual(actual_geneMers1, actual_geneMers2)
+        self.assertNotEqual(actual_geneObjects1, actual_geneObjects2)
+        self.assertNotEqual(actual_geneStrings1, actual_geneStrings2)
+

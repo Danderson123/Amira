@@ -109,7 +109,6 @@ class GeneMerGraph:
         """ return a list of nodes that contain a read of interest """
         # get the node hashes that contain this read
         listOfNodeHashes = [nodeTuple[0] for nodeTuple in list(self.get_readNodes()[readId])]
-        print(self.get_readNodes()[readId])
         # this function gets the node for a node hash if it has not been filtered from the graph
         listOfNodes = [self.get_node_by_hash(h) for h in listOfNodeHashes if h in self.get_nodes()]
         return listOfNodes
@@ -140,9 +139,6 @@ class GeneMerGraph:
             node = self.get_node_by_hash(nodeHash)
         # add the reads for this node to the dictionary of reads
         for r in reads:
-            # self.add_node_to_read(node,
-            #                     geneMer.get_geneMerDirection(),
-            #                     r.get_readId())
             node.add_read(r.get_readId())
         return node
     def get_node(self,
@@ -298,10 +294,6 @@ class GeneMerGraph:
                 break
         assert not (sourceNodeEdgeHash == [] or targetNodeEdgeHash == []), "There are edges missing from the source and target nodes"
         return (sourceNodeEdgeHash, targetNodeEdgeHash)
-    def get_shortest_path(sourceNode: Node,
-                        targetNode: Node) -> list:
-        """ return a list of nodes corresponding to the shortest path between two nodes """
-        return
     def remove_edge_from_edges(self,
                             edgeHash):
         """ remove an edge object from the dictionary of all edges by hash """
@@ -470,19 +462,98 @@ class GeneMerGraph:
         geneMerGenes = self.get_gene_mer_genes(sourceNode)
         # return a string of the gene mer genes and strands
         return "~~~".join(geneMerGenes)
-    def insert_between_nodes(self,
+    def get_nodes_with_degree(self,
+                            degree: int):
+        """ return a list of node objects with the specified degree """
+        assert type(degree) == int, "The input degree must be an integer."
+        nodesWithDegree = []
+        for node in tqdm(self.all_nodes()):
+            nodeDegree = self.get_degree(node)
+            if nodeDegree == degree:
+                nodesWithDegree.append(node)
+        return nodesWithDegree
+    def find_paths_between_two_nodes(self,
+                                start,
+                                stop,
+                                k):
+
+        def dfs(path, current_length):
+            node = path[-1]
+            if node == stop:
+                if len(path) < k + 3 and len(path) > k:
+                    paths.append(path)
+                return
+            if len(path) > k + 2:
+                return
+
+            for neighbor in [self.get_node_by_hash(n) for n in self.get_all_neighbors(node)]:
+                if neighbor not in path:
+                    dfs(path + [neighbor], current_length + 1)
+        paths = []
+        dfs([start], 0)
+        return paths
+    def insert_between_nodes_on_read(self,
                             readNodes,
                             preInsertion,
                             postInsertion,
                             node_to_insert):
-        newReadNodes = []
-        i = 0
-        while i < len(readNodes):
-            newReadNodes.append(readNodes[i])
-            if i + 1 < len(readNodes) and ((readNodes[i] == preInsertion and readNodes[i + 1] == postInsertion) or (readNodes[i] == postInsertion and readNodes[i + 1] == preInsertion)):
+        """ returns a modified list where "*" has been inserted at the sit where a node will be added later """
+        if not len(readNodes) == 1:
+            newReadNodes = []
+            i = 0
+            while i < len(readNodes):
+                newReadNodes.append(readNodes[i])
+                if i + 1 < len(readNodes) and ((readNodes[i] == preInsertion and readNodes[i + 1] == postInsertion) \
+                        or (readNodes[i] == postInsertion and readNodes[i + 1] == preInsertion)):
+                    newReadNodes.append(node_to_insert)
+                i += 1
+            # check if either of the nodes are at the ends but the node adjacent is missing
+            if (readNodes[0] == preInsertion and not readNodes[1] == postInsertion) \
+                or (readNodes[0] == postInsertion and not readNodes[1] == preInsertion):
+                newReadNodes.insert(0, node_to_insert)
+            if (readNodes[-1] == preInsertion and not readNodes[-2] == postInsertion) \
+                or (readNodes[-1] == postInsertion and not readNodes[-2] == preInsertion):
                 newReadNodes.append(node_to_insert)
-            i += 1
+        else:
+            newReadNodes = readNodes
         return newReadNodes
+    def make_replacement_dict(self,
+                        old_path,
+                        new_path):
+        # insert a star to indicate where the new node will go
+        assert not len(new_path) % 2 == 0, "The gene-mer size must be an odd number"
+        old_path.insert(int(len(old_path)/2), "*")
+        replacementDict = {}
+        for n in range(len(old_path)):
+            replacementDict[old_path[n]] = new_path[n]
+        return replacementDict
+    def modify_readNode_list(self,
+                            readNodes,
+                            replacementDict):
+        modifiedReadNodes = readNodes[:]
+        to_replace = list(replacementDict.keys())
+        for i in range(len(to_replace)):
+            if to_replace[i] == "*":
+                preInsertion = to_replace[i-1]
+                postInsertion = to_replace[i+1]
+                # get the indices of the node hashes immediately adjacent to the node to the insertion site
+                modifiedReadNodes = self.insert_between_nodes_on_read(modifiedReadNodes,
+                                                            preInsertion,
+                                                            postInsertion,
+                                                            "*")
+        return modifiedReadNodes
+    def replace_nodes_on_read(self,
+                            modifiedReadNodes,
+                            replacementDict):
+        corrected_list = []
+        for nodeHash in modifiedReadNodes:
+            if not nodeHash in replacementDict:
+                corrected_list.append((nodeHash,
+                            self.get_node_by_hash(nodeHash).get_geneMer().get_geneMerDirection()))
+            else:
+                corrected_list.append((replacementDict[nodeHash],
+                            self.get_node_by_hash(replacementDict[nodeHash]).get_geneMer().get_geneMerDirection()))
+        return corrected_list
     def correct_read_nodes(self,
                         readId,
                         replacementDict):
@@ -490,31 +561,10 @@ class GeneMerGraph:
         # get the nodes on this read
         readNodes = [n[0] for n in self.get_readNodes()[readId]]
         # get the keys of nodes that are adjacent to the insertion
-        to_replace = list(replacementDict.keys())
-        for i in range(len(to_replace)):
-            if to_replace[i] == "*":
-                preInsertion = to_replace[i-1]
-                postInsertion = to_replace[i+1]
-        # get the indices of the node hashes immediately adjacent to the node to the insertion site
-        newReadNodes= self.insert_between_nodes(readNodes,
-                                            preInsertion,
-                                            postInsertion,
-                                            "*")
-        corrected_list = []
-        for nodeHash in newReadNodes:
-            if not nodeHash in replacementDict:
-                corrected_list.append((nodeHash,
-                            self.get_node_by_hash(nodeHash).get_geneMer().get_geneMerDirection()))
-            else:
-                corrected_list.append((replacementDict[nodeHash],
-                            self.get_node_by_hash(replacementDict[nodeHash]).get_geneMer().get_geneMerDirection()))
-        for n in range(len(corrected_list)-1):
-            print([{self.get_node_by_hash(k).get_nodeId(): self.get_node_by_hash(v).get_nodeId()} for k, v in replacementDict.items() if not k == "*"],
-                [self.get_node_by_hash(corrected_list[i][0]).get_nodeId() for i in range(len(corrected_list)-1) ],
-                self.get_node_by_hash(corrected_list[n+1][0]).get_nodeId(),
-                readId)
-            assert corrected_list[n][0] in self.get_all_neighbors(self.get_node_by_hash(corrected_list[n+1][0]))
-            assert corrected_list[n+1][0] in self.get_all_neighbors(self.get_node_by_hash(corrected_list[n][0]))
+        newReadNodes = self.modify_readNode_list(readNodes,
+                                                replacementDict)
+        corrected_list = self.replace_nodes_on_read(newReadNodes,
+                                                replacementDict)
         # replace the read nodes with the new list
         self.get_readNodes()[readId] = corrected_list
         return self.get_readNodes()[readId]
