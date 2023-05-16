@@ -2231,6 +2231,54 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_forward_path_from_node, expected_forward_path_from_node)
         self.assertEqual(actual_path_length, expected_path_length)
 
+    def test___get_forward_path_from_node_branched_want_branched(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene8", "+gene8"]
+        read1 = Read("read1",
+                    genes1)
+        read2 =  Read("read2",
+                    genes2)
+        geneMers1 = [x for x in read1.get_geneMers(3)]
+        geneMers2 = [x for x in read2.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in geneMers1:
+            node = graph.add_node(g,
+                                [read1])
+            nodes1.append(node)
+        nodes2 = []
+        for g in geneMers2:
+            node = graph.add_node(g,
+                                [read2])
+            nodes2.append(node)
+        for nodes in [nodes1, nodes2]:
+            for n in range(len(nodes) - 1):
+                mock_forward_edge = Edge(nodes[n],
+                                        nodes[n+1],
+                                        1,
+                                        1)
+                mock_rc_forward_edge = Edge(nodes[n+1],
+                                            nodes[n],
+                                            -1,
+                                            -1)
+                graph.add_edges_to_graph(mock_forward_edge,
+                                        mock_rc_forward_edge)
+                graph.add_edge_to_node(nodes[n],
+                                    mock_forward_edge)
+                graph.add_edge_to_node(nodes[n+1],
+                                    mock_rc_forward_edge)
+        # execution
+        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes1[0],
+                                                                        True)
+        actual_path_length = len(actual_forward_path_from_node)
+        # assertion
+        expected_forward_path_from_node = [n.__hash__() for n in nodes1[:3]]
+        expected_path_length = 3
+        self.assertEqual(actual_forward_path_from_node, expected_forward_path_from_node)
+        self.assertEqual(actual_path_length, expected_path_length)
+
     def test___get_backward_path_from_node_linear(self):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
@@ -2268,7 +2316,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_backward_path_from_node, expected_backward_path_from_node)
         self.assertEqual(actual_path_length, expected_path_length)
 
-    def test___get_backward_path_from_node_branched(self):
+    def test___get_backward_path_from_node_branched_want_branched(self):
         # setup
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7"]
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene8", "+gene8"]
@@ -2307,11 +2355,12 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 graph.add_edge_to_node(nodes[n+1],
                                     mock_rc_backward_edge)
         # execution
-        actual_backward_path_from_node = graph.get_backward_path_from_node(nodes1[0])
+        actual_backward_path_from_node = graph.get_backward_path_from_node(nodes1[0],
+                                                                        True)
         actual_path_length = len(actual_backward_path_from_node)
         # assertion
-        expected_backward_path_from_node = list(reversed([n.__hash__() for n in nodes1[:2]]))
-        expected_path_length = 2
+        expected_backward_path_from_node = list(reversed([n.__hash__() for n in nodes1[:3]]))
+        expected_path_length = 3
         self.assertEqual(actual_backward_path_from_node, expected_backward_path_from_node)
         self.assertEqual(actual_path_length, expected_path_length)
 
@@ -2551,10 +2600,12 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
                                                                         geneMers2[g+1])
         # execution
-        actual_paths = graph.find_paths_between_two_nodes(nodes1[1],
-                                            nodes2[4],
+        actual_grouped_paths = graph.find_paths_between_two_nodes(nodes1[1],
+                                            set([node.__hash__() for node in graph.get_nodes_with_degree(3) + graph.get_nodes_with_degree(4)]),
                                             3)
+        actual_paths = actual_grouped_paths[0]
         # assertion
+        self.assertEqual(len(actual_grouped_paths), 1)
         self.assertEqual(len(actual_paths), 2)
         self.assertTrue(((actual_paths[0] == nodes1[1:6] and actual_paths[1] == nodes2[1:5]) or (actual_paths[1] == nodes1[1:6] and actual_paths[0] == nodes2[1:5])))
 
@@ -2592,10 +2643,12 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                                                         geneMers2[g+1])
         graph.generate_gml("test",1,1,1)
         # execution
-        actual_paths = graph.find_paths_between_two_nodes(nodes1[3],
-                                                        nodes2[4],
+        actual_grouped_paths = graph.find_paths_between_two_nodes(nodes1[3],
+                                                        set([node.__hash__() for node in graph.get_nodes_with_degree(3) + graph.get_nodes_with_degree(4)]),
                                                         1)
+        actual_paths = actual_grouped_paths[0]
         # assertion
+        self.assertEqual(len(actual_grouped_paths), 1)
         self.assertEqual(len(actual_paths), 2)
         self.assertTrue(((actual_paths[0] == nodes1[3:6] and actual_paths[1] == nodes2[3:5]) or (actual_paths[1] == nodes1[3:6] and actual_paths[0] == nodes2[3:5])))
 
@@ -2646,10 +2699,12 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers3[g],
                                                                         geneMers3[g+1])
         # execution
-        actual_paths = graph.find_paths_between_two_nodes(nodes1[1],
-                                            nodes2[4],
-                                            3)
+        actual_grouped_paths = graph.find_paths_between_two_nodes(nodes1[1],
+                                                        set([node.__hash__() for node in graph.get_nodes_with_degree(3) + graph.get_nodes_with_degree(4)]),
+                                                        3)
+        actual_paths = actual_grouped_paths[0]
         # assertion
+        self.assertEqual(len(actual_grouped_paths), 1)
         self.assertEqual(len(actual_paths), 3)
 
     def test__get_nodes_with_degree(self):
@@ -2764,3 +2819,100 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         new_path = [1, 5, 6, 4]
         # assertion
         self.assertRaises(AssertionError, graph.make_replacement_dict, old_path, new_path)
+
+    def test___make_replacement_dict_empty_old_path(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        old_path = []
+        new_path = ['x']
+        # execution
+        result = graph.make_replacement_dict(old_path, new_path)
+        # assertion
+        assert result == {'*': 'x'}
+
+    def test___make_replacement_dict_empty_new_path(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        old_path = ['a']
+        new_path = []
+        # assertion
+        self.assertRaises(AssertionError, graph.make_replacement_dict, old_path, new_path)
+
+
+    def test___make_replacement_dict_new_path_even(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        old_path = ['a', 'b']
+        new_path = ['x', 'y']
+        # assertion
+        self.assertRaises(AssertionError, graph.make_replacement_dict, old_path, new_path)
+
+    def test___make_replacement_dict_old_path_longer_than_new_path(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        old_path = ['a', 'b', 'c']
+        new_path = ['x', 'y', 'z']
+        self.assertRaises(AssertionError, graph.make_replacement_dict, old_path, new_path)
+
+    def test___make_replacement_dict_old_path_has_star(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        old_path = ['a', '*', 'b']
+        new_path = ['x', 'y', 'z', 'w']
+        # assertion
+        self.assertRaises(AssertionError, graph.make_replacement_dict, old_path, new_path)
+
+    def test_group_paths_basic(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        paths = [[1, 2, 3], [1, 4, 3], [2, 5, 6], [2, 7, 6], [3, 8]]
+        # execution
+        result = graph.group_paths(paths)
+        # assertion
+        self.assertEqual(result, [([1, 2, 3], [1, 4, 3]), ([2, 5, 6], [2, 7, 6]), ([3, 8],)])
+
+    def test_group_paths_more_than_two_paths(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        paths = [[1, 2, 3], [1, 4, 3], [1, 5, 3], [2, 5, 6], [2, 7, 6], [2, 8, 6], [3, 8]]
+        # execution
+        result = graph.group_paths(paths)
+        # assertion
+        self.assertEqual(result, [([1, 2, 3], [1, 4, 3], [1, 5, 3]), ([2, 5, 6], [2, 7, 6], [2, 8, 6]), ([3, 8],)])
+
+    def test_group_paths_empty_path(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        paths = [[], [1, 4, 3], [2, 5, 6], [2, 7, 6], [3, 8]]
+        # execution
+        result = graph.group_paths(paths)
+        # assertion
+        self.assertEqual(result, [([1, 4, 3],), ([2, 5, 6], [2, 7, 6]), ([3, 8],)])
+
+    def test_group_paths_no_shared_paths(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        paths = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        # execution
+        result = graph.group_paths(paths)
+        # assertion
+        self.assertEqual(result, [([1, 2, 3],), ([4, 5, 6],), ([7, 8, 9],)])
+
+    def test_group_paths_empty_input(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        paths = []
+        # execution
+        result = graph.group_paths(paths)
+        # assertion
+        self.assertEqual(result, [])

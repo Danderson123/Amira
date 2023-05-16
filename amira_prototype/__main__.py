@@ -5,7 +5,6 @@ import sys
 
 from construct_graph import GeneMerGraph
 from construct_unitig import UnitigTools
-from preprocess import process_sam
 
 def get_options():
     """define args from the command line"""

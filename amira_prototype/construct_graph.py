@@ -473,26 +473,6 @@ class GeneMerGraph:
             if nodeDegree == degree:
                 nodesWithDegree.append(node)
         return nodesWithDegree
-    def find_paths_between_two_nodes(self,
-                                start,
-                                stop,
-                                k):
-
-        def dfs(path, current_length):
-            node = path[-1]
-            if node == stop:
-                if len(path) < k + 3 and len(path) > k:
-                    paths.append(path)
-                return
-            if len(path) > k + 2:
-                return
-
-            for neighbor in [self.get_node_by_hash(n) for n in self.get_all_neighbors(node)]:
-                if neighbor not in path:
-                    dfs(path + [neighbor], current_length + 1)
-        paths = []
-        dfs([start], 0)
-        return paths
     def insert_between_nodes_on_read(self,
                             readNodes,
                             preInsertion,
@@ -523,7 +503,15 @@ class GeneMerGraph:
                         new_path):
         # insert a star to indicate where the new node will go
         assert not len(new_path) % 2 == 0, "The gene-mer size must be an odd number"
-        old_path.insert(int(len(old_path)/2), "*")
+        if len(old_path) == 0:
+            old_path.append('*')
+        else:
+            assert old_path[0] == new_path[0] and old_path[-1] == new_path[-1], [old_path[0], new_path[0], old_path[-1], new_path[-1]]
+        # If the list length is even, insert a star at the midpoint
+        if len(old_path) % 2 == 0:
+            midpoint = len(old_path) // 2
+            old_path.insert(midpoint, '*')
+        # make a dictionary that will be used to replace nodes later
         replacementDict = {}
         for n in range(len(old_path)):
             replacementDict[old_path[n]] = new_path[n]
@@ -579,6 +567,7 @@ class GeneMerGraph:
         for n in range(len(readNodes)-1):
             sourceNode = self.get_node_by_hash(readNodes[n][0])
             targetNode = self.get_node_by_hash(readNodes[n+1][0])
+            print(self.get_gene_mer_label(sourceNode), self.get_gene_mer_label(targetNode), readId)
             # get the edge between the source and target node
             edgeHash = self.get_edge_hashes_between_nodes(sourceNode,
                                                         targetNode)
@@ -618,30 +607,77 @@ class GeneMerGraph:
                 if not nodeHash in removed:
                     self.remove_node(self.get_node_by_hash(nodeHash))
                     removed.add(nodeHash)
+    def group_paths(self,
+                paths):
+        """ group paths into tuples if they share a start and end node """
+        path_dict = {}
+        for path in paths:
+            if len(path) > 0:
+                key = (path[0], path[-1])
+                if not key in path_dict:
+                    path_dict[key] = []
+                path_dict[key].append(path)
+        return [tuple(paths) for paths in path_dict.values()]
+    def find_paths_between_two_nodes(self,
+                                start,
+                                nodesOfInterest,
+                                k):
+
+        def dfs(path, current_length):
+            node = path[-1]
+            if node.__hash__() in nodesOfInterest and not node == path[0]:
+                if len(path) < k + 3 and len(path) > k:
+                    paths.append(path)
+                return
+            if len(path) > k + 2:
+                return
+
+            for neighbor in [self.get_node_by_hash(n) for n in self.get_all_neighbors(node)]:
+                if neighbor not in path and neighbor:
+                    dfs(path + [neighbor], current_length + 1)
+        paths = []
+        dfs([start], 0)
+        grouped_paths = self.group_paths(paths)
+        return grouped_paths
     def pop_bubbles(self):
-        """ remove paths from read annotations that correspond to bubbles in the graph """
-        # start by listing all nodes with exactly 3 or 4 neighbors
-        threeOrFourNeighbors = self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)
-        # list all combinations of nodes we're interested in with no duplicates
-        to_compare = combinations(threeOrFourNeighbors, 2)
-        # get all possible paths that link two nodes of length exactly k or k-1
-        for pair in tqdm(to_compare):
-            pair_paths = self.find_paths_between_two_nodes(pair[0],
-                                                        pair[1],
+        # start by getting a set of all node hashes with exactly 3 or 4 neighbors
+        threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
+        # keep track of the bubbles we have already corrected
+        seenBubbles = set()
+        # iterate through the nodes with three or 4 neighbors
+        for nodeHash in tqdm(threeOrFourNeighbors):
+            # get all paths of length k or k-1 that end with another node that has three or 4 neighbors
+            grouped_paths = self.find_paths_between_two_nodes(self.get_node_by_hash(nodeHash),
+                                                        threeOrFourNeighbors,
                                                         self.get_kmerSize())
-            pair_paths = [[n.__hash__() for n in p] for p in pair_paths]
-            pair_paths = [p for p in pair_paths if all(self.get_degree(self.get_node_by_hash(n)) == 2 for n in p[1:-1])]
-            if len(pair_paths) == 2 and not len(pair_paths[0]) == len(pair_paths[1]):
-                nodes_to_replace, replacement_list = min(pair_paths, key=len), max(pair_paths, key=len)
-                replacementDict = self.make_replacement_dict(nodes_to_replace[:],
-                                                    replacement_list[:])
-                pathReads = set()
-                for nodeHash in nodes_to_replace:
-                    for readId in self.get_node_by_hash(nodeHash).get_reads():
-                        pathReads.add(readId)
-                for readId in list(pathReads):
-                    newReadNodes = self.correct_read_nodes(readId,
-                                                        replacementDict)
+            # iterate through the pairs of paths
+            for pair_paths in grouped_paths:
+                # convert the nodes in the paths to hashes
+                pair_paths = [[n.__hash__() for n in p] for p in pair_paths]
+                # remove paths where not all nodes have a degree of 2
+                pair_paths = [p for p in pair_paths if all(self.get_degree(self.get_node_by_hash(n)) == 2 for n in p[1:-1])]
+                # remove bubbles where the gene annotation tool has missed a gene
+                if len(pair_paths) == 2 and not len(pair_paths[0]) == len(pair_paths[1]):
+                    # when a gene has been missed, one path will be shorter than the other by 1 node
+                    nodes_to_replace, replacement_list = min(pair_paths, key=len), max(pair_paths, key=len)
+                    # skip this correction if we have already corrected it
+                    bubbleTerminals = tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]]))
+                    if not bubbleTerminals in seenBubbles:
+                        # make a dictionary to decide how we are modifying the nodes on the read we are correcting
+                        replacementDict = self.make_replacement_dict(nodes_to_replace[:],
+                                                            replacement_list[:])
+                        # get the reads we are going to correct
+                        pathReads = set()
+                        for nodeHash in nodes_to_replace:
+                            for readId in self.get_node_by_hash(nodeHash).get_reads():
+                                pathReads.add(readId)
+                        # correct the reads
+                        for readId in list(pathReads):
+                            old_readNodes = self.get_readNodes()[readId][:]
+                            newReadNodes = self.correct_read_nodes(readId,
+                                                                replacementDict)
+                        # keep track of this pair so that we don't try to correct it again
+                        seenBubbles.add(tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]])))
     def correct_errors(self,
                     min_linearPathLength):
         """ return a dictionary of corrected read annotation to build a new, cleaner gene-mer graph """
@@ -670,7 +706,7 @@ class GeneMerGraph:
                 if targetNodeDegree == 2 or targetNodeDegree == 1:
                     return True, targetNode, targetNodeDirection
                 else:
-                    return False, None, None
+                    return False, targetNode, targetNodeDirection
         return False, None, None
     def get_backward_node_from_node(self,
                                 sourceNode) -> list:
@@ -693,10 +729,11 @@ class GeneMerGraph:
                     return True, targetNode, targetNodeDirection
                 else:
                     # else we cannot extend the linear path
-                    return False, None, None
+                    return False, targetNode, targetNodeDirection
         return False, None, None
     def get_forward_path_from_node(self,
-                                node: Node) -> list:
+                                node: Node,
+                                wantBranchedNode = False) -> list:
         """ return a list of node hashes in the forward direction from this node """
         forward_nodes_from_node = [node.__hash__()]
         # get the next node in the forward direction
@@ -711,9 +748,13 @@ class GeneMerGraph:
             else:
                 forward_nodes_from_node.append(forwardNode.__hash__())
                 forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(forwardNode)
+        # if we want the final branched node too, then we add this to the path
+        if wantBranchedNode:
+            forward_nodes_from_node.append(forwardNode.__hash__())
         return forward_nodes_from_node
     def get_backward_path_from_node(self,
-                                node: Node) -> list:
+                                node: Node,
+                                wantBranchedNode = False) -> list:
         """ return a list of node hashes in the backward direction from this node """
         backward_nodes_from_node = [node.__hash__()]
         # get the next node in the backward direction
@@ -727,10 +768,13 @@ class GeneMerGraph:
             else:
                 backward_nodes_from_node.insert(0, backwardNode.__hash__())
                 backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
+        # if we want the final branched node too, then we add this to the path
+        if wantBranchedNode:
+            backward_nodes_from_node.insert(0, backwardNode.__hash__())
         return backward_nodes_from_node
     def get_linear_path_for_node(self,
                                 node: Node) -> list:
-        """ return a list of nodes that correspond to the linear path that contains the specified node """
+        """ return a list of nodes that correspond to the linear path that contains the specified node and does not include the terminal nodes with a degree of more than 2"""
         linear_path = self.get_backward_path_from_node(node)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node)[1:]
         return linear_path
     def generate_gml(self,
