@@ -191,6 +191,12 @@ def main():
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
+    annotatedReads = graph.correct_errors(5)
+    graph = GeneMerGraph(annotatedReads,
+                        args.geneMer_size)
+    annotatedReads = graph.correct_errors(5)
+    graph = GeneMerGraph(annotatedReads,
+                        args.geneMer_size)
     sys.stderr.write("\nAmira: filtering gene-mer graph\n")
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)

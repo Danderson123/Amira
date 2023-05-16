@@ -2734,7 +2734,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             if not g == len(geneMers1) - 1:
                 sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
                                                                             geneMers1[g+1])
-
         nodes2 = []
         for g in range(len(geneMers2) - 1):
             sourceNode = graph.add_node(geneMers2[g],
@@ -2916,3 +2915,234 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         result = graph.group_paths(paths)
         # assertion
         self.assertEqual(result, [])
+
+    def test___remove_short_linear_paths(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes1)
+        read2 = Read("read2",
+                    genes2)
+        read3 = Read("read3",
+                    genes3)
+        geneMers1 = [g for g in read1.get_geneMers(3)]
+        geneMers2 = [g for g in read2.get_geneMers(3)]
+        geneMers3 = [g for g in read3.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in range(len(geneMers1)):
+            sourceNode = graph.add_node(geneMers1[g],
+                                    [read1])
+            sourceNode.increment_node_coverage()
+            nodes1.append(sourceNode)
+            graph.add_node_to_read(sourceNode,
+                                geneMers1[g].get_geneMerDirection(),
+                                "read1")
+            if not g == len(geneMers1) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
+                                                                            geneMers1[g+1])
+        sourceNode = graph.add_node(geneMers1[-1],
+                                    [read1])
+        sourceNode.increment_node_coverage()
+        nodes1.append(sourceNode)
+        nodes2 = []
+        for g in range(len(geneMers2) - 1):
+            sourceNode = graph.add_node(geneMers2[g],
+                                    [read2])
+            sourceNode.increment_node_coverage()
+            graph.add_node_to_read(sourceNode,
+                                geneMers2[g].get_geneMerDirection(),
+                                "read2")
+            nodes2.append(sourceNode)
+            if not g == len(geneMers2) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
+                                                                            geneMers2[g+1])
+        sourceNode = graph.add_node(geneMers2[-1],
+                                    [read2])
+        sourceNode.increment_node_coverage()
+        nodes2.append(sourceNode)
+        nodes3 = []
+        for g in range(len(geneMers3) - 1):
+            sourceNode = graph.add_node(geneMers3[g],
+                                    [read3])
+            sourceNode.increment_node_coverage()
+            graph.add_node_to_read(sourceNode,
+                                geneMers3[g].get_geneMerDirection(),
+                                "read3")
+            nodes3.append(sourceNode)
+            if not g == len(geneMers3) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers3[g],
+                                                                            geneMers3[g+1])
+        sourceNode = graph.add_node(geneMers3[-1],
+                                    [read3])
+        sourceNode.increment_node_coverage()
+        nodes3.append(sourceNode)
+        # execution
+        actual_removed_nodeHashes = graph.remove_short_linear_paths(4)
+        # assertion
+        expected_number_removed_nodeHashes = 8
+        expected_removed_nodeHashes = [nodes1[0].__hash__(),
+                                    nodes1[1].__hash__(),
+                                    nodes1[2].__hash__(),
+                                    nodes2[0].__hash__(),
+                                    nodes2[1].__hash__(),
+                                    nodes2[2].__hash__(),
+                                    nodes3[0].__hash__(),
+                                    nodes3[1].__hash__()]
+        self.assertEqual(len(actual_removed_nodeHashes), expected_number_removed_nodeHashes)
+        self.assertTrue(all(h in actual_removed_nodeHashes for h in expected_removed_nodeHashes))
+        for nodeHash in expected_removed_nodeHashes:
+            self.assertTrue(nodeHash not in graph.get_nodes())
+
+    def test___remove_short_linear_paths_longer_than_min(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
+        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes1)
+        read2 = Read("read2",
+                    genes2)
+        read3 = Read("read3",
+                    genes3)
+        geneMers1 = [g for g in read1.get_geneMers(3)]
+        geneMers2 = [g for g in read2.get_geneMers(3)]
+        geneMers3 = [g for g in read3.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in range(len(geneMers1)):
+            sourceNode = graph.add_node(geneMers1[g],
+                                    [read1])
+            sourceNode.increment_node_coverage()
+            nodes1.append(sourceNode)
+            graph.add_node_to_read(sourceNode,
+                                geneMers1[g].get_geneMerDirection(),
+                                "read1")
+            if not g == len(geneMers1) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
+                                                                            geneMers1[g+1])
+        sourceNode = graph.add_node(geneMers1[-1],
+                                    [read1])
+        sourceNode.increment_node_coverage()
+        nodes1.append(sourceNode)
+        nodes2 = []
+        for g in range(len(geneMers2) - 1):
+            sourceNode = graph.add_node(geneMers2[g],
+                                    [read2])
+            sourceNode.increment_node_coverage()
+            graph.add_node_to_read(sourceNode,
+                                geneMers2[g].get_geneMerDirection(),
+                                "read2")
+            nodes2.append(sourceNode)
+            if not g == len(geneMers2) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
+                                                                            geneMers2[g+1])
+        sourceNode = graph.add_node(geneMers2[-1],
+                                    [read2])
+        sourceNode.increment_node_coverage()
+        nodes2.append(sourceNode)
+        nodes3 = []
+        for g in range(len(geneMers3) - 1):
+            sourceNode = graph.add_node(geneMers3[g],
+                                    [read3])
+            sourceNode.increment_node_coverage()
+            graph.add_node_to_read(sourceNode,
+                                geneMers3[g].get_geneMerDirection(),
+                                "read3")
+            nodes3.append(sourceNode)
+            if not g == len(geneMers3) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers3[g],
+                                                                            geneMers3[g+1])
+        sourceNode = graph.add_node(geneMers3[-1],
+                                    [read3])
+        sourceNode.increment_node_coverage()
+        nodes3.append(sourceNode)
+        # execution
+        actual_removed_nodeHashes = graph.remove_short_linear_paths(3)
+        # assertion
+        expected_number_removed_nodeHashes = 2
+        expected_removed_nodeHashes = [nodes3[0].__hash__(),
+                                    nodes3[1].__hash__()]
+        self.assertEqual(len(actual_removed_nodeHashes), expected_number_removed_nodeHashes)
+        self.assertTrue(all(h in actual_removed_nodeHashes for h in expected_removed_nodeHashes))
+        for nodeHash in expected_removed_nodeHashes:
+            self.assertTrue(nodeHash not in graph.get_nodes())
+
+    def test___remove_short_linear_paths_linear_path_of_length_one(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5", "-gene12"]
+        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
+        read1 = Read("read1",
+                    genes1)
+        read2 = Read("read2",
+                    genes2)
+        read3 = Read("read3",
+                    genes3)
+        geneMers1 = [g for g in read1.get_geneMers(3)]
+        geneMers2 = [g for g in read2.get_geneMers(3)]
+        geneMers3 = [g for g in read3.get_geneMers(3)]
+        graph = GeneMerGraph({},
+                        3)
+        nodes1 = []
+        for g in range(len(geneMers1)):
+            sourceNode = graph.add_node(geneMers1[g],
+                                    [read1])
+            sourceNode.increment_node_coverage()
+            nodes1.append(sourceNode)
+            graph.add_node_to_read(sourceNode,
+                                geneMers1[g].get_geneMerDirection(),
+                                "read1")
+            if not g == len(geneMers1) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
+                                                                            geneMers1[g+1])
+        sourceNode = graph.add_node(geneMers1[-1],
+                                    [read1])
+        sourceNode.increment_node_coverage()
+        nodes1.append(sourceNode)
+        nodes2 = []
+        for g in range(len(geneMers2) - 1):
+            sourceNode = graph.add_node(geneMers2[g],
+                                    [read2])
+            sourceNode.increment_node_coverage()
+            graph.add_node_to_read(sourceNode,
+                                geneMers2[g].get_geneMerDirection(),
+                                "read2")
+            nodes2.append(sourceNode)
+            if not g == len(geneMers2) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
+                                                                            geneMers2[g+1])
+        sourceNode = graph.add_node(geneMers2[-1],
+                                    [read2])
+        sourceNode.increment_node_coverage()
+        nodes2.append(sourceNode)
+        nodes3 = []
+        for g in range(len(geneMers3) - 1):
+            sourceNode = graph.add_node(geneMers3[g],
+                                    [read3])
+            sourceNode.increment_node_coverage()
+            graph.add_node_to_read(sourceNode,
+                                geneMers3[g].get_geneMerDirection(),
+                                "read3")
+            nodes3.append(sourceNode)
+            if not g == len(geneMers3) - 1:
+                sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers3[g],
+                                                                            geneMers3[g+1])
+        sourceNode = graph.add_node(geneMers3[-1],
+                                    [read3])
+        sourceNode.increment_node_coverage()
+        nodes3.append(sourceNode)
+        graph.generate_gml("test", 3, 1, 1)
+        # execution
+        actual_removed_nodeHashes = graph.remove_short_linear_paths(2)
+        # assertion
+        expected_number_removed_nodeHashes = 1
+        expected_removed_nodeHashes = [nodes2[4].__hash__()]
+        self.assertEqual(len(actual_removed_nodeHashes), expected_number_removed_nodeHashes)
+        self.assertTrue(all(h in actual_removed_nodeHashes for h in expected_removed_nodeHashes))
+        for nodeHash in expected_removed_nodeHashes:
+            self.assertTrue(nodeHash not in graph.get_nodes())

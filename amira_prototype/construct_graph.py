@@ -593,12 +593,12 @@ class GeneMerGraph:
         return annotatedReads
     def remove_short_linear_paths(self,
                                 min_length):
-        """ remove nodeHash annotations on reads if they belong to a linear path of length < min_length """
+        """ remove nodeHash annotations on reads if they belong to a linear path of length < min_length. Returns a list of nodeHashs that have bene removed """
         paths_to_remove = []
         for node in self.all_nodes():
             if self.get_degree(node) == 1:
                 path = self.get_linear_path_for_node(node)
-                if len(path) > 0 and (len(path) < min_length or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
+                if len(path) > 0 and (len(path) < min_length): #or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
                     paths_to_remove.append(path)
         removed = set()
         for path in paths_to_remove:
@@ -606,6 +606,7 @@ class GeneMerGraph:
                 if not nodeHash in removed:
                     self.remove_node(self.get_node_by_hash(nodeHash))
                     removed.add(nodeHash)
+        return list(removed)
     def group_paths(self,
                 paths):
         """ group paths into tuples if they share a start and end node """
@@ -639,6 +640,7 @@ class GeneMerGraph:
         grouped_paths = self.group_paths(paths)
         return grouped_paths
     def pop_bubbles(self):
+        """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and removes the shorter paths annotations from the reads to replace all occurrences of the shorter path with the longer one """
         # start by getting a set of all node hashes with exactly 3 or 4 neighbors
         threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
         # keep track of the bubbles we have already corrected
