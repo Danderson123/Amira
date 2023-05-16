@@ -567,7 +567,6 @@ class GeneMerGraph:
         for n in range(len(readNodes)-1):
             sourceNode = self.get_node_by_hash(readNodes[n][0])
             targetNode = self.get_node_by_hash(readNodes[n+1][0])
-            print(self.get_gene_mer_label(sourceNode), self.get_gene_mer_label(targetNode), readId)
             # get the edge between the source and target node
             edgeHash = self.get_edge_hashes_between_nodes(sourceNode,
                                                         targetNode)
