@@ -2950,7 +2950,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             5)
         # execution
         graph.generate_gml("test", 5, 1, 1)
-        graph.pop_bubbles()
+        graph.pop_bubbles(1.5)
         # assertion
         self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
 
@@ -2964,11 +2964,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             "read4": genes2},
                             5)
         # execution
-        graph.pop_bubbles()
+        graph.pop_bubbles(1.5)
         # assertion
         self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
 
-    def test___pop_bubble_remove_to_extra_found_genes(self):
+    def test___pop_bubble_remove_two_extra_found_genes(self):
         # setup
         genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
         genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
@@ -2978,6 +2978,48 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             "read4": genes2},
                             5)
         # execution
-        graph.pop_bubbles()
+        graph.pop_bubbles(1.5)
         # assertion
         self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
+
+    def test___pop_bubble_sensitivity_1(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1,
+                            "read3": genes2,
+                            "read4": genes2},
+                            5)
+        # execution
+        graph.pop_bubbles(1)
+        # assertion
+        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])#
+
+    def test___pop_bubble_sensitivity_2(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1,
+                            "read3": genes2,
+                            "read4": genes2},
+                            5)
+        # execution
+        graph.pop_bubbles(2)
+        # assertion
+        self.assertNotEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
+
+    def test___pop_bubble_sensitivity_less_than_1(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1,
+                            "read3": genes2,
+                            "read4": genes2},
+                            5)
+        # execution
+        self.assertRaises(AssertionError, graph.pop_bubbles, 0.8)
+
+

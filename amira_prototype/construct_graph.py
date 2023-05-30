@@ -692,9 +692,11 @@ class GeneMerGraph:
                                                     replacementDict)
             # replace the read nodes with the new list
             self.get_readNodes()[readId] = corrected_list
-    def pop_bubbles(self):
+    def pop_bubbles(self,
+                bubble_popper_threshold):
         """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and \
             removes the path with the lowest coverage from the reads to replace all occurrences of the lower coverage path with the higher one """
+        assert bubble_popper_threshold >= 1, "bubbler popping threshold (-p) must be greater than or equal to 1."
         # start by getting a set of all node hashes with exactly 3 or 4 neighbors
         threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
         # keep track of the bubbles we have already corrected
@@ -717,7 +719,7 @@ class GeneMerGraph:
                 # skip the correction if we have corrected this path already
                 if not bubbleTerminals in seenBubbles:
                     # skip the correction if the coverage of the highest coverage path < 150% the coverage of the lowest coverage path
-                    if highest_path_coverage > 1.5 * lowest_path_coverage:
+                    if highest_path_coverage > bubble_popper_threshold * lowest_path_coverage:
                         # we have missed a gene if the length of the highest coverage path is 1 MORE than the lowest coverage path
                         if len(lowest_coverage_path) == self.get_kmerSize() + 1 and len(highest_coverage_path) == self.get_kmerSize() + 2:
                             self.correct_missing_gene(lowest_coverage_path,
@@ -731,12 +733,13 @@ class GeneMerGraph:
                     # keep track of this pair so that we don't try to correct it again
                     seenBubbles.add(bubbleTerminals)
     def correct_errors(self,
-                    min_linearPathLength):
+                    min_linearPathLength,
+                    bubble_popper_threshold):
         """ return a dictionary of corrected read annotation to build a new, cleaner gene-mer graph """
         # clean up short linear paths that look like hairs on the gene-mer graph
         self.remove_short_linear_paths(min_linearPathLength)
         # pop bubbles in the graph where a single gene annotation has been missed
-        self.pop_bubbles()
+        self.pop_bubbles(bubble_popper_threshold)
         # return a dictionary of new read annotations
         return self.get_new_read_annotations()
     def get_forward_node_from_node(self,

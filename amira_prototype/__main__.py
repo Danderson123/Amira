@@ -23,6 +23,8 @@ def get_options():
                         help='minimum threshold for edge coverage between gene-mers')
     parser.add_argument('-g', dest='gene_min_coverage', type=int, default=1,
                         help='minimum threshold for gene filtering')
+    parser.add_argument('-p', dest='bubble_popper_threshold', type=float, default=1.5,
+                        help='minimum difference in coverage threshold to collapse paths in the graph (default = 1.5)')
     parser.add_argument('--gene-path', dest='path_to_interesting_genes',
                         help='path to a newline delimited file of genes of interest', required=True)
     parser.add_argument('--flye-path', dest='flye_path',
@@ -176,8 +178,7 @@ def main():
     annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
                                                     set(genesOfInterest),
                                                     args.gene_min_coverage)
-    # build the graph
-    sys.stderr.write("\nAmira: building pre-correction gene-mer graph\n")
+    sys.stderr.write("\nAmira: Correcting annotation errors by removing appendages and popping bubbles 1/2\n")
     graphToCorrect = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
     if args.debug:
@@ -186,12 +187,15 @@ def main():
                                     args.geneMer_size,
                                     1,
                                     1)
-    sys.stderr.write("\nCorrecting annotation errors by removing appendages and popping bubbles\n")
-    annotatedReads = graphToCorrect.correct_errors(5)
+    annotatedReads = graphToCorrect.correct_errors(5,
+                                                args.bubble_popper_threshold)
+    sys.stderr.write("\nAmira: Correcting annotation errors by removing appendages and popping bubbles 2/2\n")
     graphToCorrect = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
-    annotatedReads = graphToCorrect.correct_errors(5)
+    annotatedReads = graphToCorrect.correct_errors(5,
+                                                args.bubble_popper_threshold)
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
+    # build the graph
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
     sys.stderr.write("\nAmira: filtering gene-mer graph\n")
