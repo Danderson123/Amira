@@ -1,5 +1,5 @@
-from itertools import combinations
 import os
+import statistics
 from tqdm import tqdm
 
 from construct_node import Node
@@ -527,16 +527,6 @@ class GeneMerGraph:
                                                             postInsertion,
                                                             "*")
         return modifiedReadNodes
-    def replace_nodes_on_read(self,
-                            modifiedReadNodes,
-                            replacementDict):
-        corrected_list = []
-        for nodeHash in modifiedReadNodes:
-            if not nodeHash in replacementDict:
-                corrected_list.append(nodeHash)
-            else:
-                corrected_list.append(replacementDict[nodeHash])
-        return corrected_list
     def correct_read_nodes(self,
                         readId,
                         replacementDict):
@@ -559,8 +549,8 @@ class GeneMerGraph:
         newAnnotations = []
         # iterate through the new readNodes
         for n in range(len(readNodes)-1):
-            sourceNode = self.get_node_by_hash(readNodes[n][0])
-            targetNode = self.get_node_by_hash(readNodes[n+1][0])
+            sourceNode = self.get_node_by_hash(readNodes[n])
+            targetNode = self.get_node_by_hash(readNodes[n+1])
             # get the edge between the source and target node
             edgeHash = self.get_edge_hashes_between_nodes(sourceNode,
                                                         targetNode)
@@ -616,13 +606,16 @@ class GeneMerGraph:
                 # if the path does not start with the start node we need to reverse it
                 if not path[0] == startNode.__hash__():
                     path = list(reversed(path))
-                paths.append(path)
+                # add the path and its mean coverage to a list
+                paths.append((path, statistics.mean([self.get_node_by_hash(h).get_node_coverage() for h in path])))
+            # sort the paths based on their mean coverage
+            paths.sort(key=lambda x: x[1], reverse=False)
             # see if the paths converge to the same node, if so this is a bubble
-            if paths[0][0] == paths[1][0] and paths[0][-1] == paths[1][-1]:
-                # the shorter path is the one missing a gene, and the longer the path we are going to correct to
-                nodes_to_replace, replacement_list = min(paths, key=len), max(paths, key=len)
-                if len(nodes_to_replace) == len(replacement_list) - 1:
-                    pair_paths.append((nodes_to_replace, replacement_list))
+            if len(paths) > 1:
+                first_elements = [sublist[0][0] for sublist in paths]
+                last_elements = [sublist[0][-1] for sublist in paths]
+                if len(set(first_elements)) == 1 and len(set(last_elements)) == 1:
+                    pair_paths.append(paths)
         return pair_paths
     def get_backward_converging_paths(self,
                                     startNode):
@@ -639,16 +632,69 @@ class GeneMerGraph:
                 # if the path does not end with the end node we need to reverse it
                 if not path[-1] == startNode.__hash__():
                     path = list(reversed(path))
-                paths.append(path)
+                # add the path and its mean coverage to a list
+                paths.append((path, statistics.mean([self.get_node_by_hash(h).get_node_coverage() for h in path])))
+            # sort the paths based on their mean coverage
+            paths.sort(key=lambda x: x[1], reverse=False)
             # see if the paths converge to the same node, if so this is a bubble
-            if paths[0][0] == paths[1][0] and paths[0][-1] == paths[1][-1]:
-                # the shorter path is the one missing a gene, and the longer the path we are going to correct to
-                nodes_to_replace, replacement_list = min(paths, key=len), max(paths, key=len)
-                if len(nodes_to_replace) == len(replacement_list) - 1:
-                    pair_paths.append((nodes_to_replace, replacement_list))
+            if len(paths) > 1:
+                first_elements = [sublist[0][0] for sublist in paths]
+                last_elements = [sublist[0][-1] for sublist in paths]
+                if len(set(first_elements)) == 1 and len(set(last_elements)) == 1:
+                    pair_paths.append(paths)
         return pair_paths
+    def correct_missing_gene(self,
+                            lowest_coverage_path,
+                            highest_coverage_path):
+        # make a dictionary to decide how we are modifying the nodes on the read we are correcting
+        replacementDict = self.make_replacement_dict(lowest_coverage_path[:],
+                                            highest_coverage_path[:])
+        # get the reads we are going to correct
+        pathReads = set()
+        for nodeHash in lowest_coverage_path:
+            for readId in self.get_node_by_hash(nodeHash).get_reads():
+                pathReads.add(readId)
+        # correct the reads
+        for readId in list(pathReads):
+            old_readNodes = self.get_readNodes()[readId][:]
+            newReadNodes = self.correct_read_nodes(readId,
+                                                replacementDict)
+    def replace_nodes_on_read(self,
+                            modifiedReadNodes,
+                            replacementDict):
+        corrected_list = []
+        for nodeHash in modifiedReadNodes:
+            if not nodeHash in replacementDict:
+                corrected_list.append(nodeHash)
+            else:
+                corrected_list.append(replacementDict[nodeHash])
+        return corrected_list
+    def correct_incorrectly_found_gene(self,
+                                    lowest_coverage_path,
+                                    highest_coverage_path):
+        assert not len(lowest_coverage_path) % 2 == 0, "The gene-mer size must be an odd number"
+        # we have to remove the middle node from the lowest coverage path
+        modified_lowest_coverage_path = lowest_coverage_path[:]
+        del modified_lowest_coverage_path[int((len(lowest_coverage_path) + 1) / 2)]
+        # make the replacement dictionary
+        replacementDict = {}
+        for i in range(len(modified_lowest_coverage_path)):
+            replacementDict[modified_lowest_coverage_path[i]] = highest_coverage_path[i]
+        # get the reads we are going to correct
+        pathReads = set()
+        for nodeHash in lowest_coverage_path:
+            for readId in self.get_node_by_hash(nodeHash).get_reads():
+                pathReads.add(readId)
+        # correct the reads
+        for readId in list(pathReads):
+            # replace the nodes on the read
+            corrected_list = self.replace_nodes_on_read(modified_lowest_coverage_path,
+                                                    replacementDict)
+            # replace the read nodes with the new list
+            self.get_readNodes()[readId] = corrected_list
     def pop_bubbles(self):
-        """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and removes the shorter paths annotations from the reads to replace all occurrences of the shorter path with the longer one """
+        """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and \
+            removes the path with the lowest coverage from the reads to replace all occurrences of the lower coverage path with the higher one """
         # start by getting a set of all node hashes with exactly 3 or 4 neighbors
         threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
         # keep track of the bubbles we have already corrected
@@ -658,31 +704,32 @@ class GeneMerGraph:
             # get the node for the hash
             startNode = self.get_node_by_hash(nodeHash)
             # get the forward converging paths
-            pair_paths = self.get_forward_converging_paths(startNode)
+            converging_paths = self.get_forward_converging_paths(startNode)
             # get the backward converging paths
-            pair_paths += self.get_backward_converging_paths(startNode)
+            converging_paths += self.get_backward_converging_paths(startNode)
             # iterate through the pairs of paths
-            for pair in pair_paths:
-                nodes_to_replace = pair[0]
-                replacement_list = pair[1]
+            for paths in converging_paths:
+                # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
+                lowest_coverage_path, lowest_path_coverage = paths[0]
+                highest_coverage_path, highest_path_coverage = paths[-1]
                 # skip this correction if we have already corrected it
-                bubbleTerminals = tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]]))
+                bubbleTerminals = tuple(sorted([lowest_coverage_path[0], lowest_coverage_path[-1]]))
+                # skip the correction if we have corrected this path already
                 if not bubbleTerminals in seenBubbles:
-                    # make a dictionary to decide how we are modifying the nodes on the read we are correcting
-                    replacementDict = self.make_replacement_dict(nodes_to_replace[:],
-                                                        replacement_list[:])
-                    # get the reads we are going to correct
-                    pathReads = set()
-                    for nodeHash in nodes_to_replace:
-                        for readId in self.get_node_by_hash(nodeHash).get_reads():
-                            pathReads.add(readId)
-                    # correct the reads
-                    for readId in list(pathReads):
-                        old_readNodes = self.get_readNodes()[readId][:]
-                        newReadNodes = self.correct_read_nodes(readId,
-                                                            replacementDict)
+                    # skip the correction if the coverage of the highest coverage path < 150% the coverage of the lowest coverage path
+                    if highest_path_coverage > 1.5 * lowest_path_coverage:
+                        # we have missed a gene if the length of the highest coverage path is 1 MORE than the lowest coverage path
+                        if len(lowest_coverage_path) == self.get_kmerSize() + 1 and len(highest_coverage_path) == self.get_kmerSize() + 2:
+                            self.correct_missing_gene(lowest_coverage_path,
+                                                    highest_coverage_path)
+                        # we have incorrectly called a gene if the length of the highest coverage path is 1 LESS than the lowest coverage path
+                        if len(highest_coverage_path) == self.get_kmerSize() + 1 and len(lowest_coverage_path) == self.get_kmerSize() + 2:
+                            self.correct_incorrectly_found_gene(lowest_coverage_path,
+                                                            highest_coverage_path)
+                        else:
+                            pass
                     # keep track of this pair so that we don't try to correct it again
-                    seenBubbles.add(tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]])))
+                    seenBubbles.add(bubbleTerminals)
     def correct_errors(self,
                     min_linearPathLength):
         """ return a dictionary of corrected read annotation to build a new, cleaner gene-mer graph """
@@ -754,7 +801,7 @@ class GeneMerGraph:
                 forward_nodes_from_node.append(forwardNode.__hash__())
                 forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(forwardNode)
         # if we want the final branched node too, then we add this to the path
-        if wantBranchedNode:
+        if wantBranchedNode and forwardNode:
             forward_nodes_from_node.append(forwardNode.__hash__())
         return forward_nodes_from_node
     def get_backward_path_from_node(self,
@@ -774,7 +821,7 @@ class GeneMerGraph:
                 backward_nodes_from_node.insert(0, backwardNode.__hash__())
                 backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(backwardNode)
         # if we want the final branched node too, then we add this to the path
-        if wantBranchedNode:
+        if wantBranchedNode and backwardNode:
             backward_nodes_from_node.insert(0, backwardNode.__hash__())
         return backward_nodes_from_node
     def get_linear_path_for_node(self,

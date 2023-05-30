@@ -2939,15 +2939,45 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for nodeHash in expected_removed_nodeHashes:
             self.assertTrue(nodeHash not in graph.get_nodes())
 
-    def test___pop_bubbles(self):
+    def test___pop_bubbles_one_missed_gene(self):
         # setup
-        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
-        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
         graph = GeneMerGraph({"read1": genes1,
-                            "read2": genes2},
+                            "read2": genes1,
+                            "read3": genes1,
+                            "read4": genes2},
                             5)
         # execution
         graph.generate_gml("test", 5, 1, 1)
         graph.pop_bubbles()
         # assertion
-        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read2"])
+        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
+
+    def test___pop_bubbles_two_missed_genes(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1,
+                            "read3": genes1,
+                            "read4": genes2},
+                            5)
+        # execution
+        graph.pop_bubbles()
+        # assertion
+        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
+
+    def test___pop_bubble_remove_to_extra_found_genes(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes2,
+                            "read3": genes2,
+                            "read4": genes2},
+                            5)
+        # execution
+        graph.pop_bubbles()
+        # assertion
+        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])

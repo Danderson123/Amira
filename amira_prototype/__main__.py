@@ -188,6 +188,9 @@ def main():
                                     1)
     sys.stderr.write("\nCorrecting annotation errors by removing appendages and popping bubbles\n")
     annotatedReads = graphToCorrect.correct_errors(5)
+    graphToCorrect = GeneMerGraph(annotatedReads,
+                        args.geneMer_size)
+    annotatedReads = graphToCorrect.correct_errors(5)
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
