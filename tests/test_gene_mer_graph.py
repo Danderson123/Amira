@@ -2950,3 +2950,4 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph.generate_gml("test", 5, 1, 1)
         graph.pop_bubbles()
         # assertion
+        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read2"])
