@@ -39,7 +39,6 @@ class GeneMerGraph:
                                             [read])
                     # add the sourceNode to the read
                     self.add_node_to_read(sourceNode,
-                                    geneMers[g].get_geneMerDirection(),
                                     readId)
                     # increase the source node coverage by 1
                     sourceNode.increment_node_coverage()
@@ -57,7 +56,6 @@ class GeneMerGraph:
                 # increment the coverage of the target if it is the last gene mer in the read
                 targetNode.increment_node_coverage()
                 self.add_node_to_read(targetNode,
-                                    geneMers[-1].get_geneMerDirection(),
                                     readId)
             else:
                 # add a single node to the graph if there is only 1 gene mer
@@ -65,7 +63,6 @@ class GeneMerGraph:
                 sourceNode = self.add_node(geneMers[0],
                                         [read])
                 self.add_node_to_read(sourceNode,
-                                    geneMers[0].get_geneMerDirection(),
                                     readId)
                 sourceNode.increment_node_coverage()
 
@@ -96,20 +93,19 @@ class GeneMerGraph:
             yield self.get_nodes()[nodeHash]
     def add_node_to_read(self,
                         node: Node,
-                        nodeDirection: int,
                         readId: str):
         # add the read ID to the read dict if it is not present
         if not readId in self.get_readNodes():
             self.get_readNodes()[readId] = []
         # add the hash for the node as attributes for this read
-        self.get_readNodes()[readId].append((node.__hash__(), nodeDirection))
+        self.get_readNodes()[readId].append(node.__hash__())
         # each node occurrence will occur in the list (including duplicates)
         return self.get_readNodes()[readId]
     def get_nodes_containing_read(self,
                                 readId):
         """ return a list of nodes that contain a read of interest """
         # get the node hashes that contain this read
-        listOfNodeHashes = [nodeTuple[0] for nodeTuple in list(self.get_readNodes()[readId])]
+        listOfNodeHashes = self.get_readNodes()[readId]
         # this function gets the node for a node hash if it has not been filtered from the graph
         listOfNodes = [self.get_node_by_hash(h) for h in listOfNodeHashes if h in self.get_nodes()]
         return listOfNodes
@@ -332,7 +328,7 @@ class GeneMerGraph:
                             node_to_remove):
         """ remove a node from the list of nodes annotated on each read and return the modified node list"""
         for readId in node_to_remove.get_reads():
-            self.get_readNodes()[readId] = [nodeTuple for nodeTuple in self.get_readNodes()[readId] if nodeTuple[0] != node_to_remove.__hash__()]
+            self.get_readNodes()[readId] = [nodeHash for nodeHash in self.get_readNodes()[readId] if nodeHash != node_to_remove.__hash__()]
         return self.get_readNodes()[readId]
     def remove_node(self,
                 node: Node):
@@ -537,18 +533,16 @@ class GeneMerGraph:
         corrected_list = []
         for nodeHash in modifiedReadNodes:
             if not nodeHash in replacementDict:
-                corrected_list.append((nodeHash,
-                            self.get_node_by_hash(nodeHash).get_geneMer().get_geneMerDirection()))
+                corrected_list.append(nodeHash)
             else:
-                corrected_list.append((replacementDict[nodeHash],
-                            self.get_node_by_hash(replacementDict[nodeHash]).get_geneMer().get_geneMerDirection()))
+                corrected_list.append(replacementDict[nodeHash])
         return corrected_list
     def correct_read_nodes(self,
                         readId,
                         replacementDict):
         """ replace a single node hash in a list with the elements in a list and return the new readNode dictionary """
         # get the nodes on this read
-        readNodes = [n[0] for n in self.get_readNodes()[readId]]
+        readNodes = self.get_readNodes()[readId]
         # get the keys of nodes that are adjacent to the insertion
         newReadNodes = self.modify_readNode_list(readNodes,
                                                 replacementDict)
@@ -607,38 +601,6 @@ class GeneMerGraph:
                     self.remove_node(self.get_node_by_hash(nodeHash))
                     removed.add(nodeHash)
         return list(removed)
-    def group_paths(self,
-                paths):
-        """ group paths into tuples if they share a start and end node """
-        path_dict = {}
-        for path in paths:
-            if len(path) > 0:
-                key = (path[0], path[-1])
-                if not key in path_dict:
-                    path_dict[key] = []
-                path_dict[key].append(path)
-        return [tuple(paths) for paths in path_dict.values()]
-    def find_paths_between_two_nodes(self,
-                                start,
-                                nodesOfInterest,
-                                k):
-
-        def dfs(path, current_length):
-            node = path[-1]
-            if node.__hash__() in nodesOfInterest and not node == path[0]:
-                if len(path) < k + 3 and len(path) > k:
-                    paths.append(path)
-                return
-            if len(path) > k + 2:
-                return
-
-            for neighbor in [self.get_node_by_hash(n) for n in self.get_all_neighbors(node)]:
-                if neighbor not in path and neighbor:
-                    dfs(path + [neighbor], current_length + 1)
-        paths = []
-        dfs([start], 0)
-        grouped_paths = self.group_paths(paths)
-        return grouped_paths
     def get_forward_converging_paths(self,
                                 startNode):
         pair_paths = []
@@ -721,46 +683,6 @@ class GeneMerGraph:
                                                             replacementDict)
                     # keep track of this pair so that we don't try to correct it again
                     seenBubbles.add(tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]])))
-    def old_pop_bubbles(self):
-        """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and removes the shorter paths annotations from the reads to replace all occurrences of the shorter path with the longer one """
-        # start by getting a set of all node hashes with exactly 3 or 4 neighbors
-        threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
-        # keep track of the bubbles we have already corrected
-        seenBubbles = set()
-        # iterate through the nodes with three or 4 neighbors
-        for nodeHash in tqdm(threeOrFourNeighbors):
-            # get all paths of length k or k-1 that end with another node that has three or 4 neighbors
-            grouped_paths = self.find_paths_between_two_nodes(self.get_node_by_hash(nodeHash),
-                                                        threeOrFourNeighbors,
-                                                        self.get_kmerSize())
-            # iterate through the pairs of paths
-            for pair_paths in grouped_paths:
-                # convert the nodes in the paths to hashes
-                pair_paths = [[n.__hash__() for n in p] for p in pair_paths]
-                # remove paths where not all nodes have a degree of 2
-                pair_paths = [p for p in pair_paths if all(self.get_degree(self.get_node_by_hash(n)) == 2 for n in p[1:-1])]
-                # remove bubbles where the gene annotation tool has missed a gene
-                if len(pair_paths) == 2 and not len(pair_paths[0]) == len(pair_paths[1]):
-                    # when a gene has been missed, one path will be shorter than the other by 1 node
-                    nodes_to_replace, replacement_list = min(pair_paths, key=len), max(pair_paths, key=len)
-                    # skip this correction if we have already corrected it
-                    bubbleTerminals = tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]]))
-                    if not bubbleTerminals in seenBubbles:
-                        # make a dictionary to decide how we are modifying the nodes on the read we are correcting
-                        replacementDict = self.make_replacement_dict(nodes_to_replace[:],
-                                                            replacement_list[:])
-                        # get the reads we are going to correct
-                        pathReads = set()
-                        for nodeHash in nodes_to_replace:
-                            for readId in self.get_node_by_hash(nodeHash).get_reads():
-                                pathReads.add(readId)
-                        # correct the reads
-                        for readId in list(pathReads):
-                            old_readNodes = self.get_readNodes()[readId][:]
-                            newReadNodes = self.correct_read_nodes(readId,
-                                                                replacementDict)
-                        # keep track of this pair so that we don't try to correct it again
-                        seenBubbles.add(tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]])))
     def correct_errors(self,
                     min_linearPathLength):
         """ return a dictionary of corrected read annotation to build a new, cleaner gene-mer graph """

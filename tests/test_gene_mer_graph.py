@@ -1774,12 +1774,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             3)
         # execution
         actual_listOfNodes = graph.add_node_to_read(sourceNode,
-                                                    sourceNode.get_geneMer().get_geneMerDirection(),
                                                     "read1")
         actual_readNodeDict = graph.get_readNodes()
         # assertion
-        expected_listOfNodes = [(sourceNode.__hash__(), sourceNode.get_geneMer().get_geneMerDirection())]
-        expected_readNodeDict = {"read1": [(sourceNode.__hash__(), sourceNode.get_geneMer().get_geneMerDirection())]}
+        expected_listOfNodes = [sourceNode.__hash__()]
+        expected_readNodeDict = {"read1": [sourceNode.__hash__()]}
         self.assertEqual(actual_listOfNodes, expected_listOfNodes)
         self.assertEqual(actual_readNodeDict, expected_readNodeDict)
 
@@ -1806,7 +1805,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for s in read1.get_geneMers(3):
             sourceNode = graph.add_node(s, [read1])
             graph.add_node_to_read(sourceNode,
-                                s.get_geneMerDirection(),
                                 read1.get_readId())
             sourceNodes.append(sourceNode)
         # execution
@@ -1814,8 +1812,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph.remove_node_from_reads(test_node)
         # assertion
         expectedReadNodes = {"read1": [
-                    (sourceNodes[0].__hash__(), sourceNodes[0].get_geneMer().get_geneMerDirection()),
-                    (sourceNodes[2].__hash__(), sourceNodes[2].get_geneMer().get_geneMerDirection())
+                    sourceNodes[0].__hash__(),
+                    sourceNodes[2].__hash__()
                                     ]}
         self.assertEqual(graph.get_readNodes(), expectedReadNodes)
 
@@ -1830,7 +1828,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for s in read1.get_geneMers(3):
             sourceNode = graph.add_node(s, [read1])
             graph.add_node_to_read(sourceNode,
-                                s.get_geneMerDirection(),
                                 read1.get_readId())
             sourceNodes.append(sourceNode)
         # execution
@@ -1838,10 +1835,10 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph.remove_node_from_reads(test_node)
         # assertion
         expectedReadNodes = {"read1": [
-                    (sourceNodes[0].__hash__(), sourceNodes[0].get_geneMer().get_geneMerDirection()),
-                    (sourceNodes[2].__hash__(), sourceNodes[2].get_geneMer().get_geneMerDirection()),
-                    (sourceNodes[3].__hash__(), sourceNodes[3].get_geneMer().get_geneMerDirection()),
-                    (sourceNodes[4].__hash__(), sourceNodes[4].get_geneMer().get_geneMerDirection())
+                    sourceNodes[0].__hash__(),
+                    sourceNodes[2].__hash__(),
+                    sourceNodes[3].__hash__(),
+                    sourceNodes[4].__hash__()
                                     ]}
         self.assertEqual(graph.get_readNodes(), expectedReadNodes)
 
@@ -2538,7 +2535,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read1])
             nodes1.append(sourceNode)
             graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
                                 "read1")
             sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
                                                                         geneMers1[g+1])
@@ -2547,7 +2543,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceNode = graph.add_node(geneMers2[g],
                                     [read2])
             graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
                                 "read2")
             nodes2.append(sourceNode)
             sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
@@ -2566,146 +2561,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_modifiedReadNodes = graph.get_readNodes()["read1"][:6]
         self.assertEqual(actual_modified_length, expected_modified_length)
         self.assertEqual(actual_modifiedReadNodes, expected_modifiedReadNodes)
-
-    def test___find_paths_between_two_nodes(self):
-        # setup
-        genes1 = ["+gene", "-gene0", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8", "-gene10", "+gene11", "-gene12", "+gene13"]
-        genes2 = ["+gene","-gene0", "-gene2", "+gene3", "+gene5", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene12"]
-        read1 = Read("read1",
-                    genes1)
-        read2 = Read("read2",
-                    genes2)
-        geneMers1 = [g for g in read1.get_geneMers(3)]
-        geneMers2 = [g for g in read2.get_geneMers(3)]
-        graph = GeneMerGraph({},
-                        3)
-        nodes1 = []
-        for g in range(len(geneMers1) - 1):
-            sourceNode = graph.add_node(geneMers1[g],
-                                    [read1])
-            nodes1.append(sourceNode)
-            graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
-                                "read1")
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
-                                                                        geneMers1[g+1])
-        nodes2 = []
-        for g in range(len(geneMers2) - 1):
-            sourceNode = graph.add_node(geneMers2[g],
-                                    [read2])
-            graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
-                                "read2")
-            nodes2.append(sourceNode)
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
-                                                                        geneMers2[g+1])
-        # execution
-        actual_grouped_paths = graph.find_paths_between_two_nodes(nodes1[1],
-                                            set([node.__hash__() for node in graph.get_nodes_with_degree(3) + graph.get_nodes_with_degree(4)]),
-                                            3)
-        actual_paths = actual_grouped_paths[0]
-        # assertion
-        self.assertEqual(len(actual_grouped_paths), 1)
-        self.assertEqual(len(actual_paths), 2)
-        self.assertTrue(((actual_paths[0] == nodes1[1:6] and actual_paths[1] == nodes2[1:5]) or (actual_paths[1] == nodes1[1:6] and actual_paths[0] == nodes2[1:5])))
-
-    def test___find_paths_geneMer_size_1(self):
-        # setup
-        genes1 = ["+gene", "-gene0", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8", "-gene10", "+gene11", "-gene12", "+gene13"]
-        genes2 = ["+gene","-gene0", "-gene2", "+gene3", "+gene5", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene12"]
-        read1 = Read("read1",
-                    genes1)
-        read2 = Read("read2",
-                    genes2)
-        geneMers1 = [g for g in read1.get_geneMers(1)]
-        geneMers2 = [g for g in read2.get_geneMers(1)]
-        graph = GeneMerGraph({},
-                        1)
-        nodes1 = []
-        for g in range(len(geneMers1) - 1):
-            sourceNode = graph.add_node(geneMers1[g],
-                                    [read1])
-            nodes1.append(sourceNode)
-            graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
-                                "read1")
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
-                                                                        geneMers1[g+1])
-        nodes2 = []
-        for g in range(len(geneMers2) - 1):
-            sourceNode = graph.add_node(geneMers2[g],
-                                    [read2])
-            graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
-                                "read2")
-            nodes2.append(sourceNode)
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
-                                                                        geneMers2[g+1])
-        graph.generate_gml("test",1,1,1)
-        # execution
-        actual_grouped_paths = graph.find_paths_between_two_nodes(nodes1[3],
-                                                        set([node.__hash__() for node in graph.get_nodes_with_degree(3) + graph.get_nodes_with_degree(4)]),
-                                                        1)
-        actual_paths = actual_grouped_paths[0]
-        # assertion
-        self.assertEqual(len(actual_grouped_paths), 1)
-        self.assertEqual(len(actual_paths), 2)
-        self.assertTrue(((actual_paths[0] == nodes1[3:6] and actual_paths[1] == nodes2[3:5]) or (actual_paths[1] == nodes1[3:6] and actual_paths[0] == nodes2[3:5])))
-
-    def test___find_paths_between_two_nodes_three_paths(self):
-        # setup
-        genes1 = ["+gene", "-gene0", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8", "-gene10", "+gene11", "-gene12", "+gene13"]
-        genes2 = ["+gene","-gene0", "-gene2", "+gene3", "+gene5", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene12"]
-        genes3 = ["+gene","-gene0", "-gene2", "+gene5", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene12"]
-        read1 = Read("read1",
-                    genes1)
-        read2 = Read("read2",
-                    genes2)
-        read3 = Read("read3",
-                    genes3)
-        geneMers1 = [g for g in read1.get_geneMers(3)]
-        geneMers2 = [g for g in read2.get_geneMers(3)]
-        geneMers3 = [g for g in read3.get_geneMers(3)]
-        graph = GeneMerGraph({},
-                        3)
-        nodes1 = []
-        for g in range(len(geneMers1) - 1):
-            sourceNode = graph.add_node(geneMers1[g],
-                                    [read1])
-            nodes1.append(sourceNode)
-            graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
-                                "read1")
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
-                                                                        geneMers1[g+1])
-        nodes2 = []
-        for g in range(len(geneMers2) - 1):
-            sourceNode = graph.add_node(geneMers2[g],
-                                    [read2])
-            graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
-                                "read2")
-            nodes2.append(sourceNode)
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers2[g],
-                                                                        geneMers2[g+1])
-        nodes3 = []
-        for g in range(len(geneMers3) - 1):
-            sourceNode = graph.add_node(geneMers3[g],
-                                    [read3])
-            graph.add_node_to_read(sourceNode,
-                                geneMers3[g].get_geneMerDirection(),
-                                "read3")
-            nodes3.append(sourceNode)
-            sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers3[g],
-                                                                        geneMers3[g+1])
-        # execution
-        actual_grouped_paths = graph.find_paths_between_two_nodes(nodes1[1],
-                                                        set([node.__hash__() for node in graph.get_nodes_with_degree(3) + graph.get_nodes_with_degree(4)]),
-                                                        3)
-        actual_paths = actual_grouped_paths[0]
-        # assertion
-        self.assertEqual(len(actual_grouped_paths), 1)
-        self.assertEqual(len(actual_paths), 3)
 
     def test__get_nodes_with_degree(self):
         # setup
@@ -2729,7 +2584,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read1])
             nodes1.append(sourceNode)
             graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
                                 "read1")
             if not g == len(geneMers1) - 1:
                 sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
@@ -2739,7 +2593,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceNode = graph.add_node(geneMers2[g],
                                     [read2])
             graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
                                 "read2")
             nodes2.append(sourceNode)
             if not g == len(geneMers2) - 1:
@@ -2750,7 +2603,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceNode = graph.add_node(geneMers3[g],
                                     [read3])
             graph.add_node_to_read(sourceNode,
-                                geneMers3[g].get_geneMerDirection(),
                                 "read3")
             nodes3.append(sourceNode)
             if not g == len(geneMers3) - 1:
@@ -2866,56 +2718,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertRaises(AssertionError, graph.make_replacement_dict, old_path, new_path)
 
-    def test_group_paths_basic(self):
-        # setup
-        graph = GeneMerGraph({},
-                            3)
-        paths = [[1, 2, 3], [1, 4, 3], [2, 5, 6], [2, 7, 6], [3, 8]]
-        # execution
-        result = graph.group_paths(paths)
-        # assertion
-        self.assertEqual(result, [([1, 2, 3], [1, 4, 3]), ([2, 5, 6], [2, 7, 6]), ([3, 8],)])
-
-    def test_group_paths_more_than_two_paths(self):
-        # setup
-        graph = GeneMerGraph({},
-                            3)
-        paths = [[1, 2, 3], [1, 4, 3], [1, 5, 3], [2, 5, 6], [2, 7, 6], [2, 8, 6], [3, 8]]
-        # execution
-        result = graph.group_paths(paths)
-        # assertion
-        self.assertEqual(result, [([1, 2, 3], [1, 4, 3], [1, 5, 3]), ([2, 5, 6], [2, 7, 6], [2, 8, 6]), ([3, 8],)])
-
-    def test_group_paths_empty_path(self):
-        # setup
-        graph = GeneMerGraph({},
-                            3)
-        paths = [[], [1, 4, 3], [2, 5, 6], [2, 7, 6], [3, 8]]
-        # execution
-        result = graph.group_paths(paths)
-        # assertion
-        self.assertEqual(result, [([1, 4, 3],), ([2, 5, 6], [2, 7, 6]), ([3, 8],)])
-
-    def test_group_paths_no_shared_paths(self):
-        # setup
-        graph = GeneMerGraph({},
-                            3)
-        paths = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-        # execution
-        result = graph.group_paths(paths)
-        # assertion
-        self.assertEqual(result, [([1, 2, 3],), ([4, 5, 6],), ([7, 8, 9],)])
-
-    def test_group_paths_empty_input(self):
-        # setup
-        graph = GeneMerGraph({},
-                            3)
-        paths = []
-        # execution
-        result = graph.group_paths(paths)
-        # assertion
-        self.assertEqual(result, [])
-
     def test___remove_short_linear_paths(self):
         # setup
         genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
@@ -2939,7 +2741,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceNode.increment_node_coverage()
             nodes1.append(sourceNode)
             graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
                                 "read1")
             if not g == len(geneMers1) - 1:
                 sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
@@ -2954,7 +2755,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read2])
             sourceNode.increment_node_coverage()
             graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
                                 "read2")
             nodes2.append(sourceNode)
             if not g == len(geneMers2) - 1:
@@ -2970,7 +2770,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read3])
             sourceNode.increment_node_coverage()
             graph.add_node_to_read(sourceNode,
-                                geneMers3[g].get_geneMerDirection(),
                                 "read3")
             nodes3.append(sourceNode)
             if not g == len(geneMers3) - 1:
@@ -3020,7 +2819,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceNode.increment_node_coverage()
             nodes1.append(sourceNode)
             graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
                                 "read1")
             if not g == len(geneMers1) - 1:
                 sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
@@ -3035,7 +2833,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read2])
             sourceNode.increment_node_coverage()
             graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
                                 "read2")
             nodes2.append(sourceNode)
             if not g == len(geneMers2) - 1:
@@ -3051,7 +2848,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read3])
             sourceNode.increment_node_coverage()
             graph.add_node_to_read(sourceNode,
-                                geneMers3[g].get_geneMerDirection(),
                                 "read3")
             nodes3.append(sourceNode)
             if not g == len(geneMers3) - 1:
@@ -3095,7 +2891,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sourceNode.increment_node_coverage()
             nodes1.append(sourceNode)
             graph.add_node_to_read(sourceNode,
-                                geneMers1[g].get_geneMerDirection(),
                                 "read1")
             if not g == len(geneMers1) - 1:
                 sourceToTargetEdge, reverseTargetToSourceEdge = graph.add_edge(geneMers1[g],
@@ -3110,7 +2905,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read2])
             sourceNode.increment_node_coverage()
             graph.add_node_to_read(sourceNode,
-                                geneMers2[g].get_geneMerDirection(),
                                 "read2")
             nodes2.append(sourceNode)
             if not g == len(geneMers2) - 1:
@@ -3126,7 +2920,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read3])
             sourceNode.increment_node_coverage()
             graph.add_node_to_read(sourceNode,
-                                geneMers3[g].get_geneMerDirection(),
                                 "read3")
             nodes3.append(sourceNode)
             if not g == len(geneMers3) - 1:
