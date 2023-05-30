@@ -639,7 +639,89 @@ class GeneMerGraph:
         dfs([start], 0)
         grouped_paths = self.group_paths(paths)
         return grouped_paths
+    def get_forward_converging_paths(self,
+                                startNode):
+        pair_paths = []
+        # get the forward neighbors
+        fowardNodes = self.get_forward_neighbors(startNode)
+        # if there are 2 forward neighbors
+        if len(fowardNodes) == 2:
+            paths = []
+            for fwNode in fowardNodes:
+                # get the linear path for this forward node
+                path = self.get_linear_path_for_node(fwNode,
+                                                    True)
+                # if the path does not start with the start node we need to reverse it
+                if not path[0] == startNode.__hash__():
+                    path = list(reversed(path))
+                paths.append(path)
+            # see if the paths converge to the same node, if so this is a bubble
+            if paths[0][0] == paths[1][0] and paths[0][-1] == paths[1][-1]:
+                # the shorter path is the one missing a gene, and the longer the path we are going to correct to
+                nodes_to_replace, replacement_list = min(paths, key=len), max(paths, key=len)
+                if len(nodes_to_replace) == len(replacement_list) - 1:
+                    pair_paths.append((nodes_to_replace, replacement_list))
+        return pair_paths
+    def get_backward_converging_paths(self,
+                                    startNode):
+        pair_paths = []
+        # get the backward neighbors
+        backwardNodes = self.get_backward_neighbors(startNode)
+        # if there are 2 backward neighbors
+        if len(backwardNodes) == 2:
+            paths = []
+            for bwNode in backwardNodes:
+                # get this linear path
+                path = self.get_linear_path_for_node(bwNode,
+                                                    True)
+                # if the path does not end with the end node we need to reverse it
+                if not path[-1] == startNode.__hash__():
+                    path = list(reversed(path))
+                paths.append(path)
+            # see if the paths converge to the same node, if so this is a bubble
+            if paths[0][0] == paths[1][0] and paths[0][-1] == paths[1][-1]:
+                # the shorter path is the one missing a gene, and the longer the path we are going to correct to
+                nodes_to_replace, replacement_list = min(paths, key=len), max(paths, key=len)
+                if len(nodes_to_replace) == len(replacement_list) - 1:
+                    pair_paths.append((nodes_to_replace, replacement_list))
+        return pair_paths
     def pop_bubbles(self):
+        """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and removes the shorter paths annotations from the reads to replace all occurrences of the shorter path with the longer one """
+        # start by getting a set of all node hashes with exactly 3 or 4 neighbors
+        threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
+        # keep track of the bubbles we have already corrected
+        seenBubbles = set()
+        # iterate through the nodes with three or 4 neighbors
+        for nodeHash in tqdm(threeOrFourNeighbors):
+            # get the node for the hash
+            startNode = self.get_node_by_hash(nodeHash)
+            # get the forward converging paths
+            pair_paths = self.get_forward_converging_paths(startNode)
+            # get the backward converging paths
+            pair_paths += self.get_backward_converging_paths(startNode)
+            # iterate through the pairs of paths
+            for pair in pair_paths:
+                nodes_to_replace = pair[0]
+                replacement_list = pair[1]
+                # skip this correction if we have already corrected it
+                bubbleTerminals = tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]]))
+                if not bubbleTerminals in seenBubbles:
+                    # make a dictionary to decide how we are modifying the nodes on the read we are correcting
+                    replacementDict = self.make_replacement_dict(nodes_to_replace[:],
+                                                        replacement_list[:])
+                    # get the reads we are going to correct
+                    pathReads = set()
+                    for nodeHash in nodes_to_replace:
+                        for readId in self.get_node_by_hash(nodeHash).get_reads():
+                            pathReads.add(readId)
+                    # correct the reads
+                    for readId in list(pathReads):
+                        old_readNodes = self.get_readNodes()[readId][:]
+                        newReadNodes = self.correct_read_nodes(readId,
+                                                            replacementDict)
+                    # keep track of this pair so that we don't try to correct it again
+                    seenBubbles.add(tuple(sorted([nodes_to_replace[0], nodes_to_replace[-1]])))
+    def old_pop_bubbles(self):
         """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and removes the shorter paths annotations from the reads to replace all occurrences of the shorter path with the longer one """
         # start by getting a set of all node hashes with exactly 3 or 4 neighbors
         threeOrFourNeighbors = set([node.__hash__() for node in self.get_nodes_with_degree(3) + self.get_nodes_with_degree(4)])
@@ -774,9 +856,10 @@ class GeneMerGraph:
             backward_nodes_from_node.insert(0, backwardNode.__hash__())
         return backward_nodes_from_node
     def get_linear_path_for_node(self,
-                                node: Node) -> list:
+                                node: Node,
+                                wantBranchedNode = False) -> list:
         """ return a list of nodes that correspond to the linear path that contains the specified node and does not include the terminal nodes with a degree of more than 2"""
-        linear_path = self.get_backward_path_from_node(node)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node)[1:]
+        linear_path = self.get_backward_path_from_node(node, wantBranchedNode)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node, wantBranchedNode)[1:]
         return linear_path
     def generate_gml(self,
                     output_file: str,

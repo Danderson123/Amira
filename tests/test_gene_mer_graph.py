@@ -3136,7 +3136,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     [read3])
         sourceNode.increment_node_coverage()
         nodes3.append(sourceNode)
-        graph.generate_gml("test", 3, 1, 1)
         # execution
         actual_removed_nodeHashes = graph.remove_short_linear_paths(2)
         # assertion
@@ -3146,3 +3145,15 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue(all(h in actual_removed_nodeHashes for h in expected_removed_nodeHashes))
         for nodeHash in expected_removed_nodeHashes:
             self.assertTrue(nodeHash not in graph.get_nodes())
+
+    def test___pop_bubbles(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes2},
+                            5)
+        # execution
+        graph.generate_gml("test", 5, 1, 1)
+        graph.pop_bubbles()
+        # assertion
