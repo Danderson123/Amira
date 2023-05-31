@@ -3021,5 +3021,3 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             5)
         # execution
         self.assertRaises(AssertionError, graph.pop_bubbles, 0.8)
-
-

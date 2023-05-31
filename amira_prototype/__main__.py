@@ -109,8 +109,8 @@ def convert_pandora_output(pandoraSam,
         annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
         if not any(g[1:] in genesOfInterest for g in annotatedReads[r]):
             to_delete.append(r)
-    for t in to_delete:
-        del annotatedReads[t]
+    #for t in to_delete:
+     #   del annotatedReads[t]
     assert not len(annotatedReads) == 0
     return annotatedReads, readLengthDict
 
@@ -222,7 +222,7 @@ def main():
     # generate a visualisation of the unitigs
     sys.stderr.write("\nAmira: separating paralog reads\n")
     readFiles, unitig_mapping = unitigTools.separate_reads(os.path.join(args.output_dir, "unitigs"),
-                                                        args.readfile)
+                                                                args.readfile)
     # run flye on the subsetted reads
     if args.flye_path:
         sys.stderr.write("\nAmira: assembling paralog reads with Flye\n")
