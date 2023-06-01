@@ -541,16 +541,14 @@ class GeneMerGraph:
         # replace the read nodes with the new list
         self.get_readNodes()[readId] = corrected_list
         return self.get_readNodes()[readId]
-    def get_new_node_annotations(self,
-                                readId):
-        """ traverse a read and return a list of strings representing the new gene annotations and their strands """
-        readNodes = self.get_readNodes()[readId]
+    def follow_path_to_get_annotations(self,
+                                    listOfNodes):
         # store the new annotations in a list
         newAnnotations = []
         # iterate through the new readNodes
-        for n in range(len(readNodes)-1):
-            sourceNode = self.get_node_by_hash(readNodes[n])
-            targetNode = self.get_node_by_hash(readNodes[n+1])
+        for n in range(len(listOfNodes)-1):
+            sourceNode = self.get_node_by_hash(listOfNodes[n])
+            targetNode = self.get_node_by_hash(listOfNodes[n+1])
             # get the edge between the source and target node
             edgeHash = self.get_edge_hashes_between_nodes(sourceNode,
                                                         targetNode)
@@ -565,6 +563,13 @@ class GeneMerGraph:
                     newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
             else:
                 newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
+        return newAnnotations
+    def get_new_node_annotations(self,
+                                readId):
+        """ traverse a read and return a list of strings representing the new gene annotations and their strands """
+        readNodes = self.get_readNodes()[readId]
+        # get the new annotations for this read
+        newAnnotations = self.follow_path_to_get_annotations(readNodes)
         return newAnnotations
     def get_new_read_annotations(self):
         """ return a dictionary of post-error cleaning read annotations """
@@ -833,6 +838,10 @@ class GeneMerGraph:
         """ return a list of nodes that correspond to the linear path that contains the specified node and does not include the terminal nodes with a degree of more than 2"""
         linear_path = self.get_backward_path_from_node(node, wantBranchedNode)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node, wantBranchedNode)[1:]
         return linear_path
+    def get_all_node_coverages(self):
+        """ return an unordered list of all node coverages in the graph """
+        node_coverages = [node.get_node_coverage() for node in self.all_nodes()]
+        return node_coverages
     def generate_gml(self,
                     output_file: str,
                     geneMerSize: int,

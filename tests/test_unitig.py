@@ -13,7 +13,9 @@ class TestUnitigsConstructor(unittest.TestCase):
                             3)
         # execution
         actual_unitigs = UnitigTools(graph,
-                                ["gene4"])
+                                ["gene4"],
+                                "tests/test.fastq.gz",
+                                ".")
         actual_graph = actual_unitigs.get_graph()
         actual_selected_genes = actual_unitigs.get_selected_genes()
         # assertion
@@ -29,7 +31,9 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph = GeneMerGraph({"read1": genes1, "read2": genes2},
                             3)
         unitigs = UnitigTools(graph,
-                        [])
+                        [],
+                        "tests/test.fastq.gz",
+                        ".")
         # execution
         actual_nodes_of_interest = unitigs.get_nodes_of_interest("gene4")
         # assertion
@@ -45,7 +49,9 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3},
                             3)
         unitig = UnitigTools(graph,
-                        ["gene7", "gene4", "gene1"])
+                        ["gene7", "gene4", "gene1"],
+                        "tests/test.fastq.gz",
+                        ".")
         # execution
         actual_AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # assertion
@@ -60,7 +66,9 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3},
                             3)
         unitig = UnitigTools(graph,
-                        ["gene7", "gene4", "gene1"])
+                        ["gene7", "gene4", "gene1"],
+                        "tests/test.fastq.gz",
+                        ".")
         AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
         # execution
         actual_reads_to_gene = unitig.get_reads_per_amr_node(AMRNodes)
@@ -90,7 +98,9 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph = GeneMerGraph({},
                             3)
         unitig = UnitigTools(graph,
-                        [])
+                        [],
+                        "tests/test.fastq.gz",
+                        ".")
         reads_dict = {
             'node1': ['read1', 'read2', 'read3'],
             'node2': ['read2', 'read4'],
@@ -99,7 +109,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         # execution
         actual_clusters = unitig.cluster_reads(reads_dict)
         # assertion
-        expected_clusters = {0: ['read1', 'read2', 'read3', 'read4'], 1: ['read5']}
+        expected_clusters = {1: ['read1', 'read2', 'read3', 'read4'], 2: ['read5']}
         self.assertEqual(actual_clusters, expected_clusters)
 
     def test___cluster_reads_later_occurrence(self):
@@ -107,7 +117,9 @@ class TestUnitigsConstructor(unittest.TestCase):
         graph = GeneMerGraph({},
                             3)
         unitig = UnitigTools(graph,
-                        [])
+                        [],
+                        "tests/test.fastq.gz",
+                        ".")
         reads_dict = {
             'node1': ['read1', 'read2', 'read3'],
             'node2': ['read2', 'read4'],
@@ -118,7 +130,7 @@ class TestUnitigsConstructor(unittest.TestCase):
         # execution
         actual_clusters = unitig.cluster_reads(reads_dict)
         # assertion
-        expected_clusters = {0: ['read1', 'read2', 'read3', 'read4', 'read5', 'read8'], 1: ['read7']}
+        expected_clusters = {1: ['read1', 'read2', 'read3', 'read4', 'read5', 'read8'], 2: ['read7']}
         self.assertEqual(actual_clusters, expected_clusters)
 
     # def test___get_AMR_anchors(self):

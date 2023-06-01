@@ -11,15 +11,29 @@ from construct_gene import convert_int_strand_to_string
 class UnitigTools:
     def __init__(self,
                 graph: GeneMerGraph,
-                listOfGenes: list):
+                listOfGenes: list,
+                readFile: str,
+                output_dir: str):
         self._graph = graph
         self._listOfGenes = listOfGenes
+        self._fastqContent = parse_fastq(readFile)
+        self._output_dir = output_dir
     def get_graph(self):
         """ returns the geneMerGraph """
         return self._graph
     def get_selected_genes(self):
         """ returns the list of selected genes """
         return self._listOfGenes
+    def get_fastqContent(self):
+        """ returns a dictionary of all read data in the input fastq """
+        return self._fastqContent
+    def get_output_dir(self):
+        """ returns a string of the output directory """
+        return self._output_dir
+    def get_read_data(self,
+                    readId):
+        """ return a dictionary of the data for this read """
+        return self.get_fastqContent()[readId]
     def get_nodes_of_interest(self,
                             geneOfInterest):
         """ extracts the graph nodes containing the genes of interest and returns them as a list """
@@ -28,7 +42,7 @@ class UnitigTools:
         """ return a dictionary of nodes containing AMR genes """
         AMRNodes = {}
         # iterate through the list of specified genes
-        for geneOfInterest in self.get_selected_genes():
+        for geneOfInterest in tqdm(self.get_selected_genes()):
             # get the graph nodes containing this gene
             nodesOfInterest = self.get_nodes_of_interest(geneOfInterest)
             # add nodes of interest to the AMR node set
@@ -59,15 +73,15 @@ class UnitigTools:
             parent):
         parent[self.find(x, parent)] = self.find(y, parent)
     def cluster_reads(self,
-                    read_to_genes):
+                    read_to_nodes):
         parent = {}
-        for readId in read_to_genes:
-            for nodeHash in read_to_genes[readId]:
+        for readId in read_to_nodes:
+            for nodeHash in read_to_nodes[readId]:
                 parent[nodeHash] = nodeHash
         # Union genes that share a read
-        for genes in read_to_genes.values():
-            for i in range(len(genes) - 1):
-                self.union(genes[i], genes[i+1], parent)
+        for nodes in read_to_nodes.values():
+            for i in range(len(nodes) - 1):
+                self.union(nodes[i], nodes[i+1], parent)
         # Create clusters
         clusters = {}
         for gene, p in parent.items():
@@ -75,7 +89,7 @@ class UnitigTools:
             if cluster not in clusters:
                 clusters[cluster] = []
             clusters[cluster].append(gene)
-        return {i: cluster for i, cluster in enumerate(clusters.values())}
+        return {i+1: cluster for i, cluster in enumerate(clusters.values())}
     def get_junctions(self):
         nodeJunctions = set()
         # get nodes that are anchors for traversing in the forward direction of the graph
@@ -102,14 +116,58 @@ class UnitigTools:
             junctionCount = len(nodeJunctions.intersection(clusterNodes))
             # if there are 0 junctions, this is easy to resolve
             if junctionCount == 0:
-                easy[c] = clusters[c]
+                easy[c] = clusterNodes
             # if there is 1 junction, this is intermediate to resolve
-            elif junctionCount == 1:
-                intermediate[c] = intermediate[c]
+            elif junctionCount == 1 or junctionCount == 2:
+                intermediate[c] = clusterNodes
             # if there is more than 1 junction, this is difficult to resolve
             else:
-                difficult[c] = difficult[c]
+                difficult[c] = clusterNodes
         return easy, intermediate, difficult
+    def write_subset_of_reads(self,
+                        output_dir,
+                        readIds):
+        # make the output directory
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+        # subset the reads for this unitig
+        subsettedReadData = {}
+        longest = ""
+        length = 0
+        for r in readIds:
+            subsettedReadData[r] =  self.get_read_data(r)
+            if len(subsettedReadData[r]["sequence"]) > length:
+                longest = r
+                length = len(subsettedReadData[r]["sequence"])
+        # write the per unitig fastq data
+        readFileName = os.path.join(output_dir, "cluster_reads.fastq.gz")
+        write_fastq(readFileName,
+                    subsettedReadData)
+        return readFileName, longest
+    def resolve_easy_clusters(self,
+                        easyClusters,
+                        clusterReads):
+        # get the graph
+        graph = self.get_graph()
+        # initialise a list of read file paths
+        readFiles = []
+        # iterate through the easy to resolve clusters
+        for cluster in tqdm(easyClusters):
+            # choose a random node
+            selectedNodeHash = next(iter(easyClusters[cluster]))
+            # get the unitig for this node
+            path = graph.get_linear_path_for_node(graph.get_node_by_hash(selectedNodeHash))
+            # get the path that we actually see in the cluster reads
+            supportedPath = [nodeHash for nodeHash in path if nodeHash in easyClusters[cluster]]
+            # represent the path as a list of adjacent genes
+            pathGenes = graph.follow_path_to_get_annotations(supportedPath)
+            # write a fastq of the reads in this path
+            outputDir = os.path.join(self.get_output_dir(), str(cluster))
+            readFileName, longest = self.write_subset_of_reads(outputDir,
+                                                    clusterReads[cluster])
+            # keep track of the read file
+            readFiles.append(readFileName)
+        return readFiles
     def separate_paralogs(self):
         # isolate nodes containing AMR genes
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
@@ -119,7 +177,11 @@ class UnitigTools:
         clusters = self.cluster_reads(amr_gene_reads)
         # separate the reads into easy, intermediate and difficult to resolve clusters
         easy, intermediate, difficult = self.assess_resolvability(clusters)
+        # resolve the easy clusters
+        readFiles = self.resolve_easy_clusters(easy,
+                                            clusters)
         print(len(easy), len(intermediate), len(difficult))
+        return readFiles
     def convert_paths_to_genes(self,
                             pathGeneMers):
         geneMerGenes = [convert_int_strand_to_string(gene.get_strand()) + gene.get_name() for gene in pathGeneMers[0]]
@@ -128,12 +190,6 @@ class UnitigTools:
             gene_name = geneMer[-1].get_name()
             geneMerGenes.append(gene_strand + gene_name)
         return geneMerGenes
-    def separate_reads(self,
-                output_dir,
-                readFile):
-        fastqContent = parse_fastq(readFile)
-        # get the untig genes and reads
-        unitigsOfInterest = self.get_unitigsOfInterest()
     def multithread_flye(self,
                         readFiles,
                         flye_path,

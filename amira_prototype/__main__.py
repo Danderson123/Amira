@@ -109,8 +109,8 @@ def convert_pandora_output(pandoraSam,
         annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
         if not any(g[1:] in genesOfInterest for g in annotatedReads[r]):
             to_delete.append(r)
-    #for t in to_delete:
-     #   del annotatedReads[t]
+    for t in to_delete:
+        del annotatedReads[t]
     assert not len(annotatedReads) == 0
     return annotatedReads, readLengthDict
 
@@ -164,6 +164,30 @@ def plot_read_lengths(readFile,
     fig.savefig(os.path.join(outputDir, "read_length_distribution.png"))
     plt.close(fig)
 
+def plot_node_coverages(onemer_graph_coverages,
+                    threemer_graph_coverages,
+                    fivemer_graph_coverages,
+                    sevenmer_graph_coverages,
+                    ninemer_graph_coverages,
+                    output_dir):
+    import matplotlib.pyplot as plt
+    from tqdm import tqdm
+    for to_plot in tqdm([("one", onemer_graph_coverages),
+                        ("three", threemer_graph_coverages),
+                        ("five", fivemer_graph_coverages),
+                        ("seven", sevenmer_graph_coverages),
+                        ("nine", ninemer_graph_coverages)]):
+        plt.hist(to_plot[1], bins=[i for i in range(0, 100, 1)], alpha=0.4, label=to_plot[0])
+        plt.margins(x=0)
+        plt.xlim(0, 100)
+        plt.ylim(0,1000)
+        #plt.legend(loc='upper right')
+        plt.ylabel('Absolute frequency')
+        plt.xlabel('Node coverage')
+        plt.title('Node coverage distributions over different gene-mer lengths')
+        plt.savefig(os.path.join(output_dir, f"node_coverage_distributions_{to_plot[0]}.png"))
+        plt.close()
+
 def main():
     # get command line options
     args = get_options()
@@ -178,7 +202,7 @@ def main():
     annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
                                                     set(genesOfInterest),
                                                     args.gene_min_coverage)
-    sys.stderr.write("\nAmira: Correcting annotation errors by removing appendages and popping bubbles 1/2\n")
+    sys.stderr.write("\nAmira: Correcting annotation errors by trimming hairs and popping bubbles 1/2\n")
     graphToCorrect = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
     if args.debug:
@@ -187,9 +211,22 @@ def main():
                                     args.geneMer_size,
                                     1,
                                     1)
+        sys.stderr.write("\nAmira: plotting node coverage distributions at different values of k\n")
+        # onemer_graph_coverages = GeneMerGraph(annotatedReads, 1).get_all_node_coverages()
+        # threemer_graph_coverages = GeneMerGraph(annotatedReads, 3).get_all_node_coverages()
+        # fivemer_graph_coverages = GeneMerGraph(annotatedReads, 5).get_all_node_coverages()
+        # sevenmer_graph_coverages = GeneMerGraph(annotatedReads, 7).get_all_node_coverages()
+        # ninemer_graph_coverages = GeneMerGraph(annotatedReads, 9).get_all_node_coverages()
+        # plot_node_coverages(onemer_graph_coverages,
+        #                     threemer_graph_coverages,
+        #                     fivemer_graph_coverages,
+        #                     sevenmer_graph_coverages,
+        #                     ninemer_graph_coverages,
+        #                     args.output_dir)
+        # sys.exit(0)
     annotatedReads = graphToCorrect.correct_errors(5,
                                                 args.bubble_popper_threshold)
-    sys.stderr.write("\nAmira: Correcting annotation errors by removing appendages and popping bubbles 2/2\n")
+    sys.stderr.write("\nAmira: Correcting annotation errors by trimming hairs and popping bubbles 2/2\n")
     graphToCorrect = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
     annotatedReads = graphToCorrect.correct_errors(5,
@@ -205,24 +242,19 @@ def main():
         # color nodes in the graph
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
-        # plot_gene_counts(annotatedReads,
-        #                 args.output_dir)
-        # plot_read_lengths(args.readfile,
-        #                 annotatedReads,
-        #                 args.output_dir)
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
                     args.node_min_coverage,
                     args.edge_min_coverage)
-    # initialise the UnitigBuilder class
-    sys.stderr.write("\nAmira: getting viable paths\n")
-    unitigTools = UnitigTools(graph,
-                            genesOfInterest)
-    # generate a visualisation of the unitigs
     sys.stderr.write("\nAmira: separating paralog reads\n")
-    readFiles, unitig_mapping = unitigTools.separate_reads(os.path.join(args.output_dir, "unitigs"),
-                                                                args.readfile)
+    # initialise the UnitigBuilder class
+    unitigTools = UnitigTools(graph,
+                            genesOfInterest,
+                            args.readfile,
+                            args.output_dir)
+    # subset the reads corresponding to each paralog
+    readFiles = unitigTools.separate_paralogs()
     # run flye on the subsetted reads
     if args.flye_path:
         sys.stderr.write("\nAmira: assembling paralog reads with Flye\n")
@@ -244,10 +276,10 @@ def main():
                                             genesOfInterest,
                                             args.threads)
     # make plots to visualise unitigs
-    sys.stderr.write("\nAmira: generating unitig plots\n")
-    unitigTools.visualise_unitigs(readDict,
-                                unitig_mapping,
-                                args.output_dir)
+    # sys.stderr.write("\nAmira: generating unitig plots\n")
+    # unitigTools.visualise_unitigs(readDict,
+    #                             unitig_mapping,
+    #                             args.output_dir)
     sys.exit(0)
 
 if __name__ == "__main__":
