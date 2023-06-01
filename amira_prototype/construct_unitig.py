@@ -49,47 +49,6 @@ class UnitigTools:
             for n in nodesOfInterest:
                 AMRNodes[n.__hash__()] = n
         return AMRNodes
-    def get_reads_per_amr_node(self,
-                            AMRNodes):
-        # make a dictionary of AMR nodes per read
-        amr_gene_reads = {}
-        for nodeHash in tqdm(AMRNodes):
-            node = AMRNodes[nodeHash]
-            amr_gene_reads[nodeHash] = []
-            for readId in node.get_reads():
-                amr_gene_reads[nodeHash].append(readId)
-        return amr_gene_reads
-    def find(self,
-            x,
-            parent):
-        if x not in parent:
-            parent[x] = x
-        elif parent[x] != x:
-            parent[x] = self.find(parent[x], parent)
-        return parent[x]
-    def union(self,
-            x,
-            y,
-            parent):
-        parent[self.find(x, parent)] = self.find(y, parent)
-    def cluster_reads(self,
-                    read_to_nodes):
-        parent = {}
-        for readId in read_to_nodes:
-            for nodeHash in read_to_nodes[readId]:
-                parent[nodeHash] = nodeHash
-        # Union genes that share a read
-        for nodes in read_to_nodes.values():
-            for i in range(len(nodes) - 1):
-                self.union(nodes[i], nodes[i+1], parent)
-        # Create clusters
-        clusters = {}
-        for gene, p in parent.items():
-            cluster = self.find(p, parent)
-            if cluster not in clusters:
-                clusters[cluster] = []
-            clusters[cluster].append(gene)
-        return {i+1: cluster for i, cluster in enumerate(clusters.values())}
     def get_junctions(self):
         nodeJunctions = set()
         # get nodes that are anchors for traversing in the forward direction of the graph
@@ -98,6 +57,31 @@ class UnitigTools:
             if self.get_graph().get_degree(node) > 2:
                 nodeJunctions.add(node.__hash__())
         return nodeJunctions
+    def get_AMR_anchors_and_junctions(self,
+                                    AMRNodes):
+        # get the graph
+        graph = self.get_graph()
+        # initialise the node anchor and junction sets
+        nodeAnchors = set()
+        nodeJunctions = set()
+        # get nodes that are anchors for traversing in the forward direction of the graph
+        for nodeHash in AMRNodes:
+            node = graph.get_node_by_hash(nodeHash)
+            if not graph.get_degree(node) > 2:
+                # get the forward neighbors for this node
+                forward_neighbors = graph.get_forward_neighbors(node)
+                # get the backward neighbors for this node
+                backward_neighbors = graph.get_backward_neighbors(node)
+                # get the forward neighbors that contain an AMR gene
+                forwardAMRNodes = [n for n in forward_neighbors if n.__hash__() in AMRNodes]
+                # get the backward neighbors that contain an AMR gene
+                backwardAMRNodes = [n for n in backward_neighbors if n.__hash__() in AMRNodes]
+                if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
+                    nodeAnchors.add(nodeHash)
+            # if the number of backward neighbors is not 1 or 0 then this is a forward anchor
+            else:
+                nodeJunctions.add(nodeHash)
+        return nodeAnchors, nodeJunctions
     def assess_resolvability(self,
                             clusters):
         # get nodes that are at junction
@@ -168,18 +152,85 @@ class UnitigTools:
             # keep track of the read file
             readFiles.append(readFileName)
         return readFiles
+    def find(self,
+            x,
+            parent):
+        if x not in parent:
+            parent[x] = x
+        elif parent[x] != x:
+            parent[x] = self.find(parent[x], parent)
+        return parent[x]
+    def union(self,
+            x,
+            y,
+            parent):
+        parent[self.find(x, parent)] = self.find(y, parent)
+    def cluster_anchor_reads(self,
+                            anchorReads):
+        parent = {}
+        nodeReads = {}
+        for readId in anchorReads:
+            for nodeHash in anchorReads[readId]:
+                parent[nodeHash] = nodeHash
+                if not nodeHash in nodeReads:
+                    nodeReads[nodeHash] = set()
+                nodeReads[nodeHash].add(readId)
+        # Union genes that share a read
+        for nodeHashes in anchorReads.values():
+            for i in range(len(nodeHashes) - 1):
+                self.union(nodeHashes[i], nodeHashes[i+1], parent)
+        # Create clusters
+        clusters = {}
+        for nodeHash, p in parent.items():
+            cluster = self.find(p, parent)
+            if cluster not in clusters:
+                clusters[cluster] = set()
+            clusters[cluster].update(nodeReads[nodeHash])
+        return {i+1: cluster for i, cluster in enumerate(clusters.values())}
+    def get_anchoring_reads(self,
+                        nodeAnchors):
+        # get the graph
+        graph = self.get_graph()
+        anchorReads = {}
+        for nodeHash in tqdm(nodeAnchors):
+            node = graph.get_node_by_hash(nodeHash)
+            for readId in node.get_reads():
+                if not readId in anchorReads:
+                    anchorReads[readId] = []
+                anchorReads[readId].append(nodeHash)
+        # get reads that have at least 2 anchors
+        to_delete = []
+        for readId in anchorReads:
+            if len(anchorReads[readId]) < 2:
+                to_delete.append(readId)
+        # remove reads with fewer than 2 anchors
+        for r in to_delete:
+            del anchorReads[r]
+        return anchorReads
+    def cluster_all_other_reads(self,
+                                easy,
+                                intermediate,
+                                difficult):
+        return
     def separate_paralogs(self):
         # isolate nodes containing AMR genes
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
-        # make a dictionary of AMR nodes per read
-        amr_gene_reads = self.get_reads_per_amr_node(AMRNodes)
-        # cluster the reads if they share at least one gene
-        clusters = self.cluster_reads(amr_gene_reads)
+        # get the AMR nodes that are anchors and nodes
+        nodeAnchors, nodeJunctions = self.get_AMR_anchors_and_junctions(AMRNodes)
+        # make a dictionary of AMR anchor nodes per read
+        anchorReads = self.get_anchoring_reads(nodeAnchors)
+        # cluster the anchor reads if they have at least 2 anchors share at least one anchor
+        anchor_clusters = self.cluster_anchor_reads(anchorReads)
         # separate the reads into easy, intermediate and difficult to resolve clusters
-        easy, intermediate, difficult = self.assess_resolvability(clusters)
+        easy, intermediate, difficult = self.assess_resolvability(anchor_clusters)
+        # assign all other reads to a cluster if their nodes are fully contained within the anchor read nodes
+        easy, intermediate, difficult = self.cluster_all_other_reads(easy,
+                                                                    intermediate,
+                                                                    difficult)
+
         # resolve the easy clusters
-        readFiles = self.resolve_easy_clusters(easy,
-                                            clusters)
+#        readFiles = self.resolve_easy_clusters(easy,
+ #                                           clusters)
         print(len(easy), len(intermediate), len(difficult))
         return readFiles
     def convert_paths_to_genes(self,
