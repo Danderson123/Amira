@@ -83,9 +83,8 @@ class UnitigTools:
                 nodeJunctions.add(nodeHash)
         return nodeAnchors, nodeJunctions
     def assess_resolvability(self,
-                            clusters):
-        # get nodes that are at junction
-        nodeJunctions = self.get_junctions()
+                            clusters,
+                            amrJunctions):
         # get the graph
         graph = self.get_graph()
         easy = {}
@@ -93,20 +92,21 @@ class UnitigTools:
         difficult = {}
         for c in tqdm(clusters):
             # express all the reads in this cluster as a list of nodes
-            clusterNodes = set()
+            clusterJunctions = []
             for readId in clusters[c]:
-                clusterNodes.update(graph.get_readNodes()[readId])
+                clusterJunctions.append([n for n in graph.get_readNodes()[readId] if n in amrJunctions])
             # get the number of junction nodes in this cluster
-            junctionCount = len(nodeJunctions.intersection(clusterNodes))
+            junctionCount = max([len(j) for j in clusterJunctions])
+            clusters[c] = list(clusters[c])
             # if there are 0 junctions, this is easy to resolve
             if junctionCount == 0:
-                easy[c] = clusterNodes
-            # if there is 1 junction, this is intermediate to resolve
+                easy[c] = clusters[c]
+            # if there is 1 or 2 junctions, this is intermediate to resolve
             elif junctionCount == 1 or junctionCount == 2:
-                intermediate[c] = clusterNodes
+                intermediate[c] = clusters[c]
             # if there is more than 1 junction, this is difficult to resolve
             else:
-                difficult[c] = clusterNodes
+                difficult[c] = clusters[c]
         return easy, intermediate, difficult
     def write_subset_of_reads(self,
                         output_dir,
@@ -169,12 +169,10 @@ class UnitigTools:
                             anchorReads):
         parent = {}
         nodeReads = {}
-        for readId in anchorReads:
-            for nodeHash in anchorReads[readId]:
-                parent[nodeHash] = nodeHash
-                if not nodeHash in nodeReads:
-                    nodeReads[nodeHash] = set()
-                nodeReads[nodeHash].add(readId)
+        for readId, nodeHashes in anchorReads.items():
+            for nodeHash in nodeHashes:
+                parent.setdefault(nodeHash, nodeHash)
+                nodeReads.setdefault(nodeHash, set()).add(readId)
         # Union genes that share a read
         for nodeHashes in anchorReads.values():
             for i in range(len(nodeHashes) - 1):
@@ -182,13 +180,14 @@ class UnitigTools:
         # Create clusters
         clusters = {}
         for nodeHash, p in parent.items():
-            cluster = self.find(p, parent)
-            if cluster not in clusters:
-                clusters[cluster] = set()
-            clusters[cluster].update(nodeReads[nodeHash])
+            root = self.find(p, parent)
+            if root not in clusters:
+                clusters[root] = set()
+            clusters[root].update(nodeReads[nodeHash])
         return {i+1: cluster for i, cluster in enumerate(clusters.values())}
     def get_anchoring_reads(self,
                         nodeAnchors):
+        """ get reads that contain AMR genes and that contain at least 2 AMR anchors """
         # get the graph
         graph = self.get_graph()
         anchorReads = {}
@@ -207,31 +206,86 @@ class UnitigTools:
         for r in to_delete:
             del anchorReads[r]
         return anchorReads
+    def contains_sublist(self,
+                        allNodes,
+                        subNodes):
+        n = len(subNodes)
+        if any((subNodes == allNodes[i:i+n] or list(reversed(subNodes)) == allNodes[i:i+n]) for i in range(len(allNodes)-n+1)):
+            return True
+        else:
+            return False
     def cluster_all_other_reads(self,
                                 easy,
                                 intermediate,
-                                difficult):
-        return
+                                difficult,
+                                anchorReads):
+        import sys
+        sys.stderr.write("\nClustering all other reads\n")
+        # get the graph
+        graph = self.get_graph()
+        # make a set of anchor reads
+        anchorReadNodes = {}
+        for readId in list(anchorReads.keys()):
+            # get the readNodes for this read
+            readNodes = graph.get_readNodes()[readId]
+            anchorReadNodes[readId] = readNodes
+        # iterate through the cluster dictionaries
+        for clusterDict in tqdm([easy, intermediate, difficult]):
+            referenceReads = {}
+            for cluster in clusterDict:
+                # sort the reads by the number of anchors
+                clusterDict[cluster].sort(key=lambda x: len(anchorReads[x]), reverse=True)
+                # get the nodes on the read with the most anchors
+                referenceReads[cluster] = []
+                for readId in clusterDict[cluster]:
+                    referenceReadNodes = anchorReadNodes[clusterDict[cluster][0]]
+                    referenceReads[cluster].append(referenceReadNodes)
+            # go through all other reads to check if they contain a subset of the longest reads
+            for readId in graph.get_readNodes():
+                # if this read is not an anchor read
+                if not readId in anchorReads:
+                    nodes = graph.get_readNodes()[readId]
+                    for cluster in referenceReads:
+                        if any(self.contains_sublist(referenceNodes,
+                                                nodes) for referenceNodes in referenceReads[cluster]):
+                            clusterDict[cluster].append(readId)
+        return easy, intermediate, difficult
     def separate_paralogs(self):
         # isolate nodes containing AMR genes
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
         # get the AMR nodes that are anchors and nodes
-        nodeAnchors, nodeJunctions = self.get_AMR_anchors_and_junctions(AMRNodes)
+        amrAnchors, amrJunctions = self.get_AMR_anchors_and_junctions(AMRNodes)
         # make a dictionary of AMR anchor nodes per read
-        anchorReads = self.get_anchoring_reads(nodeAnchors)
+        anchorReads = self.get_anchoring_reads(amrAnchors)
         # cluster the anchor reads if they have at least 2 anchors share at least one anchor
         anchor_clusters = self.cluster_anchor_reads(anchorReads)
         # separate the reads into easy, intermediate and difficult to resolve clusters
-        easy, intermediate, difficult = self.assess_resolvability(anchor_clusters)
+        easy, intermediate, difficult = self.assess_resolvability(anchor_clusters,
+                                                                amrJunctions)
+        counts_before = []
+        for e in easy:
+            counts_before.append(len(easy[e]))
         # assign all other reads to a cluster if their nodes are fully contained within the anchor read nodes
         easy, intermediate, difficult = self.cluster_all_other_reads(easy,
                                                                     intermediate,
-                                                                    difficult)
-
+                                                                    difficult,
+                                                                    anchorReads)
+        counts_after = []
+        for e in easy:
+            counts_after.append(len(easy[e]))
         # resolve the easy clusters
-#        readFiles = self.resolve_easy_clusters(easy,
- #                                           clusters)
+        #readFiles = self.resolve_easy_clusters(easy,
+        #                                    counts_before)
+        readFiles = []
+        for e in easy:
+            outputDir = os.path.join(self.get_output_dir(), str(e))
+            readFileName, longest = self.write_subset_of_reads(outputDir,
+                                                    easy[e])
+            # keep track of the read file
+            readFiles.append(readFileName)
         print(len(easy), len(intermediate), len(difficult))
+        print(counts_before)
+        print(counts_after)
         return readFiles
     def convert_paths_to_genes(self,
                             pathGeneMers):
