@@ -82,6 +82,34 @@ class UnitigTools:
             else:
                 nodeJunctions.add(nodeHash)
         return nodeAnchors, nodeJunctions
+    def resolve_one_junction_clusters(self,
+                                    reads_to_separate,
+                                    clusterJunctions,
+                                    graph):
+        """ separate reads in intermediate clusters based on the path they follow through junctions """
+        paths = {}
+        for r in range(len(reads_to_separate)):
+            nodeHashes = graph.get_readNodes()[reads_to_separate[r]]
+            # if the only node on a read is a junction node it is not useful for us
+            if not len(nodeHashes) == 1:
+                indicesOfJunctions = [i for i, x in enumerate(nodeHashes) if x in clusterJunctions[r]]
+                adjancentNodes = []
+                for i in indicesOfJunctions:
+                    if not i == 0:
+                        adjancentNodes.append(nodeHashes[i-1])
+                    if not i == len(nodeHashes) - 1:
+                        adjancentNodes.append(nodeHashes[i+1])
+                paths[reads_to_separate[r]] = adjancentNodes
+        # a cluster with one junction will have 2 possible paths
+        subclusters = {}
+        for readId in paths:
+            paths[readId].sort()
+            pathTuple = tuple(paths[readId])
+            if not pathTuple in subclusters:
+                subclusters[pathTuple] = []
+            subclusters[pathTuple].append(readId)
+        # there is only 1 junction so two potential paths through it
+        return [v for v in subclusters.values()]
     def assess_resolvability(self,
                             clusters,
                             amrJunctions):
@@ -90,7 +118,8 @@ class UnitigTools:
         easy = {}
         intermediate = {}
         difficult = {}
-        for c in tqdm(clusters):
+        clusterId = 1
+        for c in clusters:
             # express all the reads in this cluster as a list of nodes
             clusterJunctions = []
             for readId in clusters[c]:
@@ -100,14 +129,15 @@ class UnitigTools:
             clusters[c] = list(clusters[c])
             # if there are 0 junctions, this is easy to resolve
             if junctionCount == 0:
-                easy[c] = clusters[c]
-            # if there is 1 or 2 junctions, this is intermediate to resolve
+                easy[clusterId] = clusters[c]
+            # if there is 1 junction, this is intermediate to resolve
             elif junctionCount == 1 or junctionCount == 2:
-                intermediate[c] = clusters[c]
+                intermediate[clusterId] = clusters[c]
             # if there is more than 1 junction, this is difficult to resolve
             else:
-                difficult[c] = clusters[c]
-        return easy, intermediate, difficult
+                difficult[clusterId] = clusters[c]
+            clusterId += 1
+        return easy, intermediate, difficult, clusterId
     def write_subset_of_reads(self,
                         output_dir,
                         readIds):
@@ -116,41 +146,188 @@ class UnitigTools:
             os.mkdir(output_dir)
         # subset the reads for this unitig
         subsettedReadData = {}
-        longest = ""
-        length = 0
         for r in readIds:
-            subsettedReadData[r] =  self.get_read_data(r)
-            if len(subsettedReadData[r]["sequence"]) > length:
-                longest = r
-                length = len(subsettedReadData[r]["sequence"])
+            subsettedReadData[r] = self.get_read_data(r)
         # write the per unitig fastq data
         readFileName = os.path.join(output_dir, "cluster_reads.fastq.gz")
         write_fastq(readFileName,
                     subsettedReadData)
-        return readFileName, longest
+        return readFileName
     def resolve_easy_clusters(self,
-                        easyClusters,
-                        clusterReads):
-        # get the graph
-        graph = self.get_graph()
+                        easyClusters):
         # initialise a list of read file paths
         readFiles = []
+        # get the graph
+        graph = self.get_graph()
         # iterate through the easy to resolve clusters
         for cluster in tqdm(easyClusters):
-            # choose a random node
-            selectedNodeHash = next(iter(easyClusters[cluster]))
-            # get the unitig for this node
-            path = graph.get_linear_path_for_node(graph.get_node_by_hash(selectedNodeHash))
-            # get the path that we actually see in the cluster reads
-            supportedPath = [nodeHash for nodeHash in path if nodeHash in easyClusters[cluster]]
-            # represent the path as a list of adjacent genes
-            pathGenes = graph.follow_path_to_get_annotations(supportedPath)
+            # get all the node hashes for this cluster
+            clusterReads = set()
+            for readId in easyClusters[cluster]:
+                readNodes = [graph.get_node_by_hash(h) for h in graph.get_readNodes()[readId]]
+                for node in readNodes:
+                    for read in node.get_reads():
+                        clusterReads.add(read)
             # write a fastq of the reads in this path
             outputDir = os.path.join(self.get_output_dir(), str(cluster))
-            readFileName, longest = self.write_subset_of_reads(outputDir,
-                                                    clusterReads[cluster])
+            readFileName = self.write_subset_of_reads(outputDir,
+                                                clusterReads)
             # keep track of the read file
             readFiles.append(readFileName)
+        return readFiles
+    def bin_reads_by_path(self,
+                        clusterReadNodes,
+                        pathsOfInterest):
+        # bin the reference reads based on which paths they follow
+        subclusteredReads = {}
+        for readId in clusterReadNodes:
+            for path in pathsOfInterest:
+                #if self.contains_sublist(clusterReadNodes[readId],
+                #                        list(path)):
+                if all(p in clusterReadNodes[readId] for p in list(path)):
+                    if not path in subclusteredReads:
+                        subclusteredReads[path] = []
+                    subclusteredReads[path].append(readId)
+        return subclusteredReads
+    def get_all_reads_in_path(self,
+                            uniqueNodes,
+                            graph):
+        # get the reads for each of these useful nodes
+        clusterReads = set()
+        for nodeHash in uniqueNodes:
+            node = graph.get_node_by_hash(nodeHash)
+            for readId in node.get_reads():
+                clusterReads.add(readId)
+        return clusterReads
+    def resolve_one_junction(self,
+                            junction,
+                            clusterReadNodes,
+                            graph):
+        pathsOfInterest = set()
+        # get the node for the hash
+        node = graph.get_node_by_hash(junction)
+        # get the neighbors for the junction
+        fw_neighbors = graph.get_forward_neighbors(node)
+        bw_neighbors = graph.get_backward_neighbors(node)
+        # we want to separate reads based on the node immediately next to the junction
+        if len(fw_neighbors) == 2:
+            next_nodes = fw_neighbors
+        if len(bw_neighbors) == 2:
+            next_nodes = bw_neighbors
+        for next_node in next_nodes:
+            pathsOfInterest.add((junction, next_node.__hash__()))
+        # split the reference reads into subclusters based on the path they follow
+        subclusteredReferenceReads = self.bin_reads_by_path(clusterReadNodes,
+                                                        pathsOfInterest)
+        # get the nodes that are unique to each path
+        subclusterAllReads = {}
+        for subcluster in subclusteredReferenceReads:
+            uniqueNodes = set()
+            for readId in subclusteredReferenceReads[subcluster]:
+                readNodes = clusterReadNodes[readId]
+                # get the indices of the nodes in the path
+                junctionIndex = readNodes.index(subcluster[0])
+                adjacentNodeIndex = readNodes.index(subcluster[1])
+                assert not (junctionIndex == -1 or adjacentNodeIndex == -1)
+                # trim the read nodes so we are only adding nodes that occur after the junction
+                if junctionIndex > adjacentNodeIndex:
+                    trimmedReadNodes = readNodes[:junctionIndex]
+                else:
+                    trimmedReadNodes = readNodes[adjacentNodeIndex:]
+                uniqueNodes.update(trimmedReadNodes)
+            # get the reads for each of these useful nodes
+            subclusterAllReads[subcluster] = self.get_all_reads_in_path(uniqueNodes,
+                                                                    graph)
+        return subclusterAllReads
+    def resolve_two_junctions(self,
+                            junctions,
+                            clusterReadNodes,
+                            graph):
+        pathsOfInterest = set()
+        # if the junctions are adjacent, we need to use 4 nodes to resolve them
+        nodes = [graph.get_node_by_hash(h) for h in junctions]
+        # get a list of the neighbors that occur immediately after each junction
+        neighbors = [sorted([graph.get_forward_neighbors(junctionNode),
+                        graph.get_backward_neighbors(junctionNode)], key=len, reverse=True)[0] for junctionNode in nodes]
+        # now we get all the possible paths we can see through the junctions
+        for j1_neighbor in neighbors[0]:
+            for j2_neighbor in neighbors[1]:
+                pathsOfInterest.add((j1_neighbor.__hash__(), j2_neighbor.__hash__()))
+        # split the reference reads into subclusters based on the path they follow
+        subclusteredReferenceReads = self.bin_reads_by_path(clusterReadNodes,
+                                                    pathsOfInterest)
+        # if the junction nodes are not immediately adjacent
+        if not graph.check_if_nodes_are_adjacent(graph.get_node_by_hash(junctions[0]),
+                                                                    graph.get_node_by_hash(junctions[1])):
+            # the junctions are not immediately adjacent
+            junctionsAdjacent = False
+        else:
+            # the junctions are immediately adjacent
+            junctionsAdjacent = True
+        # get the nodes that are unique to each path
+        junctionSet = set(junctions)
+        subclusterAllReads = {}
+        for subcluster in subclusteredReferenceReads:
+            uniqueNodes = set()
+            for readId in subclusteredReferenceReads[subcluster]:
+                readNodes = clusterReadNodes[readId]
+                # get the indices of the junctions in the path
+                firstJunctionIndex = readNodes.index(junctions[0])
+                secondJunctionIndex = readNodes.index(junctions[1])
+                assert not (firstJunctionIndex == -1 or secondJunctionIndex == -1)
+                if not junctionsAdjacent:
+                    # trim the read nodes so we are only adding nodes that occur after the junction
+                    if firstJunctionIndex > secondJunctionIndex:
+                        trimmedReadNodes = readNodes[secondJunctionIndex + 1: firstJunctionIndex]
+                    else:
+                        trimmedReadNodes = readNodes[firstJunctionIndex + 1: secondJunctionIndex]
+                else:
+                    # trim the read nodes so that we are only adding nodes outside of the junctions
+                    trimmedReadNodes = [n for n in readNodes if not n in junctionSet]
+                uniqueNodes.update(trimmedReadNodes)
+            # get the reads for each of these useful nodes
+            subclusterAllReads[subcluster] = self.get_all_reads_in_path(uniqueNodes,
+                                                                    graph)
+        return subclusterAllReads
+    def resolve_intermediate_clusters(self,
+                                    intermediateClusters,
+                                    amrJunctions,
+                                    clusterId):
+        # initialise a list of read file paths
+        readFiles = []
+        # get the graph
+        graph = self.get_graph()
+        # iterate through the intermediate clusters
+        for cluster in tqdm(intermediateClusters):
+            clusterReadNodes = {}
+            junctions = set()
+            for readId in intermediateClusters[cluster]:
+                # get the read node hashes
+                readNodeHashes = graph.get_readNodes()[readId]
+                # store the nodes on these reads
+                clusterReadNodes[readId] = readNodeHashes
+                # we also want to keep track of all the junctions that we see in the reads
+                junctions.update([h for h in readNodeHashes if h in amrJunctions])
+            junctions = list(junctions)
+            assert len(junctions) < 3
+            # if there is only 1 junction we can resolve using 1 node
+            if len(junctions) == 1:
+                subclusterAllReads = self.resolve_one_junction(junctions[0],
+                                                        clusterReadNodes,
+                                                        graph)
+            else:
+                subclusterAllReads = self.resolve_two_junctions(junctions,
+                                                            clusterReadNodes,
+                                                            graph)
+            # iterate through the subclusters
+            for subcluster in subclusterAllReads:
+                # write a fastq of the reads in this path
+                outputDir = os.path.join(self.get_output_dir(), str(clusterId))
+                readFileName = self.write_subset_of_reads(outputDir,
+                                                    subclusterAllReads[subcluster])
+                # keep track of the read file
+                readFiles.append(readFileName)
+                clusterId += 1
         return readFiles
     def find(self,
             x,
@@ -191,7 +368,7 @@ class UnitigTools:
         # get the graph
         graph = self.get_graph()
         anchorReads = {}
-        for nodeHash in tqdm(nodeAnchors):
+        for nodeHash in nodeAnchors:
             node = graph.get_node_by_hash(nodeHash)
             for readId in node.get_reads():
                 if not readId in anchorReads:
@@ -214,42 +391,6 @@ class UnitigTools:
             return True
         else:
             return False
-    def cluster_all_other_reads(self,
-                                easy,
-                                intermediate,
-                                difficult,
-                                anchorReads):
-        import sys
-        sys.stderr.write("\nClustering all other reads\n")
-        # get the graph
-        graph = self.get_graph()
-        # make a set of anchor reads
-        anchorReadNodes = {}
-        for readId in list(anchorReads.keys()):
-            # get the readNodes for this read
-            readNodes = graph.get_readNodes()[readId]
-            anchorReadNodes[readId] = readNodes
-        # iterate through the cluster dictionaries
-        for clusterDict in tqdm([easy, intermediate, difficult]):
-            referenceReads = {}
-            for cluster in clusterDict:
-                # sort the reads by the number of anchors
-                clusterDict[cluster].sort(key=lambda x: len(anchorReads[x]), reverse=True)
-                # get the nodes on the read with the most anchors
-                referenceReads[cluster] = []
-                for readId in clusterDict[cluster]:
-                    referenceReadNodes = anchorReadNodes[clusterDict[cluster][0]]
-                    referenceReads[cluster].append(referenceReadNodes)
-            # go through all other reads to check if they contain a subset of the longest reads
-            for readId in graph.get_readNodes():
-                # if this read is not an anchor read
-                if not readId in anchorReads:
-                    nodes = graph.get_readNodes()[readId]
-                    for cluster in referenceReads:
-                        if any(self.contains_sublist(referenceNodes,
-                                                nodes) for referenceNodes in referenceReads[cluster]):
-                            clusterDict[cluster].append(readId)
-        return easy, intermediate, difficult
     def separate_paralogs(self):
         # isolate nodes containing AMR genes
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
@@ -260,32 +401,14 @@ class UnitigTools:
         # cluster the anchor reads if they have at least 2 anchors share at least one anchor
         anchor_clusters = self.cluster_anchor_reads(anchorReads)
         # separate the reads into easy, intermediate and difficult to resolve clusters
-        easy, intermediate, difficult = self.assess_resolvability(anchor_clusters,
-                                                                amrJunctions)
-        counts_before = []
-        for e in easy:
-            counts_before.append(len(easy[e]))
-        # assign all other reads to a cluster if their nodes are fully contained within the anchor read nodes
-        easy, intermediate, difficult = self.cluster_all_other_reads(easy,
-                                                                    intermediate,
-                                                                    difficult,
-                                                                    anchorReads)
-        counts_after = []
-        for e in easy:
-            counts_after.append(len(easy[e]))
+        easy, intermediate, difficult, clusterId = self.assess_resolvability(anchor_clusters,
+                                                                            amrJunctions)
         # resolve the easy clusters
-        #readFiles = self.resolve_easy_clusters(easy,
-        #                                    counts_before)
-        readFiles = []
-        for e in easy:
-            outputDir = os.path.join(self.get_output_dir(), str(e))
-            readFileName, longest = self.write_subset_of_reads(outputDir,
-                                                    easy[e])
-            # keep track of the read file
-            readFiles.append(readFileName)
-        print(len(easy), len(intermediate), len(difficult))
-        print(counts_before)
-        print(counts_after)
+        readFiles = self.resolve_easy_clusters(easy)
+        # resolve the intermediate clusters
+        readFiles += self.resolve_intermediate_clusters(intermediate,
+                                                        amrJunctions,
+                                                        clusterId)
         return readFiles
     def convert_paths_to_genes(self,
                             pathGeneMers):
@@ -312,6 +435,18 @@ class UnitigTools:
                             os.path.join(os.path.dirname(inputFastq), "flye_output")])
             try:
                 subprocess.run(flye_command, shell=True, check=True)
+                if os.path.exists(os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta")):
+                    # map the reads to the consensus file
+                    map_command = "minimap2 -a --MD -t 1 "
+                    map_command += os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta") + " " + inputFastq
+                    map_command += " > " + os.path.join(os.path.dirname(inputFastq), "reads_mapped_to_consensus.sam")
+                    subprocess.run(map_command, shell=True, check=True)
+                    # polish the pandora consensus
+                    racon_command = "panRG_building_tools/racon/build/bin/racon" + " -t 1 "
+                    racon_command += inputFastq + " " + os.path.join(os.path.dirname(inputFastq), "reads_mapped_to_consensus.sam") + " "
+                    racon_command += os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta") + " "
+                    racon_command += "> " + os.path.join(os.path.dirname(inputFastq), "racon_polished_assembly.fasta")
+                    subprocess.run(racon_command, shell=True, check=True)
             except:
                 pass
 

@@ -235,7 +235,6 @@ def main():
     # build the graph
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
-    sys.stderr.write("\nAmira: filtering gene-mer graph\n")
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
     if args.debug:

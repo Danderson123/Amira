@@ -228,13 +228,9 @@ class TestUnitigsConstructor(unittest.TestCase):
         nodeAnchors, nodeJunctions = unitig.get_AMR_anchors_and_junctions(AMRNodes)
         anchorReads = unitig.get_anchoring_reads(nodeAnchors)
         clusters = unitig.cluster_anchor_reads(anchorReads)
-        graph.generate_gml("test/test.gml",
-                3,
-                1,
-                1)
         # execution
-        actual_easy, actual_intermediate, actual_difficult = unitig.assess_resolvability(clusters,
-                                                                                        nodeJunctions)
+        actual_easy, actual_intermediate, actual_difficult, clusterId = unitig.assess_resolvability(clusters,
+                                                                                            nodeJunctions)
         # assertion
         self.assertEqual(len(AMRNodes), 10)
         self.assertEqual(len(nodeAnchors), 4)
@@ -247,12 +243,10 @@ class TestUnitigsConstructor(unittest.TestCase):
 
     def test___assess_resolvability_loop(self):
         # setup
-        # setup
         genes1 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
         genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
         genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
         genes4 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
-
         graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3, "read4": genes4},
                             3)
         unitig = UnitigTools(graph,
@@ -264,8 +258,8 @@ class TestUnitigsConstructor(unittest.TestCase):
         anchorReads = unitig.get_anchoring_reads(nodeAnchors)
         clusters = unitig.cluster_anchor_reads(anchorReads)
         # execution
-        actual_easy, actual_intermediate, actual_difficult = unitig.assess_resolvability(clusters,
-                                                                                        nodeJunctions)
+        actual_easy, actual_intermediate, actual_difficult, clusterId = unitig.assess_resolvability(clusters,
+                                                                                                nodeJunctions)
         # assertion
         self.assertEqual(len(AMRNodes), 16)
         self.assertEqual(len(nodeAnchors), 5)
@@ -276,3 +270,70 @@ class TestUnitigsConstructor(unittest.TestCase):
         self.assertEqual(len(actual_easy), 1)
         self.assertEqual(len(actual_intermediate), 0)
         self.assertEqual(len(actual_difficult), 1)
+
+    def test___contains_sublist_contains(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        allNodes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # assertion
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [1, 2, 3, 4]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [4, 3, 2, 1]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [5, 6, 7, 8]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [8, 7, 6, 5]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [7, 8, 9, 10]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [10, 9, 8, 7]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [1]))
+        self.assertTrue(unitig.contains_sublist(allNodes,
+                                            [10]))
+
+    def test___contains_sublist_does_not_contain(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        allNodes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # assertion
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [11, 12, 13, 14]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [6, 7, 11, 12]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [5, 11, 7, 6]))
+
+    def test___contains_sublist_overlaps(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        allNodes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # assertion
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [10, 11, 12, 13]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [9, 10, 11, 12]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [8, 9, 10, 11]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [3, 2, 1, 0]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [2, 1, 0]))
+        self.assertFalse(unitig.contains_sublist(allNodes,
+                                            [1, 0]))

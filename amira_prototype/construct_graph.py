@@ -273,12 +273,17 @@ class GeneMerGraph:
                         node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a backward edge """
         return node.get_backward_edge_hashes()
+    def check_if_nodes_are_adjacent(self,
+                                    sourceNode: Node,
+                                    targetNode: Node):
+        """ returns a bool of whether or not the sourceNode and targetNode are neighbors of eachother """
+        return targetNode.__hash__() in self.get_all_neighbors(sourceNode) and sourceNode.__hash__() in self.get_all_neighbors(targetNode)
     def get_edge_hashes_between_nodes(self,
                                     sourceNode: Node,
                                     targetNode: Node) -> tuple:
         """ return a tuple of the source to target and target to source edge hash that are adjacent """
         # check that the two nodes are adjacent
-        assert targetNode.__hash__() in self.get_all_neighbors(sourceNode) and sourceNode.__hash__() in self.get_all_neighbors(targetNode)
+        assert self.check_if_nodes_are_adjacent(sourceNode, targetNode)
         # get the edge hash from source to target
         for edgeHash in self.get_forward_edges(sourceNode) + self.get_backward_edges(sourceNode):
             if self.get_edge_by_hash(edgeHash).get_targetNode() == targetNode:
@@ -373,13 +378,13 @@ class GeneMerGraph:
         minEdgeCoverage = self.set_minEdgeCoverage(minEdgeCoverage)
         # filter the nodes
         nodesToRemove = set()
-        for nodeHash in tqdm(self.get_nodes()):
+        for nodeHash in self.get_nodes():
             # mark a node for removal if the coverage is less than the specified coverage
             if not self.get_nodes()[nodeHash].get_node_coverage() > minNodeCoverage - 1:
                 nodesToRemove.add(self.get_nodes()[nodeHash])
         # filter the edges
         edgesToRemove = set()
-        for edgeHash in tqdm(self.get_edges()):
+        for edgeHash in self.get_edges():
             # mark an edge for removal if the coverage is less than the specified coverage
             if not self.get_edges()[edgeHash].get_edge_coverage() > minEdgeCoverage - 1:
                 edgesToRemove.add(edgeHash)
