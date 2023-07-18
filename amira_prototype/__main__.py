@@ -5,7 +5,7 @@ import sys
 from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
-from construct_unitig import UnitigTools
+from construct_unitig import UnitigTools #parse_fastq
 
 from test_functions import TestUnitigTools
 
@@ -17,6 +17,8 @@ def get_options():
                         help='Pandora map SAM file path')
     group.add_argument('--pandoraJSON', dest='pandoraJSON',
                         help='Pandora map JSON file path')
+    parser.add_argument('--pandoraConsensus', dest='pandoraConsensus',
+                        help='path to Pandora consensus fastq', required=False)
     parser.add_argument('--readfile', dest='readfile',
                         help='path of gzipped long read fastq', required=True)
     parser.add_argument('--output', dest='output_dir', type=str, default="gene_de_Bruijn_graph",
@@ -81,6 +83,7 @@ def determine_gene_strand(read):
     return gene_name, strandlessGene
 
 def convert_pandora_output(pandoraSam,
+                        pandora_consensus,
                         genesOfInterest,
                         geneMinCoverage):
     # load the pseudo SAM
@@ -101,17 +104,19 @@ def convert_pandora_output(pandoraSam,
                                                 regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
-            if not read.query_name in annotatedReads:
-                annotatedReads[read.query_name] = []
-                readLengthDict[read.query_name] = []
-            # count how many times we see each gene
-            if not strandlessGene in geneCounts:
-                geneCounts[strandlessGene] = 0
-            geneCounts[strandlessGene] += 1
-            # store the per read gene names, gene starts and gene ends
-            readLengthDict[read.query_name].append((regionStart, regionEnd))
-            # store the per read gene names
-            annotatedReads[read.query_name].append(gene_name)
+            # exclude genes that do not have a pandora consensus
+            if strandlessGene in pandora_consensus:
+                if not read.query_name in annotatedReads:
+                    annotatedReads[read.query_name] = []
+                    readLengthDict[read.query_name] = []
+                # count how many times we see each gene
+                if not strandlessGene in geneCounts:
+                    geneCounts[strandlessGene] = 0
+                geneCounts[strandlessGene] += 1
+                # store the per read gene names, gene starts and gene ends
+                readLengthDict[read.query_name].append((regionStart, regionEnd))
+                # store the per read gene names
+                annotatedReads[read.query_name].append(gene_name)
     to_delete = []
     subsettedGenesOfInterest = set()
     for r in annotatedReads:
@@ -217,11 +222,13 @@ def main():
         genesOfInterest = i.read().splitlines()
     # convert the Pandora SAM file to a dictionary
     if args.pandoraSam:
+        # load the pandora consensus and convert to a dictionary
+        pandora_consensus = parse_fastq(args.pandoraConsensus)
         sys.stderr.write("\nAmira: loading Pandora SAM\n")
         annotatedReads, readDict, genesOfInterest = convert_pandora_output(args.pandoraSam,
+                                                                        pandora_consensus,
                                                                         set(genesOfInterest),
                                                                         args.gene_min_coverage)
-        print(genesOfInterest)
     if args.pandoraJSON:
         import json
         with open(args.pandoraJSON) as i:
@@ -273,19 +280,19 @@ def main():
         #                     args.output_dir)
         #sys.exit(0)
     # let's see what happens if we have a first pass where we trim low coverage nodes and edges
-    graphToCorrect = GeneMerGraph(annotatedReads,
-                                1)
-    graphToCorrect.filter_graph(3,
-                                3)
-    readNodes = graphToCorrect.get_readNodes()
-    annotatedReads = {}
-    for readId in tqdm(readNodes):
-        for i in range(len(readNodes[readId]) - 1):
-            sourceNode = graphToCorrect.get_node_by_hash(readNodes[readId][i])
-            targetNode = graphToCorrect.get_node_by_hash(readNodes[readId][i+1])
-            if not graphToCorrect.check_if_nodes_are_adjacent(sourceNode, targetNode):
-                graphToCorrect.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
-        annotatedReads[readId] = graphToCorrect.follow_path_to_get_annotations(readNodes[readId])
+    # graphToCorrect = GeneMerGraph(annotatedReads,
+    #                             1)
+    # graphToCorrect.filter_graph(3,
+    #                             3)
+    # readNodes = graphToCorrect.get_readNodes()
+    # annotatedReads = {}
+    # for readId in tqdm(readNodes):
+    #     for i in range(len(readNodes[readId]) - 1):
+    #         sourceNode = graphToCorrect.get_node_by_hash(readNodes[readId][i])
+    #         targetNode = graphToCorrect.get_node_by_hash(readNodes[readId][i+1])
+    #         if not graphToCorrect.check_if_nodes_are_adjacent(sourceNode, targetNode):
+    #             graphToCorrect.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
+    #     annotatedReads[readId] = graphToCorrect.follow_path_to_get_annotations(readNodes[readId])
     # clean the graph iteratively
     i = 1
     while i <= args.cleaning_iterations:
