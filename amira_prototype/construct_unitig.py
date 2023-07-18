@@ -342,7 +342,6 @@ class UnitigTools:
                         readsAsUnitigs[readId].append(unitigMapping[tup])
                         unitigId += 1
             print(sorted([v for v in readsAsUnitigs.values()], key=len, reverse=True))
-            end
     def old_resolve_intermediate_clusters(self,
                                     intermediateClusters,
                                     amrJunctions,
