@@ -1700,7 +1700,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                 '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t-1\n\t\tweight\t1\n\t]',
                                 ']']]
         import os
-        print(actual_writtenGraph)
         self.assertTrue(os.path.exists("tests/test_graph.3.1.1.gml"))
         self.assertTrue(any(actual_writtenGraph == e for e in expected_writtenGraph))
         os.remove("tests/test_graph.3.1.1.gml")
@@ -3052,10 +3051,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             "read4": genes2_reversed},
                             5)
         readNodes = graph.get_readNodes()
-        graph.generate_gml("tests/test_graph.gml",
-                        5,
-                        1,
-                        1)
         # execution
         actual_geneMers = {}
         for readId in readNodes:
@@ -3066,35 +3061,23 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue((actual_geneMers["read3"] == genes2) or (actual_geneMers["read3"] == genes2_reversed))
         self.assertTrue((actual_geneMers["read4"] == genes2) or (actual_geneMers["read4"] == genes2_reversed))
 
-    # def test_follow_path_to_get_annotations_popped_bubble(self):
-    #     # setup
-    #     genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
-    #     genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
-    #     graph = GeneMerGraph({"read1": genes1,
-    #                         "read2": genes1,
-    #                         "read3": genes2,
-    #                         "read4": genes2},
-    #                         5)
-    #     readNodes = graph.get_readNodes()
-    #     # execution
-    #     graph.pop_bubbles(1)
-    #     annotatedReads = {}
-    #     for readId in graph.get_readNodes():
-    #         for i in range(len(readNodes[readId]) - 1):
-    #             sourceNode = graph.get_node_by_hash(readNodes[readId][i])
-    #             targetNode = graph.get_node_by_hash(readNodes[readId][i+1])
-    #             if not graph.check_if_nodes_are_adjacent(sourceNode, targetNode):
-    #                 graph.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
-    #         annotatedReads[readId] = graph.get_new_node_annotations(readId)
-    #     graph = GeneMerGraph(annotatedReads, 5)
-    #     graph.generate_gml("test_popped", 5, 1, 1)
-    #     # execution
-    #     actual_geneMers = {}
-    #     for readId in readNodes:
-    #         actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
-    #     print(actual_geneMers)
-    #     # assertion
-    #     self.assertEqual(actual_geneMers["read1"], genes1)
-    #     self.assertEqual(actual_geneMers["read2"], genes1)
-    #     self.assertEqual(actual_geneMers["read3"], genes2)
-    #     self.assertEqual(actual_geneMers["read4"], genes2)
+    def test_follow_path_to_get_annotations_popped_bubble(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1,
+                            "read3": genes2,
+                            "read4": genes2},
+                            5)
+        graph.pop_bubbles(1)
+        # execution
+        readNodes = graph.get_readNodes()
+        actual_geneMers = {}
+        for readId in readNodes:
+            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+        # assertion
+        self.assertEqual(actual_geneMers["read1"], genes2)
+        self.assertEqual(actual_geneMers["read2"], genes2)
+        self.assertEqual(actual_geneMers["read3"], genes2)
+        self.assertEqual(actual_geneMers["read4"], genes2)
