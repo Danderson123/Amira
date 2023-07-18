@@ -241,36 +241,6 @@ class TestUnitigsConstructor(unittest.TestCase):
         self.assertEqual(len(actual_intermediate), 1)
         self.assertEqual(len(actual_difficult), 0)
 
-    def test___assess_resolvability_loop(self):
-        # setup
-        genes1 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
-        genes2 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5"]
-        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3"]
-        genes4 = ["+gene9", "-gene6", "+gene7", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes3, "read4": genes4},
-                            3)
-        unitig = UnitigTools(graph,
-                            ["gene1", "gene4", "gene7"],
-                            "tests/test.fastq.gz",
-                            ".")
-        AMRNodes = unitig.get_all_nodes_containing_AMR_genes()
-        nodeAnchors, nodeJunctions = unitig.get_AMR_anchors_and_junctions(AMRNodes)
-        anchorReads = unitig.get_anchoring_reads(nodeAnchors)
-        clusters = unitig.cluster_anchor_reads(anchorReads)
-        # execution
-        actual_easy, actual_intermediate, actual_difficult, clusterId = unitig.assess_resolvability(clusters,
-                                                                                                nodeJunctions)
-        # assertion
-        self.assertEqual(len(AMRNodes), 16)
-        self.assertEqual(len(nodeAnchors), 5)
-        self.assertEqual(len(nodeJunctions), 2)
-        self.assertEqual(len(anchorReads), 3)
-        self.assertEqual(len(clusters), 2)
-        self.assertTrue((len(clusters[1]) == 2 and len(clusters[2]) == 1) or (len(clusters[2]) == 2 and len(clusters[1]) == 1))
-        self.assertEqual(len(actual_easy), 1)
-        self.assertEqual(len(actual_intermediate), 0)
-        self.assertEqual(len(actual_difficult), 1)
-
     def test___contains_sublist_contains(self):
         # setup
         graph = GeneMerGraph({},
@@ -337,3 +307,73 @@ class TestUnitigsConstructor(unittest.TestCase):
                                             [2, 1, 0]))
         self.assertFalse(unitig.contains_sublist(allNodes,
                                             [1, 0]))
+
+    def test_basic(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        # assertion
+        self.assertEqual(unitig.get_unitigs_on_read([1, 2, 3, 4, 5, 6, 7, 8, 9], {4, 7}), [[4, 5, 6, 7]])
+        self.assertEqual(unitig.get_unitigs_on_read([9, 8, 7, 6, 5, 4, 3, 2, 1], {4, 7}), [[7, 6, 5, 4]])
+
+    def test_advanced(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        # assertion
+        self.assertEqual(unitig.get_unitigs_on_read([0, 1, 2, 3, 4, 5], {1, 2, 5}), [[1, 2], [2, 3, 4, 5]])
+        self.assertEqual(unitig.get_unitigs_on_read([5, 4, 3, 2, 1, 0], {1, 2, 5}), [[5, 4, 3, 2], [2, 1]])
+
+    def test_no_delimiters(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        # assertion
+        self.assertEqual(unitig.get_unitigs_on_read([1, 2, 3], {4, 7}), [])
+        self.assertEqual(unitig.get_unitigs_on_read([3, 2, 1], {4, 7}), [])
+
+    def test_all_delimiters(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        # assertion
+        self.assertEqual(unitig.get_unitigs_on_read([4, 7, 4, 7], {4, 7}), [[4, 7], [7, 4], [4, 7]])
+        self.assertEqual(unitig.get_unitigs_on_read([7, 4, 7, 4], {4, 7}), [[7, 4], [4, 7], [7, 4]])
+
+    def test_single_element(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        # assertion
+        self.assertEqual(unitig.get_unitigs_on_read([4], {4}), [[4]])
+
+    def test_empty_list(self):
+        # setup
+        graph = GeneMerGraph({},
+                            3)
+        unitig = UnitigTools(graph,
+                            [],
+                            "tests/test.fastq.gz",
+                            ".")
+        # assertion
+        self.assertEqual(unitig.get_unitigs_on_read([], {4, 7}), [])

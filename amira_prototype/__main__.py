@@ -2,15 +2,21 @@ import argparse
 import os
 import pysam
 import sys
+from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
 from construct_unitig import UnitigTools
 
+from test_functions import TestUnitigTools
+
 def get_options():
     """define args from the command line"""
     parser = argparse.ArgumentParser(description='Build a prototype gene de Bruijn graph.')
-    parser.add_argument('--pandoraSam', dest='pandoraSam',
-                        help='Pandora map SAM file path', required=True)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--pandoraSam', dest='pandoraSam',
+                        help='Pandora map SAM file path')
+    group.add_argument('--pandoraJSON', dest='pandoraJSON',
+                        help='Pandora map JSON file path')
     parser.add_argument('--readfile', dest='readfile',
                         help='path of gzipped long read fastq', required=True)
     parser.add_argument('--output', dest='output_dir', type=str, default="gene_de_Bruijn_graph",
@@ -25,6 +31,8 @@ def get_options():
                         help='minimum threshold for gene filtering')
     parser.add_argument('-p', dest='bubble_popper_threshold', type=float, default=1.5,
                         help='minimum difference in coverage threshold to collapse paths in the graph (default = 1.5)')
+    parser.add_argument('-c', dest='cleaning_iterations', type=int, default=2,
+                        help='number of gene-mer graph cleaning operations (default = 2)')
     parser.add_argument('--gene-path', dest='path_to_interesting_genes',
                         help='path to a newline delimited file of genes of interest', required=True)
     parser.add_argument('--flye-path', dest='flye_path',
@@ -105,14 +113,25 @@ def convert_pandora_output(pandoraSam,
             # store the per read gene names
             annotatedReads[read.query_name].append(gene_name)
     to_delete = []
+    subsettedGenesOfInterest = set()
     for r in annotatedReads:
         annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
-        if not any(g[1:] in genesOfInterest for g in annotatedReads[r]):
+        containsAMRgene = False
+        for g in range(len(annotatedReads[r])):
+            split_names = annotatedReads[r][g][1:].split(".")
+            if any(subgene in genesOfInterest for subgene in split_names):
+                containsAMRgene = True
+                for subgene in split_names:
+                    if subgene in genesOfInterest:
+                        annotatedReads[r][g] = annotatedReads[r][g][0] + subgene
+                        break
+                subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
+        if not containsAMRgene:
             to_delete.append(r)
     for t in to_delete:
         del annotatedReads[t]
     assert not len(annotatedReads) == 0
-    return annotatedReads, readLengthDict
+    return annotatedReads, readLengthDict, list(subsettedGenesOfInterest)
 
 def plot_gene_counts(annotatedReads,
                     outputDir):
@@ -171,7 +190,6 @@ def plot_node_coverages(onemer_graph_coverages,
                     ninemer_graph_coverages,
                     output_dir):
     import matplotlib.pyplot as plt
-    from tqdm import tqdm
     for to_plot in tqdm([("one", onemer_graph_coverages),
                         ("three", threemer_graph_coverages),
                         ("five", fivemer_graph_coverages),
@@ -198,20 +216,50 @@ def main():
     with open(args.path_to_interesting_genes, "r") as i:
         genesOfInterest = i.read().splitlines()
     # convert the Pandora SAM file to a dictionary
-    sys.stderr.write("\nAmira: loading Pandora SAM\n")
-    annotatedReads, readDict = convert_pandora_output(args.pandoraSam,
-                                                    set(genesOfInterest),
-                                                    args.gene_min_coverage)
-    sys.stderr.write("\nAmira: Correcting annotation errors by trimming hairs and popping bubbles 1/2\n")
-    graphToCorrect = GeneMerGraph(annotatedReads,
-                        args.geneMer_size)
+    if args.pandoraSam:
+        sys.stderr.write("\nAmira: loading Pandora SAM\n")
+        annotatedReads, readDict, genesOfInterest = convert_pandora_output(args.pandoraSam,
+                                                                        set(genesOfInterest),
+                                                                        args.gene_min_coverage)
+        print(genesOfInterest)
+    if args.pandoraJSON:
+        import json
+        with open(args.pandoraJSON) as i:
+            annotatedReads = json.loads(i.read())
+        to_delete = []
+        subsettedGenesOfInterest = set()
+        for read in tqdm(annotatedReads):
+            containsAMRgene = False
+            for g in range(len(annotatedReads[read])):
+                split_names = annotatedReads[read][g][1:].split(".")
+                if any(subgene in genesOfInterest for subgene in split_names):
+                    containsAMRgene = True
+                    for subgene in split_names:
+                        if subgene in genesOfInterest:
+                            annotatedReads[read][g] = annotatedReads[read][g][0] + subgene
+                            subsettedGenesOfInterest.add(subgene)
+                            break
+            if not containsAMRgene:
+                to_delete.append(read)
+        for read in to_delete:
+            del annotatedReads[read]
+        genesOfInterest = subsettedGenesOfInterest
+    print(genesOfInterest)
     if args.debug:
+        raw_graph = GeneMerGraph(annotatedReads,
+                                args.geneMer_size)
+        # color nodes in the graph
+        for node in raw_graph.all_nodes():
+            node.color_node(genesOfInterest)
+        import json
+        with open(os.path.join(args.output_dir, "genesAnnotatedOnReads.json"), "w") as o:
+            o.write(json.dumps(annotatedReads))
         sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
-        graphToCorrect.generate_gml(os.path.join(args.output_dir, "pre_correction_gene_mer_graph"),
+        raw_graph.generate_gml(os.path.join(args.output_dir, "pre_correction_gene_mer_graph"),
                                     args.geneMer_size,
                                     1,
                                     1)
-        sys.stderr.write("\nAmira: plotting node coverage distributions at different values of k\n")
+        # sys.stderr.write("\nAmira: plotting node coverage distributions at different values of k\n")
         # onemer_graph_coverages = GeneMerGraph(annotatedReads, 1).get_all_node_coverages()
         # threemer_graph_coverages = GeneMerGraph(annotatedReads, 3).get_all_node_coverages()
         # fivemer_graph_coverages = GeneMerGraph(annotatedReads, 5).get_all_node_coverages()
@@ -223,16 +271,31 @@ def main():
         #                     sevenmer_graph_coverages,
         #                     ninemer_graph_coverages,
         #                     args.output_dir)
-        # sys.exit(0)
-    annotatedReads = graphToCorrect.correct_errors(5,
-                                                args.bubble_popper_threshold)
-    sys.stderr.write("\nAmira: Correcting annotation errors by trimming hairs and popping bubbles 2/2\n")
+        #sys.exit(0)
+    # let's see what happens if we have a first pass where we trim low coverage nodes and edges
     graphToCorrect = GeneMerGraph(annotatedReads,
-                        args.geneMer_size)
-    annotatedReads = graphToCorrect.correct_errors(5,
-                                                args.bubble_popper_threshold)
+                                1)
+    graphToCorrect.filter_graph(3,
+                                3)
+    readNodes = graphToCorrect.get_readNodes()
+    annotatedReads = {}
+    for readId in tqdm(readNodes):
+        for i in range(len(readNodes[readId]) - 1):
+            sourceNode = graphToCorrect.get_node_by_hash(readNodes[readId][i])
+            targetNode = graphToCorrect.get_node_by_hash(readNodes[readId][i+1])
+            if not graphToCorrect.check_if_nodes_are_adjacent(sourceNode, targetNode):
+                graphToCorrect.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
+        annotatedReads[readId] = graphToCorrect.follow_path_to_get_annotations(readNodes[readId])
+    # clean the graph iteratively
+    i = 1
+    while i <= args.cleaning_iterations:
+        sys.stderr.write(f"\nAmira: Correcting annotation errors by trimming hairs and popping bubbles {i}/{args.cleaning_iterations}\n")
+        graphToCorrect = GeneMerGraph(annotatedReads,
+                                    args.geneMer_size)
+        annotatedReads = graphToCorrect.correct_errors(10,
+                                                    args.bubble_popper_threshold)
+        i += 1
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
-    # build the graph
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
     graph.filter_graph(args.node_min_coverage,
@@ -241,11 +304,38 @@ def main():
         # color nodes in the graph
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
+    # #######################
+    readNodes = graphToCorrect.get_readNodes()
+    annotatedReads = {}
+    for readId in tqdm(readNodes):
+        for i in range(len(readNodes[readId]) - 1):
+            sourceNode = graphToCorrect.get_node_by_hash(readNodes[readId][i])
+            targetNode = graphToCorrect.get_node_by_hash(readNodes[readId][i+1])
+            if not graphToCorrect.check_if_nodes_are_adjacent(sourceNode, targetNode):
+                graphToCorrect.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
+        annotatedReads[readId] = graphToCorrect.follow_path_to_get_annotations(readNodes[readId])
+    # graph = GeneMerGraph(annotatedReads,
+    #                     args.geneMer_size)
+    # annotatedReads = graph.correct_errors(10,
+    #                                 args.bubble_popper_threshold)
+    # graph = GeneMerGraph(annotatedReads,
+    #                     args.geneMer_size)
+    # ####
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
                     args.node_min_coverage,
                     args.edge_min_coverage)
+    ###########################################
+    # have a look at amr unitig plots
+    # initialise the UnitigBuilder class
+    unitigTools = TestUnitigTools(graph,
+                            genesOfInterest,
+                            args.readfile,
+                            args.output_dir)
+    # subset the reads corresponding to each paralog
+    readFiles = unitigTools.separate_paralogs()
+    sys.exit(0)
     sys.stderr.write("\nAmira: separating paralog reads\n")
     # initialise the UnitigBuilder class
     unitigTools = UnitigTools(graph,

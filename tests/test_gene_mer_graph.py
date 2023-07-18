@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock, Mock
 import sys
 sys.path.insert(0, "amira_prototype")
 
@@ -105,7 +106,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_number_nodes, expected_number_nodes)
         self.assertEqual(actual_node_1_coverage, expected_node_1_coverage)
         self.assertTrue(all(node.get_node_coverage() == 1 for node in list(graph.get_nodes().values())[1:]))
-        [print(edge.get_edge_coverage()) for edge in list(graph.get_edges().values())]
         self.assertTrue(all(edge.get_edge_coverage() == expected_edge_coverage for edge in list(graph.get_edges().values())))
 
     def test__init_two_genemers_one_read(self):
@@ -485,8 +485,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
         expected_sourceToTargetEdge_sourceNode = mock_sourceNode
         expected_sourceToTargetEdge_targetNode = mock_targetNode
-        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
-        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_sourceDirection = -1
+        expected_sourceToTargetEdge_targetDirection = -1
         expected_sourceToTargetEdge_coverage = 0
 
         actual_reverseTargetToSourceEdge_sourceNode = actual_reverseTargetToSourceEdge.get_sourceNode()
@@ -496,8 +496,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_reverseTargetToSourceEdge_coverage = actual_reverseTargetToSourceEdge.get_edge_coverage()
         expected_reverseTargetToSourceEdge_sourceNode = mock_targetNode
         expected_reverseTargetToSourceEdge_targetNode = mock_sourceNode
-        expected_reverseTargetToSourceEdge_sourceDirection = mock_targetDirection * -1
-        expected_reverseTargetToSourceEdge_targetDirection = mock_sourceDirection * -1
+        expected_reverseTargetToSourceEdge_sourceDirection = 1
+        expected_reverseTargetToSourceEdge_targetDirection = 1
         expected_reverseTargetToSourceEdge_coverage = 0
 
         actual_sourceToTargetEdge_hash = actual_sourceToTargetEdge.__hash__()
@@ -545,8 +545,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
         expected_sourceToTargetEdge_sourceNode = mock_sourceNode
         expected_sourceToTargetEdge_targetNode = mock_targetNode
-        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
-        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_sourceDirection = 1
+        expected_sourceToTargetEdge_targetDirection = -1
         expected_sourceToTargetEdge_coverage = 0
 
         actual_reverseTargetToSourceEdge_sourceNode = actual_reverseTargetToSourceEdge.get_sourceNode()
@@ -605,8 +605,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_sourceToTargetEdge_coverage = actual_sourceToTargetEdge.get_edge_coverage()
         expected_sourceToTargetEdge_sourceNode = mock_sourceNode
         expected_sourceToTargetEdge_targetNode = mock_targetNode
-        expected_sourceToTargetEdge_sourceDirection = mock_sourceDirection
-        expected_sourceToTargetEdge_targetDirection = mock_targetDirection
+        expected_sourceToTargetEdge_sourceDirection = 1
+        expected_sourceToTargetEdge_targetDirection = -1
         expected_sourceToTargetEdge_coverage = 0
 
         actual_reverseTargetToSourceEdge_sourceNode = actual_reverseTargetToSourceEdge.get_sourceNode()
@@ -1672,30 +1672,35 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                                 1)
         # assertion
         expected_writtenGraph = [['graph\t[',
+                                'multigraph 1',
                                 '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t-1\n\t\tweight\t1\n\t]',
                                 '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"+gene4~~~-gene3~~~+gene2"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t1\n\t\tweight\t1\n\t]',
                                 ']'],
                                 ['graph\t[',
+                                'multigraph 1',
                                 '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"+gene1~~~-gene2~~~+gene3"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t1\n\t\tweight\t1\n\t]',
                                 '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"-gene2~~~+gene3~~~-gene4"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t-1\n\t\tweight\t1\n\t]',
                                 ']'],
                                 ['graph\t[',
+                                'multigraph 1',
                                 '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t1\n\t\tweight\t1\n\t]',
                                 '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"-gene2~~~+gene3~~~-gene4"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t1\n\t\tweight\t1\n\t]',
                                 ']'],
                                 ['graph\t[',
+                                'multigraph 1',
                                 '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"+gene1~~~-gene2~~~+gene3"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t-1\n\t\tweight\t1\n\t]',
                                 '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"+gene4~~~-gene3~~~+gene2"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tweight\t1\n\t]',
+                                '\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t-1\n\t\tweight\t1\n\t]',
                                 ']']]
         import os
+        print(actual_writtenGraph)
         self.assertTrue(os.path.exists("tests/test_graph.3.1.1.gml"))
         self.assertTrue(any(actual_writtenGraph == e for e in expected_writtenGraph))
         os.remove("tests/test_graph.3.1.1.gml")
@@ -1754,7 +1759,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_numberOfNodes = graph.get_total_number_of_nodes()
         actual_numberOfEdges = graph.get_total_number_of_edges()
         # assertion
-        expected_writtenGraph = ['graph\t[', ']']
+        expected_writtenGraph = ['graph\t[', 'multigraph 1', ']']
         expected_numberOfNodes = 0
         expected_numberOfEdges = 0
         import os
@@ -2981,7 +2986,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
 
-    def test___pop_bubble_sensitivity_1(self):
+    def test___pop_bubble_sensitivity_1_equal_coverages_longer_to_shorter(self):
         # setup
         genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
         genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
@@ -2993,7 +2998,21 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         graph.pop_bubbles(1)
         # assertion
-        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])#
+        self.assertEqual(graph.get_readNodes()["read1"], graph.get_readNodes()["read4"])
+        self.assertTrue(graph.get_readNodes()["read1"] == graph.get_readNodes()["read2"] == graph.get_readNodes()["read3"] == graph.get_readNodes()["read4"])
+
+    def test___pop_bubble_sensitivity_1_uneven_coverages_shorter_to_longer(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1,
+                            "read3": genes2},
+                            5)
+        # execution
+        graph.pop_bubbles(1)
+        # assertion
+        self.assertTrue(graph.get_readNodes()["read1"] == graph.get_readNodes()["read2"] == graph.get_readNodes()["read3"])
 
     def test___pop_bubble_sensitivity_2(self):
         # setup
@@ -3020,3 +3039,62 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             5)
         # execution
         self.assertRaises(AssertionError, graph.pop_bubbles, 0.8)
+
+    def test_follow_path_to_get_annotations_no_modification(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes1_reversed = ["-gene5", "+gene4", "-gene8", "-gene5", "+gene4", "-gene3", "-gene5", "+gene4", "-gene3", "+gene7", "-gene3", "+gene6", "+gene7", "-gene3", "+gene6", "-gene5", "+gene7", "-gene3", "+gene6", "-gene9", "-gene10", "+gene6"]
+        genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes2_reversed = ["-gene5", "+gene4", "-gene8", "-gene5", "+gene4", "-gene3", "+gene4", "-gene3", "+gene7", "-gene3", "+gene6", "+gene7", "+gene6", "-gene5", "+gene7", "-gene3", "+gene6", "-gene9", "-gene10", "+gene6"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1_reversed,
+                            "read3": genes2,
+                            "read4": genes2_reversed},
+                            5)
+        readNodes = graph.get_readNodes()
+        graph.generate_gml("tests/test_graph.gml",
+                        5,
+                        1,
+                        1)
+        # execution
+        actual_geneMers = {}
+        for readId in readNodes:
+            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+        # assertion
+        self.assertTrue((actual_geneMers["read1"] == genes1) or (actual_geneMers["read1"] == genes1_reversed))
+        self.assertTrue((actual_geneMers["read2"] == genes1) or (actual_geneMers["read2"] == genes1_reversed))
+        self.assertTrue((actual_geneMers["read3"] == genes2) or (actual_geneMers["read3"] == genes2_reversed))
+        self.assertTrue((actual_geneMers["read4"] == genes2) or (actual_geneMers["read4"] == genes2_reversed))
+
+    # def test_follow_path_to_get_annotations_popped_bubble(self):
+    #     # setup
+    #     genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+    #     genes2 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+    #     graph = GeneMerGraph({"read1": genes1,
+    #                         "read2": genes1,
+    #                         "read3": genes2,
+    #                         "read4": genes2},
+    #                         5)
+    #     readNodes = graph.get_readNodes()
+    #     # execution
+    #     graph.pop_bubbles(1)
+    #     annotatedReads = {}
+    #     for readId in graph.get_readNodes():
+    #         for i in range(len(readNodes[readId]) - 1):
+    #             sourceNode = graph.get_node_by_hash(readNodes[readId][i])
+    #             targetNode = graph.get_node_by_hash(readNodes[readId][i+1])
+    #             if not graph.check_if_nodes_are_adjacent(sourceNode, targetNode):
+    #                 graph.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
+    #         annotatedReads[readId] = graph.get_new_node_annotations(readId)
+    #     graph = GeneMerGraph(annotatedReads, 5)
+    #     graph.generate_gml("test_popped", 5, 1, 1)
+    #     # execution
+    #     actual_geneMers = {}
+    #     for readId in readNodes:
+    #         actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+    #     print(actual_geneMers)
+    #     # assertion
+    #     self.assertEqual(actual_geneMers["read1"], genes1)
+    #     self.assertEqual(actual_geneMers["read2"], genes1)
+    #     self.assertEqual(actual_geneMers["read3"], genes2)
+    #     self.assertEqual(actual_geneMers["read4"], genes2)

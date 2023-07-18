@@ -135,7 +135,7 @@ class UnitigTools:
                 intermediate[clusterId] = clusters[c]
             # if there is more than 1 junction, this is difficult to resolve
             else:
-                difficult[clusterId] = clusters[c]
+                intermediate[clusterId] = clusters[c]
             clusterId += 1
         return easy, intermediate, difficult, clusterId
     def write_subset_of_reads(self,
@@ -289,7 +289,61 @@ class UnitigTools:
             subclusterAllReads[subcluster] = self.get_all_reads_in_path(uniqueNodes,
                                                                     graph)
         return subclusterAllReads
+    def get_unitigs_on_read(self,
+                        nodesOnRead,
+                        anchorsAndJnctions):
+        output = []
+        chunk = []
+        for element in nodesOnRead:
+            if element in anchorsAndJnctions:
+                if len(nodesOnRead) == 1:
+                    chunk.append(element)  # add current delimiter to chunk
+                    output.append(chunk)
+                    continue
+                if chunk:  # if the chunk already started, add it to the output
+                    chunk.append(element)  # add current delimiter to chunk
+                    output.append(chunk)
+                chunk = [element]  # start a new chunk
+            elif chunk:  # if we are inside a chunk, add the element to it
+                chunk.append(element)
+        return output
     def resolve_intermediate_clusters(self,
+                                    intermediateClusters,
+                                    amrJunctions,
+                                    amrAnchors,
+                                    clusterId):
+        # initialise a list of read file paths
+        readFiles = []
+        # get the graph
+        graph = self.get_graph()
+        # join the junction and anchor sets
+        junctionsAndAnchors = amrJunctions.union(amrAnchors)
+        # iterate through the intermediate clusters
+        for cluster in tqdm(intermediateClusters):
+            readsAsUnitigs = {}
+            unitigMapping = {}
+            unitigId = 0
+            for readId in intermediateClusters[cluster]:
+                # get the read node hashes
+                readNodeHashes = graph.get_readNodes()[readId]
+                # split the readNodes into chunks
+                chunked = self.get_unitigs_on_read(readNodeHashes,
+                                                junctionsAndAnchors)
+                readsAsUnitigs[readId] = []
+                for c in chunked:
+                    tup = tuple(c)
+                    rev_tup = tuple(list(reversed(c)))
+                    if tup in unitigMapping:
+                        readsAsUnitigs[readId].append(unitigMapping[tup])
+                    elif rev_tup in unitigMapping:
+                        readsAsUnitigs[readId].append(unitigMapping[rev_tup])
+                    else:
+                        unitigMapping[tup] = unitigId
+                        readsAsUnitigs[readId].append(unitigMapping[tup])
+                        unitigId += 1
+            print(sorted([v for v in readsAsUnitigs.values()], key=len, reverse=True))
+            end
+    def old_resolve_intermediate_clusters(self,
                                     intermediateClusters,
                                     amrJunctions,
                                     clusterId):
@@ -306,8 +360,10 @@ class UnitigTools:
                 readNodeHashes = graph.get_readNodes()[readId]
                 # store the nodes on these reads
                 clusterReadNodes[readId] = readNodeHashes
+                print(readNodeHashes)
                 # we also want to keep track of all the junctions that we see in the reads
                 junctions.update([h for h in readNodeHashes if h in amrJunctions])
+            end
             junctions = list(junctions)
             assert len(junctions) < 3
             # if there is only 1 junction we can resolve using 1 node
@@ -408,6 +464,7 @@ class UnitigTools:
         # resolve the intermediate clusters
         readFiles += self.resolve_intermediate_clusters(intermediate,
                                                         amrJunctions,
+                                                        amrAnchors,
                                                         clusterId)
         return readFiles
     def convert_paths_to_genes(self,
