@@ -1742,6 +1742,29 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
         os.remove("tests/test_graph.3.2.2.gml")
 
+    def test___filter_graph_k_1_cut_edge(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "+gene3", "-gene7"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene10", "+gene9", "+gene3", "-gene7"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes1, "read3": genes2},
+                            1)
+        # execution
+        graph.filter_graph(1,
+                        2)
+        actual_writtenGraph = graph.generate_gml("tests/test_graph",
+                                                1,
+                                                1,
+                                                2)
+        actual_numberOfNodes = graph.get_total_number_of_nodes()
+        actual_numberOfEdges = graph.get_total_number_of_edges()
+        # assertion
+        expected_numberOfNodes = 9
+        expected_numberOfEdges = 18
+        import os
+        self.assertEqual(actual_numberOfNodes, expected_numberOfNodes)
+        self.assertEqual(actual_numberOfEdges, expected_numberOfEdges)
+        os.remove("tests/test_graph.1.1.2.gml")
+
     def test___filter_all_graph(self):
         # setup
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5"]
@@ -2177,7 +2200,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             graph.add_edge_to_node(nodes[n+1],
                                 mock_rc_forward_edge)
         # execution
-        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes[1])
+        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes[1], 1)
         actual_path_length = len(actual_forward_path_from_node)
         # assertion
         expected_forward_path_from_node = [n.__hash__() for n in nodes[1:]]
@@ -2224,7 +2247,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 graph.add_edge_to_node(nodes[n+1],
                                     mock_rc_forward_edge)
         # execution
-        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes1[0])
+        actual_forward_path_from_node = graph.get_forward_path_from_node(nodes1[0], 1)
         actual_path_length = len(actual_forward_path_from_node)
         # assertion
         expected_forward_path_from_node = [n.__hash__() for n in nodes1[:2]]
@@ -2272,6 +2295,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     mock_rc_forward_edge)
         # execution
         actual_forward_path_from_node = graph.get_forward_path_from_node(nodes1[0],
+                                                                        1,
                                                                         True)
         actual_path_length = len(actual_forward_path_from_node)
         # assertion
@@ -2309,7 +2333,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             graph.add_edge_to_node(nodes[n+1],
                                 mock_rc_backward_edge)
         # execution
-        actual_backward_path_from_node = graph.get_backward_path_from_node(nodes[1])
+        actual_backward_path_from_node = graph.get_backward_path_from_node(nodes[1], -1)
         actual_path_length = len(actual_backward_path_from_node)
         # assertion
         expected_backward_path_from_node = list(reversed([n.__hash__() for n in nodes[1:]]))
@@ -2357,6 +2381,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                     mock_rc_backward_edge)
         # execution
         actual_backward_path_from_node = graph.get_backward_path_from_node(nodes1[0],
+                                                                        -1,
                                                                         True)
         actual_path_length = len(actual_backward_path_from_node)
         # assertion
@@ -3038,6 +3063,23 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                             5)
         # execution
         self.assertRaises(AssertionError, graph.pop_bubbles, 0.8)
+
+    def test___correct_errors_bubble_k_1(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene10", "+gene9", "+gene3", "-gene7"]
+        genes1_reversed = ["+gene7", "-gene3", "-gene9", "-gene10", "+gene6", "-gene5", "+gene4", "-gene3", "+gene2", "-gene1"]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene10", "+gene9", "+gene3", "-gene7"]
+        genes2_reversed = ["+gene7", "-gene3", "-gene9", "-gene10", "-gene5", "+gene4", "-gene3", "+gene2", "-gene1"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes1_reversed, "read3": genes2},
+                            1)
+        # execution
+        actual_annotatedReads = graph.correct_errors(0,
+                                            1.1)
+        print(actual_annotatedReads)
+        # assertion
+        self.assertTrue((actual_annotatedReads["read1"] == genes1) or (actual_annotatedReads["read1"] == genes1_reversed))
+        self.assertTrue((actual_annotatedReads["read2"] == genes1) or (actual_annotatedReads["read2"] == genes1_reversed))
+        self.assertTrue((actual_annotatedReads["read3"] == genes1) or (actual_annotatedReads["read3"] == genes1_reversed))
 
     def test_follow_path_to_get_annotations_no_modification(self):
         # setup

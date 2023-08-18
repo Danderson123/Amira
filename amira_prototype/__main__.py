@@ -5,7 +5,7 @@ import sys
 from tqdm import tqdm
 
 from construct_graph import GeneMerGraph
-from construct_unitig import UnitigTools #parse_fastq
+from construct_unitig import UnitigTools, parse_fastq
 
 from test_functions import TestUnitigTools
 
@@ -120,7 +120,7 @@ def convert_pandora_output(pandoraSam,
     to_delete = []
     subsettedGenesOfInterest = set()
     for r in annotatedReads:
-        annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
+        #annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
         containsAMRgene = False
         for g in range(len(annotatedReads[r])):
             split_names = annotatedReads[r][g][1:].split(".")
@@ -133,8 +133,8 @@ def convert_pandora_output(pandoraSam,
                 subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
         if not containsAMRgene:
             to_delete.append(r)
-    for t in to_delete:
-        del annotatedReads[t]
+    #for t in to_delete:
+     #   del annotatedReads[t]
     assert not len(annotatedReads) == 0
     return annotatedReads, readLengthDict, list(subsettedGenesOfInterest)
 
@@ -238,14 +238,17 @@ def main():
         for read in tqdm(annotatedReads):
             containsAMRgene = False
             for g in range(len(annotatedReads[read])):
+                if "bla" in annotatedReads[read][g]:
+                    print(annotatedReads[read][g])
                 split_names = annotatedReads[read][g][1:].split(".")
                 if any(subgene in genesOfInterest for subgene in split_names):
                     containsAMRgene = True
-                    for subgene in split_names:
-                        if subgene in genesOfInterest:
-                            annotatedReads[read][g] = annotatedReads[read][g][0] + subgene
-                            subsettedGenesOfInterest.add(subgene)
-                            break
+                    #for subgene in split_names:
+                    #    if subgene in genesOfInterest:
+                    #        annotatedReads[read][g] = annotatedReads[read][g][0] + subgene
+                    #        subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
+                    #        break
+                    subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
             if not containsAMRgene:
                 to_delete.append(read)
         for read in to_delete:
@@ -253,6 +256,14 @@ def main():
         genesOfInterest = subsettedGenesOfInterest
     print(genesOfInterest)
     if args.debug:
+        # onegraph = GeneMerGraph(annotatedReads,
+        #                 1)
+        # onegraph.generate_gml(os.path.join(args.output_dir, "pre_correction_gene_mer_graph"),
+        #                             1,
+        #                             1,
+        #                             1)
+        # annotatedReads = onegraph.correct_errors(0,
+        #                                         1.2)
         raw_graph = GeneMerGraph(annotatedReads,
                                 args.geneMer_size)
         # color nodes in the graph
@@ -341,7 +352,7 @@ def main():
                             args.readfile,
                             args.output_dir)
     # subset the reads corresponding to each paralog
-    readFiles = unitigTools.separate_paralogs()
+    readFiles = unitigTools.assign_reads_to_amr_genes()
     sys.exit(0)
     sys.stderr.write("\nAmira: separating paralog reads\n")
     # initialise the UnitigBuilder class

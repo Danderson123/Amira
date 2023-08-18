@@ -371,7 +371,9 @@ class GeneMerGraph:
                             node_to_remove):
         """ remove a node from the list of nodes annotated on each read and return the modified node list"""
         for readId in node_to_remove.get_reads():
-            self.get_readNodes()[readId] = [nodeHash for nodeHash in self.get_readNodes()[readId] if nodeHash != node_to_remove.__hash__()]
+            # filter out the nodes we want to remove
+            new_nodes = [nodeHash for nodeHash in self.get_readNodes()[readId] if nodeHash != node_to_remove.__hash__()]
+            self.get_readNodes()[readId] = new_nodes
         return self.get_readNodes()[readId]
     def remove_node(self,
                 node: Node):
@@ -380,13 +382,13 @@ class GeneMerGraph:
         nodeHash = node.__hash__()
         # confirm the node to remove is in the node dictionary
         assert nodeHash in self.get_nodes(), "This node is not in the graph"
-        node_to_remove = self.get_nodes()[nodeHash]
+        assert node == self.get_node_by_hash(nodeHash)
         # remove the nodeHash from the readNodes
-        self.remove_node_from_reads(node_to_remove)
+        self.remove_node_from_reads(node)
         # get the forward edge hashes of the node to remove
-        forward_edges_to_remove = node_to_remove.get_forward_edge_hashes()
+        forward_edges_to_remove = node.get_forward_edge_hashes()
         # get the backward edge hashes of the node to remove
-        backward_edges_to_remove = node_to_remove.get_backward_edge_hashes()
+        backward_edges_to_remove = node.get_backward_edge_hashes()
         # remove the forward and backward edges from the edge dictionary
         for edgeHash in forward_edges_to_remove + backward_edges_to_remove:
             targetNode = self.get_edge_by_hash(edgeHash).get_targetNode()
@@ -698,15 +700,22 @@ class GeneMerGraph:
         if len(fowardNodes) == 2:
             paths = []
             for fwNode in fowardNodes:
-                # get the linear path for this forward node
-                path = self.get_linear_path_for_node(fwNode,
-                                                    True)
+                if not self.get_degree(fwNode) > 2:
+                    # get the edge between the forward neighbour and the start node
+                    sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(startNode, fwNode)
+                    # get the linear path for this forward node
+                    path = [startNode.__hash__()] + self.get_forward_path_from_node(fwNode,
+                                                                            sourceToTargetEdge.get_targetNodeDirection(),
+                                                                            True)
+                else:
+                    path = [startNode.__hash__(), fwNode.__hash__()]
                 # if the path does not start with the start node we need to reverse it
                 if not path[0] == startNode.__hash__():
                     path = list(reversed(path))
                 assert path[0] == startNode.__hash__()
                 # add the path and its mean coverage to a list
-                paths.append((path, statistics.mean([self.get_node_by_hash(h).get_node_coverage() for h in path])))
+                path_edge_coverages = [self.get_edges_between_nodes(self.get_node_by_hash(path[i]), self.get_node_by_hash(path[i+1]))[0].get_edge_coverage() for i in range(len(path)-1)]
+                paths.append((path, statistics.mean(path_edge_coverages)))
             # sort the paths based on their mean coverage
             paths.sort(key=lambda x: x[1], reverse=False)
             # see if the paths converge to the same node, if so this is a bubble
@@ -725,15 +734,22 @@ class GeneMerGraph:
         if len(backwardNodes) == 2:
             paths = []
             for bwNode in backwardNodes:
-                # get this linear path
-                path = self.get_linear_path_for_node(bwNode,
-                                                    True)
+                if not self.get_degree(bwNode) > 2:
+                    # get the edge between the forward neighbour and the start node
+                    sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(startNode, bwNode)
+                    # get the linear path for this forward node
+                    path = self.get_backward_path_from_node(bwNode,
+                                                        sourceToTargetEdge.get_targetNodeDirection(),
+                                                        True) + [startNode.__hash__()]
+                else:
+                    path = [bwNode.__hash__(), startNode.__hash__()]
                 # if the path does not end with the end node we need to reverse it
                 if not path[-1] == startNode.__hash__():
                     path = list(reversed(path))
                 assert path[-1] == startNode.__hash__()
                 # add the path and its mean coverage to a list
-                paths.append((path, statistics.mean([self.get_node_by_hash(h).get_node_coverage() for h in path])))
+                path_edge_coverages = [self.get_edges_between_nodes(self.get_node_by_hash(path[i]), self.get_node_by_hash(path[i+1]))[0].get_edge_coverage() for i in range(len(path)-1)]
+                paths.append((path, statistics.mean(path_edge_coverages)))
             # sort the paths based on their mean coverage
             paths.sort(key=lambda x: x[1], reverse=False)
             # see if the paths converge to the same node, if so this is a bubble
@@ -846,25 +862,25 @@ class GeneMerGraph:
             # get the node for the hash
             startNode = self.get_node_by_hash(nodeHash)
             # get the forward converging paths
-            #converging_paths = self.get_forward_converging_paths(startNode)
+            converging_paths = self.get_forward_converging_paths(startNode)
             # get the backward converging paths
-            #converging_paths += self.get_backward_converging_paths(startNode)
-            converging_paths = self.get_converging_paths(startNode)
+            converging_paths += self.get_backward_converging_paths(startNode)
+            #converging_paths = self.get_converging_paths(startNode)
             # iterate through the pairs of paths
-            for terminals in converging_paths:
+            #for terminals in converging_paths:
                 # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
-                lowest_coverage_path, lowest_path_coverage = converging_paths[terminals][0]
-                highest_coverage_path, highest_path_coverage = converging_paths[terminals][-1]
-            #for paths in converging_paths:
+            #    lowest_coverage_path, lowest_path_coverage = converging_paths[terminals][0]
+            #    highest_coverage_path, highest_path_coverage = converging_paths[terminals][-1]
+            for paths in converging_paths:
                 # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
-             #   lowest_coverage_path, lowest_path_coverage = paths[0]
-              #  highest_coverage_path, highest_path_coverage = paths[-1]
+                lowest_coverage_path, lowest_path_coverage = paths[0]
+                highest_coverage_path, highest_path_coverage = paths[-1]
                 # skip this correction if we have already corrected it
                 bubbleTerminals = tuple(sorted([lowest_coverage_path[0], lowest_coverage_path[-1]]))
                 # skip the correction if we have corrected this path already
                 if not bubbleTerminals in seenBubbles:
                     # skip the correction if the coverage of the highest coverage path < 150% the coverage of the lowest coverage path
-                    if highest_path_coverage > bubble_popper_threshold * lowest_path_coverage:
+                    if highest_path_coverage >= bubble_popper_threshold * lowest_path_coverage:
                         # we have missed a gene if the length of the highest coverage path is 1 MORE than the lowest coverage path
                         if len(lowest_coverage_path) == self.get_kmerSize() + 1 and len(highest_coverage_path) == self.get_kmerSize() + 2:
                             self.correct_missing_gene(lowest_coverage_path,
@@ -873,6 +889,8 @@ class GeneMerGraph:
                         elif len(highest_coverage_path) == self.get_kmerSize() + 1 and len(lowest_coverage_path) == self.get_kmerSize() + 2:
                             self.correct_incorrectly_found_gene(lowest_coverage_path,
                                                             highest_coverage_path)
+                            # self.correct_missing_gene(highest_coverage_path,
+                            #                         lowest_coverage_path)
                         else:
                             pass
                     # keep track of this pair so that we don't try to correct it again
@@ -933,11 +951,16 @@ class GeneMerGraph:
         return False, None, None
     def get_forward_path_from_node(self,
                                 node: Node,
+                                startDirection: int,
                                 wantBranchedNode = False) -> list:
         """ return a list of node hashes in the forward direction from this node """
         forward_nodes_from_node = [node.__hash__()]
-        # get the next node in the forward direction
-        forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(node)
+        if startDirection == 1:
+            # get the next node in the forward direction
+            forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(node)
+        else:
+            # get the next node in the backward direction
+            forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(node)
         # if we are extending further in the forward direction, get the next canonical gene mer
         while forwardExtend:
             # if we enter the next node in the forward direction, we get the next forward node
@@ -954,11 +977,16 @@ class GeneMerGraph:
         return forward_nodes_from_node
     def get_backward_path_from_node(self,
                                 node: Node,
+                                startDirection,
                                 wantBranchedNode = False) -> list:
         """ return a list of node hashes in the backward direction from this node """
         backward_nodes_from_node = [node.__hash__()]
-        # get the next node in the backward direction
-        backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(node)
+        if startDirection == -1:
+            # get the next node in the backward direction
+            backwardExtend, backwardNode, backwardNodeDirection = self.get_backward_node_from_node(node)
+        else:
+            # get the next node in the forward direction
+            backwardExtend, backwardNode, backwardNodeDirection = self.get_forward_node_from_node(node)
         # if we are extending further in the backward direction, get the next canonical gene mer
         while backwardExtend:
             if backwardNodeDirection == -1:
@@ -976,7 +1004,7 @@ class GeneMerGraph:
                                 node: Node,
                                 wantBranchedNode = False) -> list:
         """ return a list of nodes that correspond to the linear path that contains the specified node and does not include the terminal nodes with a degree of more than 2"""
-        linear_path = self.get_backward_path_from_node(node, wantBranchedNode)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node, wantBranchedNode)[1:]
+        linear_path = self.get_backward_path_from_node(node, -1 * node.get_geneMer().get_geneMerDirection(), wantBranchedNode)[:-1] + [node.__hash__()] + self.get_forward_path_from_node(node, node.get_geneMer().get_geneMerDirection(), wantBranchedNode)[1:]
         return linear_path
     def get_all_node_coverages(self):
         """ return an unordered list of all node coverages in the graph """
