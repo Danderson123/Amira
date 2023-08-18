@@ -121,30 +121,39 @@ class TestUnitigTools:
         AMRNodes = self.get_all_nodes_containing_AMR_genes()
         # get the unitig for each AMR node
         unitigs = set()
+        readsPerNode = {}
         for nodeHash in tqdm(AMRNodes):
             # get the unitig that this node is on
             u = [n for n in self.get_graph().get_linear_path_for_node(AMRNodes[nodeHash], True)]
+            for nodeHash in u:
+                readsPerNode[nodeHash] = [r for r in self.get_graph().get_node_by_hash(nodeHash).get_reads()]
             if not (tuple(u) in unitigs or tuple(list(reversed(u))) in unitigs):
                 unitigs.add(tuple(u))
         unitigId = 0
         readsPerAMRGene = {}
+        kmer_size = self.get_graph().get_kmerSize()
         for u in unitigs:
             # get the list of genes for this unitig
             genes = self.get_graph().follow_path_to_get_annotations(u)
-            # iterate through the list of genes
-            for i in range(len(genes)):
-                # check if this gene is an amr gene
-                if genes[i][1:] in self.get_selected_genes():
-                    print(genes[i][1:])
-                    if not i > len(u) - 1:
-                        nodes_containing_this_gene = list(u)[i:i+self.get_graph().get_kmerSize()]
-                    else:
-                        nodes_containing_this_gene = [list(u)[-1]]
-                    reads_per_gene = set()
-                    for nodeHash in list(nodes_containing_this_gene):
-                        reads_for_this_node = [r for r in self.get_graph().get_node_by_hash(nodeHash).get_reads()]
-                        reads_per_gene.update(reads_for_this_node)
-                    readsPerAMRGene[f"{genes[i][1:]}_{str(unitigId)}_{str(i)}"] = list(reads_per_gene)
+            # match up the nodes with the genes they contain
+            nodes = list(u)
+            node_indices_for_each_gene_index = {}
+            for i in range(len(nodes)):
+                gene_indices = [j for j in range(i, i+kmer_size)]
+                for g in gene_indices:
+                    if genes[g][1:] in self.get_selected_genes():
+                        if not g in node_indices_for_each_gene_index:
+                            node_indices_for_each_gene_index[g] = []
+                        node_indices_for_each_gene_index[g].append(i)
+            # get the reads for each gene index
+            for i in node_indices_for_each_gene_index:
+                gene = genes[i]
+                nodes_containing_this_gene = [nodes[j] for j in node_indices_for_each_gene_index[i]]
+                reads_per_gene = set()
+                for nodeHash in nodes_containing_this_gene:
+                    reads_for_this_node = [r for r in self.get_graph().get_node_by_hash(nodeHash).get_reads()]
+                    reads_per_gene.update(reads_for_this_node)
+                readsPerAMRGene[f"{gene[1:]}_{str(unitigId)}_{str(i)}"] = list(reads_per_gene)
             unitigId += 1
         import json
         with open(os.path.join(self.get_output_dir(), "reads_per_amr_gene.json"), "w") as o:

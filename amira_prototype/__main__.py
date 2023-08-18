@@ -238,8 +238,6 @@ def main():
         for read in tqdm(annotatedReads):
             containsAMRgene = False
             for g in range(len(annotatedReads[read])):
-                if "bla" in annotatedReads[read][g]:
-                    print(annotatedReads[read][g])
                 split_names = annotatedReads[read][g][1:].split(".")
                 if any(subgene in genesOfInterest for subgene in split_names):
                     containsAMRgene = True
