@@ -52,6 +52,8 @@ def get_options():
                         help='number of threads to use')
     parser.add_argument('--debug', dest='debug', action='store_true', default=False,
                         help='Amira debugging')
+    parser.add_argument('--eval', dest='eval', action='store_true', default=False,
+                        help='Amira evaluation')
     args = parser.parse_args()
     return args
 
@@ -254,16 +256,9 @@ def main():
         genesOfInterest = subsettedGenesOfInterest
     print(genesOfInterest)
     if args.debug:
-        # onegraph = GeneMerGraph(annotatedReads,
-        #                 1)
-        # onegraph.generate_gml(os.path.join(args.output_dir, "pre_correction_gene_mer_graph"),
-        #                             1,
-        #                             1,
-        #                             1)
-        # annotatedReads = onegraph.correct_errors(0,
-        #                                         1.2)
         raw_graph = GeneMerGraph(annotatedReads,
-                                args.geneMer_size)
+                                args.geneMer_size,
+                                args.eval)
         # color nodes in the graph
         for node in raw_graph.all_nodes():
             node.color_node(genesOfInterest)
@@ -288,32 +283,20 @@ def main():
         #                     ninemer_graph_coverages,
         #                     args.output_dir)
         #sys.exit(0)
-    # let's see what happens if we have a first pass where we trim low coverage nodes and edges
-    # graphToCorrect = GeneMerGraph(annotatedReads,
-    #                             1)
-    # graphToCorrect.filter_graph(3,
-    #                             3)
-    # readNodes = graphToCorrect.get_readNodes()
-    # annotatedReads = {}
-    # for readId in tqdm(readNodes):
-    #     for i in range(len(readNodes[readId]) - 1):
-    #         sourceNode = graphToCorrect.get_node_by_hash(readNodes[readId][i])
-    #         targetNode = graphToCorrect.get_node_by_hash(readNodes[readId][i+1])
-    #         if not graphToCorrect.check_if_nodes_are_adjacent(sourceNode, targetNode):
-    #             graphToCorrect.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
-    #     annotatedReads[readId] = graphToCorrect.follow_path_to_get_annotations(readNodes[readId])
     # clean the graph iteratively
     i = 1
     while i <= args.cleaning_iterations:
         sys.stderr.write(f"\nAmira: Correcting annotation errors by trimming hairs and popping bubbles {i}/{args.cleaning_iterations}\n")
         graphToCorrect = GeneMerGraph(annotatedReads,
-                                    args.geneMer_size)
+                                    args.geneMer_size,
+                                    args.eval)
         annotatedReads = graphToCorrect.correct_errors(10,
                                                     args.bubble_popper_threshold)
         i += 1
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
-                        args.geneMer_size)
+                        args.geneMer_size,
+                        args.eval)
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
     if args.debug:
@@ -321,29 +304,24 @@ def main():
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
     # #######################
-    readNodes = graphToCorrect.get_readNodes()
+    readNodes = graph.get_readNodes()
     annotatedReads = {}
     for readId in tqdm(readNodes):
         for i in range(len(readNodes[readId]) - 1):
-            sourceNode = graphToCorrect.get_node_by_hash(readNodes[readId][i])
-            targetNode = graphToCorrect.get_node_by_hash(readNodes[readId][i+1])
-            if not graphToCorrect.check_if_nodes_are_adjacent(sourceNode, targetNode):
-                graphToCorrect.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
-        annotatedReads[readId] = graphToCorrect.follow_path_to_get_annotations(readNodes[readId])
-    # graph = GeneMerGraph(annotatedReads,
-    #                     args.geneMer_size)
-    # annotatedReads = graph.correct_errors(10,
-    #                                 args.bubble_popper_threshold)
-    # graph = GeneMerGraph(annotatedReads,
-    #                     args.geneMer_size)
+            sourceNode = graph.get_node_by_hash(readNodes[readId][i])
+            targetNode = graph.get_node_by_hash(readNodes[readId][i+1])
+            if not graph.check_if_nodes_are_adjacent(sourceNode, targetNode):
+                graph.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
+        annotatedReads[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+    graph = GeneMerGraph(annotatedReads,
+                        args.geneMer_size,
+                        args.eval)
     # ####
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
                     args.node_min_coverage,
                     args.edge_min_coverage)
-    ###########################################
-    # have a look at amr unitig plots
     # initialise the UnitigBuilder class
     unitigTools = TestUnitigTools(graph,
                             genesOfInterest,

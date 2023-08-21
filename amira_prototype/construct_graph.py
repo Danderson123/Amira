@@ -21,7 +21,8 @@ class GeneMerGraph:
 
     def __init__(self,
                 readDict,
-                kmerSize):
+                kmerSize,
+                eval=False):
         self._reads = readDict
         self._kmerSize = kmerSize
         self._minNodeCoverage = 1
