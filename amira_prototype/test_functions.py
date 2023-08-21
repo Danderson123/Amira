@@ -122,11 +122,11 @@ class TestUnitigTools:
         # get the unitig for each AMR node
         unitigs = set()
         readsPerNode = {}
-        for nodeHash in tqdm(AMRNodes):
+        for outerNodeHash in tqdm(AMRNodes):
             # get the unitig that this node is on
-            u = [n for n in self.get_graph().get_linear_path_for_node(AMRNodes[nodeHash], True)]
-            for nodeHash in u:
-                readsPerNode[nodeHash] = [r for r in self.get_graph().get_node_by_hash(nodeHash).get_reads()]
+            u = [n for n in self.get_graph().get_linear_path_for_node(AMRNodes[outerNodeHash], True)]
+            for innerNodeHash in u:
+                readsPerNode[innerNodeHash] = [r for r in self.get_graph().get_node_by_hash(innerNodeHash).get_reads()]
             if not (tuple(u) in unitigs or tuple(list(reversed(u))) in unitigs):
                 unitigs.add(tuple(u))
         unitigId = 0
