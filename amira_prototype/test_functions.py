@@ -133,8 +133,11 @@ class TestUnitigTools:
         readsPerAMRGene = {}
         kmer_size = self.get_graph().get_kmerSize()
         for u in unitigs:
-            # get the list of genes for this unitig
-            genes = self.get_graph().follow_path_to_get_annotations(u)
+            if not len(u) == 1:
+                # get the list of genes for this unitig
+                genes = self.get_graph().follow_path_to_get_annotations(u)
+            else:
+                genes = self.get_graph().get_gene_mer_label(self.get_graph().get_node_by_hash(u[0])).split("~~~")
             # match up the nodes with the genes they contain
             nodes = list(u)
             node_indices_for_each_gene_index = {}
