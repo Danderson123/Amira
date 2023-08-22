@@ -1043,3 +1043,4 @@ class GeneMerGraph:
         self.write_gml_to_file(output_file,
                             graph_data)
         return graph_data
+

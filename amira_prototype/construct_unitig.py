@@ -362,7 +362,6 @@ class UnitigTools:
                 print(readNodeHashes)
                 # we also want to keep track of all the junctions that we see in the reads
                 junctions.update([h for h in readNodeHashes if h in amrJunctions])
-            end
             junctions = list(junctions)
             assert len(junctions) < 3
             # if there is only 1 junction we can resolve using 1 node
