@@ -13,6 +13,7 @@ class Read:
         self.readId = readId
         self.numberOfGenes = len(annotatedGenes)
         self.listOfGenes = convert_genes(annotatedGenes)
+        self._annotatedGenes = annotatedGenes
     def get_readId(self) -> str:
         """ return a string identifier for this read """
         return self.readId
@@ -22,6 +23,8 @@ class Read:
     def get_number_of_genes(self) -> int:
         """ return an int of the number of genes annotated for this read """
         return self.numberOfGenes
+    def get_annotatedGenes(self) -> list:
+        return self._annotatedGenes
     def get_geneMers(self,
                     kmerSize: int):
         """ return a generator to create GeneMer objects of length kmerSize for this read """

@@ -13,6 +13,7 @@ class Node:
         self.forwardEdgeHashes = []
         self.backwardEdgeHashes = []
         self._color = None
+        self._component_ID = None
     def get_geneMer(self):
         """ return the GeneMer object represented by this node """
         return self.geneMer
@@ -42,6 +43,17 @@ class Node:
         """ return a generator for the list of Read objects associated with this node """
         for read in self.get_list_of_reads():
             yield read
+    def get_color(self) -> int:
+        """ return the color of this node for debugging purposes """
+        return self._color
+    def get_component(self) -> int:
+        """ return the component ID of this node """
+        return self._component_ID
+    def set_component(self,
+                    new_component_ID) -> int:
+        """ assign a component ID to this node """
+        self._component_ID = int(new_component_ID)
+        return self.get_component()
     def add_read(self,
                 read: str):
         """ add a read object to a list of reads for this node """
@@ -100,9 +112,6 @@ class Node:
     def __hash__(self):
         """ return a hash of the canonical gene mer to check if two nodes represent the same gene-mer """
         return self.geneMerHash
-    def get_color(self):
-        """ return the color of this node for debugging purposes """
-        return self._color
     def color_node(self,
                 listOfAMRGenes):
         """

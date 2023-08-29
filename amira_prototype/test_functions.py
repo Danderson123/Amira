@@ -133,6 +133,15 @@ class TestUnitigTools:
         readsPerAMRGene = {}
         kmer_size = self.get_graph().get_kmerSize()
         for u in unitigs:
+            coverages_for_this_unitig = []
+            for nodeHash in list(u):
+                node = self.get_graph().get_node_by_hash(nodeHash)
+                coverages_for_this_unitig.append(node.get_node_coverage())
+            #import statistics
+            #if statistics.mean(coverages_for_this_unitig) < 3:
+            #    continue
+            #else:
+            #    print(statistics.mean(coverages_for_this_unitig))
             if not len(u) == 1:
                 # get the list of genes for this unitig
                 genes = self.get_graph().follow_path_to_get_annotations(u)
@@ -154,7 +163,9 @@ class TestUnitigTools:
                 nodes_containing_this_gene = [nodes[j] for j in node_indices_for_each_gene_index[i]]
                 reads_per_gene = set()
                 for nodeHash in nodes_containing_this_gene:
-                    reads_for_this_node = [r for r in self.get_graph().get_node_by_hash(nodeHash).get_reads()]
+                    node = self.get_graph().get_node_by_hash(nodeHash)
+                    coverages_for_this_unitig.append(node.get_node_coverage())
+                    reads_for_this_node = [r for r in node.get_reads()]
                     reads_per_gene.update(reads_for_this_node)
                 readsPerAMRGene[f"{gene[1:]}_{str(unitigId)}_{str(i)}"] = list(reads_per_gene)
             unitigId += 1

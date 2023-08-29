@@ -29,6 +29,7 @@ class GeneMerGraph:
         self._nodes = {}
         self._edges = {}
         self._readNodes = {}
+        self._shortReads = {}
         # initialise the graph
         for readId in tqdm(self.get_reads()):
             read = Read(readId,
@@ -37,6 +38,7 @@ class GeneMerGraph:
             geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
             # if there are no gene mers there is nothing to add to the graph
             if len(geneMers) == 0:
+                self._shortReads[readId] = read.get_annotatedGenes()
                 continue
             if not len(geneMers) == 1:
                 # iterate through all the gene-mers except the last
@@ -74,7 +76,8 @@ class GeneMerGraph:
                 self.add_node_to_read(sourceNode,
                                     readId)
                 sourceNode.increment_node_coverage()
-
+        # assign component Ids to all nodes in the graph
+        self.assign_component_ids()
     def get_reads(self):
         """ return a dictionary of all reads and their genes """
         return self._reads
@@ -292,8 +295,12 @@ class GeneMerGraph:
         return [edge.get_targetNode() for edge in self.get_backward_edges(node)]
     def get_all_neighbors(self,
                         node: Node):
+        """ return a list of combined forward and reverse neighbor nodes for this node """
+        return [neighbor for neighbor in self.get_forward_neighbors(node) + self.get_backward_neighbors(node)]
+    def get_all_neighbor_hashes(self,
+                        node: Node):
         """ return a set of combined forward and reverse node hashes for this node """
-        return set([neighbor.__hash__() for neighbor in self.get_forward_neighbors(node) + self.get_backward_neighbors(node)])
+        return set([neighbor.__hash__() for neighbor in self.get_all_neighbors(node)])
     def get_forward_edges(self,
                         node: Node) -> list:
         """ return a list of integers of node identifiers connected to this node by a forward edge """
@@ -306,7 +313,7 @@ class GeneMerGraph:
                                     sourceNode: Node,
                                     targetNode: Node):
         """ returns a bool of whether or not the sourceNode and targetNode are neighbors of eachother """
-        return targetNode.__hash__() in self.get_all_neighbors(sourceNode) and sourceNode.__hash__() in self.get_all_neighbors(targetNode)
+        return targetNode.__hash__() in self.get_all_neighbor_hashes(sourceNode) and sourceNode.__hash__() in self.get_all_neighbor_hashes(targetNode)
     def get_edge_hashes_between_nodes(self,
                                     sourceNode: Node,
                                     targetNode: Node) -> tuple:
@@ -442,6 +449,7 @@ class GeneMerGraph:
                         node_string,
                         node_coverage,
                         reads,
+                        component_ID,
                         nodeColor):
         """ return a string of a gml node entry """
         if node_coverage > 100:
@@ -450,6 +458,8 @@ class GeneMerGraph:
         node_entry += "\t\tid\t" + str(node_id) + "\n"
         node_entry += '\t\tlabel\t"' + node_string + '"\n'
         node_entry += "\t\tcoverage\t" + str(node_coverage) + "\n"
+        if component_ID:
+            node_entry += "\t\tcomponent\t" + str(component_ID) + "\n"
         node_entry += '\t\treads\t"' + ",".join(reads) + '"\n'
         if nodeColor:
             node_entry += '\t\tcolor\t"' + str(nodeColor) + '"\n'
@@ -858,7 +868,7 @@ class GeneMerGraph:
         # keep track of the bubbles we have already corrected
         seenBubbles = set()
         # iterate through the nodes with three or 4 neighbors
-        for nodeHash in tqdm(threeOrFourNeighbors):
+        for nodeHash in threeOrFourNeighbors:
             # get the node for the hash
             startNode = self.get_node_by_hash(nodeHash)
             # get the forward converging paths
@@ -1026,6 +1036,7 @@ class GeneMerGraph:
                                             self.get_gene_mer_label(sourceNode),
                                             sourceNode.get_node_coverage(),
                                             [read for read in sourceNode.get_reads()],
+                                            sourceNode.get_component(),
                                             sourceNode.get_color())
             graph_data.append(nodeEntry)
             for edge in self.get_forward_edges(sourceNode) + self.get_backward_edges(sourceNode):
@@ -1043,4 +1054,259 @@ class GeneMerGraph:
         self.write_gml_to_file(output_file,
                             graph_data)
         return graph_data
+    def dfs_component(self,
+            start,
+            component_id,
+            visited=None):
+        if visited is None:
+            visited = set()
+        visited.add(start.__hash__())
+        start.set_component(component_id)
+        for neighbor in self.get_all_neighbors(start):
+            if neighbor.__hash__() not in visited:
+                self.dfs_component(neighbor, component_id, visited)
+    def assign_component_ids(self):
+        """ use a depth first search algorithm to assign component IDs to nodes """
+        visited = set()
+        component_id = 1
+        for nodeHash in self.get_nodes():
+            if nodeHash not in visited:
+                self.dfs_component(self.get_node_by_hash(nodeHash),
+                        component_id,
+                        visited)
+                component_id += 1
+    def get_nodes_in_component(self,
+                            component):
+        """ return a list of nodes in the specified component """
+        nodes_in_component = []
+        for nodeHash in self.get_nodes():
+            node = self.get_node_by_hash(nodeHash)
+            if node.get_component() == int(component):
+                nodes_in_component.append(node)
+        return nodes_in_component
+    def components(self) -> list:
+        """ return a sorted list of all the possible component IDs """
+        components = set()
+        for nodeHash in self.get_nodes():
+            node = self.get_node_by_hash(nodeHash)
+            components.add(node.get_component())
+        return sorted(list(components))
+    def get_number_of_component(self) -> int:
+        """ return an integer of the number of connected components in the graph """
+        return len(self.components())
+    def get_highest_coverage_node_at_end_of_component(self,
+                                            component_ID) -> Node:
+        """ return the node that has the highest coverage in the specified component """
+        # a place holder for the highest coverage node
+        highest_coverage = 0
+        # iterate through the nodes in this component
+        for node in self.get_nodes_in_component(component_ID):
+            if len(self.get_forward_neighbors(node)) == 0 or len(self.get_backward_neighbors(node)) == 0:
+                # get the coverage of the node
+                coverage = node.get_node_coverage()
+                # see if the coverage of this node is greater than the previous highest coverage node
+                if coverage > highest_coverage:
+                    highest_coverage = coverage
+                    start_node = node
+        return start_node
+    def follow_path_by_coverage(self,
+                            startNode,
+                            traversal_direction,
+                            coverage):
+        # ensure that the variables are in the correct form
+        assert traversal_direction == 1 or traversal_direction == -1
+        assert coverage == "highest" or coverage == "lowest"
+        # use the coverage variable to decide how we are sorting the nodes
+        if coverage == "highest":
+            reverse_sort = True
+        else:
+            reverse_sort = False
+        # start the chain at the start node
+        path = [startNode.__hash__()]
+        seen_nodes = set([startNode.__hash__()])
+        current_node = startNode
+        path_coverages = [startNode.get_node_coverage()]
+        # use the direction variable to decide if we get the forward or reverse neighbors of the start node
+        if traversal_direction == 1:
+            next_neighbors = self.get_forward_neighbors(startNode)
+        else:
+            next_neighbors = self.get_backward_neighbors(startNode)
+        # continue the chain until we reach the end of the component
+        while len(next_neighbors) > 0:
+            next_nodes = sorted(next_neighbors, key=lambda x: x.get_node_coverage(), reverse=reverse_sort)
+            if not all(n.__hash__() in seen_nodes for n in next_nodes):
+                for next_node in next_nodes:
+                    if not next_node.__hash__() in seen_nodes:
+                        path.append(next_node.__hash__())
+                        seen_nodes.add(next_node.__hash__())
+                        path_coverages.append(next_node.get_node_coverage())
+                        sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(current_node,
+                                                                                            next_node)
+                        current_node = next_node
+                        if sourceToTargetEdge.get_targetNodeDirection() == 1:
+                            next_neighbors = self.get_forward_neighbors(current_node)
+                        else:
+                            next_neighbors = self.get_backward_neighbors(current_node)
+                        break
+            else:
+                break
+        return path, path_coverages
+    def remove_low_coverage_components(self,
+                                    min_component_coverage):
+        # remove components that have a coverage less than min_component_coverage
+        for component_ID in self.components():
+            nodes_in_component = self.get_nodes_in_component(component_ID)
+            if all(node.get_node_coverage() < min_component_coverage for node in nodes_in_component):
+                for node in nodes_in_component:
+                    self.remove_node(node)
+    def get_heaviest_path_through_component(self,
+                                        component_ID) -> list:
+        """ return the heaviest path through a component """
+        # get the highest coverage node in this component
+        start_node = self.get_highest_coverage_node_at_end_of_component(component_ID)
+        # get the heaviest path in the forward direction
+        heaviest_forward_path_from_start, heaviest_forward_coverages_from_start = self.follow_path_by_coverage(start_node,
+                                                                                                            1,
+                                                                                                            "highest")
+        # get the heaviest path in the backward direction
+        heaviest_backward_path_from_start, heaviest_forward_coverages_from_end = self.follow_path_by_coverage(start_node,
+                                                                                                            -1,
+                                                                                                            "highest")
+        # combine the foward and backward paths to get the heaviest path through the component
+        assert heaviest_forward_path_from_start[0] == heaviest_backward_path_from_start[0]
+        heaviest_path = list(reversed(heaviest_forward_path_from_start)) + heaviest_backward_path_from_start[1:]
+        reverse_heaviest_path = list(reversed(heaviest_path))
+        return heaviest_path, reverse_heaviest_path
+    def get_lightest_path_through_component(self,
+                                        heaviest_path,
+                                        reverse_heaviest_path) -> list:
+        """ return the lightest path through a component """
+        # get the start and end nodes
+        start_node = self.get_node_by_hash(heaviest_path[0])
+        end_node = self.get_node_by_hash(reverse_heaviest_path[0])
+        # get the traversal direction for the paths
+        traversal_direction_forward_path = 1
+        sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(end_node,
+                                                                            self.get_node_by_hash(reverse_heaviest_path[1]))
+        traversal_direction_reverse_path = sourceToTargetEdge.get_targetNodeDirection()
+        # get the heaviest path in the forward direction
+        lightest_forward_path_from_start, lightest_forward_coverages_from_start = self.follow_path_by_coverage(start_node,
+                                                                                                            traversal_direction_forward_path,
+                                                                                                            "lowest")
+        # get the heaviest path in the backward direction
+        lightest_backward_path_from_start, lightest_backward_coverages_from_start = self.follow_path_by_coverage(start_node,
+                                                                                                            -1 * traversal_direction_forward_path,
+                                                                                                            "lowest")
+        lightest_forward_path = list(reversed(lightest_forward_path_from_start)) + lightest_backward_path_from_start[1:]
+        import statistics
+        lightest_forward_mean_coverage = statistics.mean(lightest_backward_coverages_from_start + lightest_forward_coverages_from_start)
+        # get the heaviest path in the forward direction
+        lightest_forward_path_from_end, lightest_forward_coverages_from_end = self.follow_path_by_coverage(end_node,
+                                                                                                    traversal_direction_reverse_path,
+                                                                                                    "lowest")
+        # get the heaviest path in the backward direction
+        lightest_backward_path_from_end, lightest_backward_coverages_from_end = self.follow_path_by_coverage(end_node,
+                                                                                                    -1 * traversal_direction_reverse_path,
+                                                                                                    "lowest")
+        assert lightest_forward_path_from_end[0] == lightest_backward_path_from_end[0]
+        lightest_reverse_path = list(reversed(lightest_forward_path_from_end)) + lightest_backward_path_from_end[1:]
+        lightest_reverse_mean_coverage = statistics.mean(lightest_backward_coverages_from_end + lightest_forward_coverages_from_end)
+        # get the heaviest path in the forward direction
+        # combine the foward and backward paths to get the heaviest path through the component
+        assert lightest_forward_path_from_start[0] == lightest_backward_path_from_start[0]
+        assert lightest_forward_path_from_end[0] == lightest_backward_path_from_end[0]
+        if not lightest_forward_mean_coverage > lightest_reverse_mean_coverage:
+            return lightest_forward_path, heaviest_path
+        else:
+            return lightest_reverse_path, reverse_heaviest_path
+    def shared_indices(self, list1, list2):
+        first_index = None
+        last_index = None
+        for i, elem in enumerate(list1):
+            if elem in list2:
+                if first_index is None:
+                    first_index = i
+                last_index = i
+        return first_index, last_index
+    def correct_reads_to_heaviest_path(self,
+                                    heaviest_path,
+                                    lightest_path):
+        #print(heaviest_path)
+        #print(lightest_path)
+        #print("\n")
+        # print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in heaviest_path])
+        # print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in lightest_path], "\n")
+        #print([self.get_node_by_hash(nodeHash).get_node_coverage() > 5 for nodeHash in lightest_path])
+        if all(self.get_node_by_hash(nodeHash).get_node_coverage() > 10 for nodeHash in lightest_path):
+            return
+        if heaviest_path == lightest_path:
+            return
+        # get the list of genes for the heaviest path
+        if not len(heaviest_path) == 1:
+            heaviest_list_of_genes = self.follow_path_to_get_annotations(heaviest_path)
+        else:
+            heaviest_list_of_genes = self.get_gene_mer_label(self.get_node_by_hash(heaviest_path[0])).split("~~~")
+
+        def reverse_list_of_genes(list_of_genes):
+            reversed_list = list(reversed(list_of_genes))
+            for i in range(len(reversed_list)):
+                if reversed_list[i][0] == "+":
+                    reversed_list[i] = "-" + reversed_list[i][1:]
+                else:
+                    reversed_list[i] = "+" + reversed_list[i][1:]
+            return reversed_list
+
+        # get the reverse list of genes in the heaviest path
+        reversed_heaviest_list_of_genes = reverse_list_of_genes(heaviest_list_of_genes)
+        #reversed_heaviest_list_of_genes = list(reversed(heaviest_path))
+        # get the reads in the lightest path
+        pathReads = set()
+        for nodeHash in lightest_path:
+            for readId in self.get_node_by_hash(nodeHash).get_reads():
+                pathReads.add(readId)
+        # correct the reads to the heaviest path
+        for readId in pathReads:
+            # get the nodes on this read
+            readNodes = self.get_readNodes()[readId]
+            # get the list of genes on this read
+            if not len(readNodes) == 1:
+                read_list_of_genes = self.follow_path_to_get_annotations(readNodes)
+                #read_list_of_genes = readNodes
+            else:
+                read_list_of_genes = self.get_gene_mer_label(self.get_node_by_hash(readNodes[0])).split("~~~")
+                #read_list_of_genes = readNodes
+            if len(set(read_list_of_genes).intersection(set(heaviest_list_of_genes))) > len(set(read_list_of_genes).intersection(set(reversed_heaviest_list_of_genes))):
+                # get the index of the first element in the reads that is also in the heaviest path
+                index_of_reads_first_shared_element, index_of_reads_last_shared_element = self.shared_indices(read_list_of_genes,
+                                                                                                            heaviest_list_of_genes)
+                # get the index of the first element in the heaviest path that is also in the reads
+                index_of_heaviest_first_shared_element, index_of_heaviest_last_shared_element = self.shared_indices(heaviest_list_of_genes,
+                                                                                                                read_list_of_genes)
+                heaviest_genes_relative_to_read = heaviest_list_of_genes
+            # if the read is reversed relative to the heaviest path then get the indices relative to the reverse heaviest path
+            else:
+                # get the index of the first element in the heaviest path that is also in the reads
+                index_of_reads_first_shared_element, index_of_reads_last_shared_element = self.shared_indices(read_list_of_genes,
+                                                                                                            reversed_heaviest_list_of_genes)
+                # get the index of the first element in the heaviest path that is also in the reads
+                index_of_heaviest_first_shared_element, index_of_heaviest_last_shared_element = self.shared_indices(reversed_heaviest_list_of_genes,
+                                                                                                                read_list_of_genes)
+                heaviest_genes_relative_to_read = reversed_heaviest_list_of_genes
+            corrected_list_of_genes = heaviest_genes_relative_to_read[index_of_heaviest_first_shared_element: index_of_heaviest_last_shared_element + 1] + read_list_of_genes[index_of_reads_last_shared_element+1:]
+            if not index_of_heaviest_first_shared_element == 0:
+                corrected_list_of_genes = read_list_of_genes[:index_of_reads_first_shared_element] + corrected_list_of_genes
+            extra_upstream_genes = read_list_of_genes[index_of_reads_last_shared_element + 1:]
+            assert not (index_of_reads_first_shared_element == None or index_of_reads_last_shared_element == None)
+            assert not (index_of_heaviest_first_shared_element == None or index_of_heaviest_last_shared_element == None)
+            #print("\n")
+            # get the gene mers for the corrected read
+            read = Read("",
+                    corrected_list_of_genes)
+            geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
+            # get the nodes for the corrected read
+            corrected_nodes = []
+            for g in geneMers:
+                corrected_nodes.append(self.add_node(g, []).__hash__())
+            # replace the read nodes with the new list
+            self.get_readNodes()[readId] = corrected_nodes
 

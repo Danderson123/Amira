@@ -1,6 +1,6 @@
 import argparse
+import json
 import os
-import pysam
 import sys
 from tqdm import tqdm
 
@@ -55,161 +55,43 @@ def get_options():
     args = parser.parse_args()
     return args
 
-def get_read_start(cigar):
-    """ return an int of the 0 based position where the read region starts mapping to the gene """
-    # check if there are any hard clipped bases at the start of the mapping
-    if cigar[0][0] == 5:
-        regionStart = cigar[0][1]
-    else:
-        regionStart = 0
-    return regionStart
-
-def get_read_end(cigar,
-                regionStart):
-    """ return an int of the 0 based position where the read region stops mapping to the gene """
-    regionLength = 0
-    for tuple in cigar:
-        if not tuple[0] == 5:
-            regionLength += tuple[1]
-    regionEnd = regionStart + regionLength
-    return regionEnd, regionLength
-
-def determine_gene_strand(read):
-    strandlessGene = read.reference_name.replace("~~~", ";").replace(".aln.fas", "").replace(".fasta", "").replace(".fa", "")
-    if not read.is_forward:
-        gene_name = "-" + strandlessGene
-    else:
-        gene_name = "+" + strandlessGene
-    return gene_name, strandlessGene
-
-def convert_pandora_output(pandoraSam,
-                        pandora_consensus,
-                        genesOfInterest,
-                        geneMinCoverage):
-    # load the pseudo SAM
-    pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
-    annotatedReads = {}
-    readLengthDict = {}
-    geneCounts = {}
-    # iterate through the read regions
-    for read in pandora_sam_content.fetch():
-        # convert the cigarsting to a Cigar object
-        cigar = read.cigartuples
-        # check if the read has mapped to any regions
-        if read.is_mapped:
-            # get the start base that the region maps to on the read
-            regionStart = get_read_start(cigar)
-            # get the end base that the region maps to on the read
-            regionEnd, regionLength = get_read_end(cigar,
-                                                regionStart)
-            # append the strand of the match to the name of the gene
-            gene_name, strandlessGene = determine_gene_strand(read)
-            # exclude genes that do not have a pandora consensus
-            if strandlessGene in pandora_consensus:
-                if not read.query_name in annotatedReads:
-                    annotatedReads[read.query_name] = []
-                    readLengthDict[read.query_name] = []
-                # count how many times we see each gene
-                if not strandlessGene in geneCounts:
-                    geneCounts[strandlessGene] = 0
-                geneCounts[strandlessGene] += 1
-                # store the per read gene names, gene starts and gene ends
-                readLengthDict[read.query_name].append((regionStart, regionEnd))
-                # store the per read gene names
-                annotatedReads[read.query_name].append(gene_name)
+def process_pandora_json(pandoraJSON, genesOfInterest):
+    with open(pandoraJSON) as i:
+        annotatedReads = json.loads(i.read())
     to_delete = []
     subsettedGenesOfInterest = set()
-    for r in annotatedReads:
-        #annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
+    for read in tqdm(annotatedReads):
         containsAMRgene = False
-        for g in range(len(annotatedReads[r])):
-            split_names = annotatedReads[r][g][1:].split(".")
+        for g in range(len(annotatedReads[read])):
+            split_names = annotatedReads[read][g][1:].split(".")
             if any(subgene in genesOfInterest for subgene in split_names):
                 containsAMRgene = True
-                for subgene in split_names:
-                    if subgene in genesOfInterest:
-                        annotatedReads[r][g] = annotatedReads[r][g][0] + subgene
-                        break
-                subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
+                subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
         if not containsAMRgene:
-            to_delete.append(r)
-    #for t in to_delete:
-     #   del annotatedReads[t]
-    assert not len(annotatedReads) == 0
-    return annotatedReads, readLengthDict, list(subsettedGenesOfInterest)
+            to_delete.append(read)
+    for read in to_delete:
+        del annotatedReads[read]
+    genesOfInterest = subsettedGenesOfInterest
+    return annotatedReads, genesOfInterest
 
-def plot_gene_counts(annotatedReads,
-                    outputDir):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    # make the output dir if it doesn't exist
-    if not os.path.exists(outputDir):
-        os.mkdir(outputDir)
-    # keep track of the number of genes per read
-    geneCounts = []
-    geneCountDict = {}
-    for r in annotatedReads:
-        numberOfGenes = len(annotatedReads[r])
-        geneCounts.append(numberOfGenes)
-        geneCountDict[r] = numberOfGenes
-    # plot a bar chart of the number of genes per read
-    q25, q75 = np.percentile(geneCounts, [25, 75])
-    bin_width = 2 * (q75 - q25) * len(geneCounts) ** (-1/3)
-    numBins = round((max(geneCounts) - min(geneCounts)) / bin_width)
-    fig, ax = plt.subplots()
-    ax.hist(geneCounts, bins=numBins, density = False)
-    plt.margins(x=0)
-    ax.set_ylabel('Absolute frequency')
-    ax.set_xlabel('Number of genes')
-    fig.savefig(os.path.join(outputDir, "read_gene_count_distribution.png"))
-    plt.close(fig)
-
-def plot_read_lengths(readFile,
-                    annotatedReads,
-                    outputDir):
-    from construct_unitig import parse_fastq
-    import matplotlib.pyplot as plt
-    import numpy as np
-    readDict = parse_fastq(readFile)
-    readLengths = []
-    for r in readDict:
-        if r in annotatedReads:
-            sequence = readDict[r]["sequence"]
-            readLengths.append(len(sequence))
-    # plot a histogram of read lengths in base pairs
-    q25, q75 = np.percentile(readLengths, [25, 75])
-    bin_width = 2 * (q75 - q25) * len(readLengths) ** (-1/3)
-    numBins = round((max(readLengths) - min(readLengths)) / bin_width)
-    fig, ax = plt.subplots()
-    ax.hist(readLengths, bins=numBins, density = False)
-    plt.margins(x=0)
-    ax.set_ylabel('Absolute frequency')
-    ax.set_xlabel('Length of read (bp)')
-    fig.savefig(os.path.join(outputDir, "read_length_distribution.png"))
-    plt.close(fig)
-
-def plot_node_coverages(onemer_graph_coverages,
-                    threemer_graph_coverages,
-                    fivemer_graph_coverages,
-                    sevenmer_graph_coverages,
-                    ninemer_graph_coverages,
+def write_debug_files(annotatedReads,
+                    geneMer_size,
+                    genesOfInterest,
                     output_dir):
-    import matplotlib.pyplot as plt
-    for to_plot in tqdm([("one", onemer_graph_coverages),
-                        ("three", threemer_graph_coverages),
-                        ("five", fivemer_graph_coverages),
-                        ("seven", sevenmer_graph_coverages),
-                        ("nine", ninemer_graph_coverages)]):
-        plt.hist(to_plot[1], bins=[i for i in range(0, 100, 1)], alpha=0.4, label=to_plot[0])
-        plt.margins(x=0)
-        plt.xlim(0, 100)
-        plt.ylim(0,1000)
-        #plt.legend(loc='upper right')
-        plt.ylabel('Absolute frequency')
-        plt.xlabel('Node coverage')
-        plt.title('Node coverage distributions over different gene-mer lengths')
-        plt.savefig(os.path.join(output_dir, f"node_coverage_distributions_{to_plot[0]}.png"))
-        plt.close()
+    raw_graph = GeneMerGraph(annotatedReads,
+                            geneMer_size)
+    # color nodes in the graph
+    for node in raw_graph.all_nodes():
+        node.color_node(genesOfInterest)
+    import json
+    with open(os.path.join(output_dir, "genesAnnotatedOnReads.json"), "w") as o:
+        o.write(json.dumps(annotatedReads))
+    sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
+    raw_graph.generate_gml(os.path.join(output_dir, "pre_correction_gene_mer_graph"),
+                                geneMer_size,
+                                1,
+                                1)
+    return raw_graph
 
 def main():
     # get command line options
@@ -221,140 +103,75 @@ def main():
     with open(args.path_to_interesting_genes, "r") as i:
         genesOfInterest = i.read().splitlines()
     # convert the Pandora SAM file to a dictionary
-    if args.pandoraSam:
-        # load the pandora consensus and convert to a dictionary
-        pandora_consensus = parse_fastq(args.pandoraConsensus)
-        sys.stderr.write("\nAmira: loading Pandora SAM\n")
-        annotatedReads, readDict, genesOfInterest = convert_pandora_output(args.pandoraSam,
-                                                                        pandora_consensus,
-                                                                        set(genesOfInterest),
-                                                                        args.gene_min_coverage)
     if args.pandoraJSON:
-        import json
-        with open(args.pandoraJSON) as i:
-            annotatedReads = json.loads(i.read())
-        to_delete = []
-        subsettedGenesOfInterest = set()
-        for read in tqdm(annotatedReads):
-            containsAMRgene = False
-            for g in range(len(annotatedReads[read])):
-                split_names = annotatedReads[read][g][1:].split(".")
-                if any(subgene in genesOfInterest for subgene in split_names):
-                    containsAMRgene = True
-                    #for subgene in split_names:
-                    #    if subgene in genesOfInterest:
-                    #        annotatedReads[read][g] = annotatedReads[read][g][0] + subgene
-                    #        subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
-                    #        break
-                    subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
-            if not containsAMRgene:
-                to_delete.append(read)
-        for read in to_delete:
-            del annotatedReads[read]
-        genesOfInterest = subsettedGenesOfInterest
-    print(genesOfInterest)
+        annotatedReads, genesOfInterest = process_pandora_json(args.pandoraJSON,
+                                                            genesOfInterest)
+    print(list(sorted(list(genesOfInterest))))
     if args.debug:
-        raw_graph = GeneMerGraph(annotatedReads,
-                                args.geneMer_size)
-        raw_graph.walk_through_heaviest_path()
-        # color nodes in the graph
-        for node in raw_graph.all_nodes():
-            node.color_node(genesOfInterest)
-        import json
-        with open(os.path.join(args.output_dir, "genesAnnotatedOnReads.json"), "w") as o:
-            o.write(json.dumps(annotatedReads))
-        sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
-        raw_graph.generate_gml(os.path.join(args.output_dir, "pre_correction_gene_mer_graph"),
+        raw_graph = write_debug_files(annotatedReads,
                                     args.geneMer_size,
-                                    1,
-                                    1)
-        # sys.stderr.write("\nAmira: plotting node coverage distributions at different values of k\n")
-        # onemer_graph_coverages = GeneMerGraph(annotatedReads, 1).get_all_node_coverages()
-        # threemer_graph_coverages = GeneMerGraph(annotatedReads, 3).get_all_node_coverages()
-        # fivemer_graph_coverages = GeneMerGraph(annotatedReads, 5).get_all_node_coverages()
-        # sevenmer_graph_coverages = GeneMerGraph(annotatedReads, 7).get_all_node_coverages()
-        # ninemer_graph_coverages = GeneMerGraph(annotatedReads, 9).get_all_node_coverages()
-        # plot_node_coverages(onemer_graph_coverages,
-        #                     threemer_graph_coverages,
-        #                     fivemer_graph_coverages,
-        #                     sevenmer_graph_coverages,
-        #                     ninemer_graph_coverages,
-        #                     args.output_dir)
-        #sys.exit(0)
-    # clean the graph iteratively
-    i = 1
-    while i <= args.cleaning_iterations:
-        sys.stderr.write(f"\nAmira: Correcting annotation errors by trimming hairs and popping bubbles {i}/{args.cleaning_iterations}\n")
-        graphToCorrect = GeneMerGraph(annotatedReads,
-                                    args.geneMer_size)
-        annotatedReads = graphToCorrect.correct_errors(10,
-                                                    args.bubble_popper_threshold)
-        i += 1
+                                    genesOfInterest,
+                                    args.output_dir)
+        short_annotated_reads = raw_graph._shortReads
+        short_graph = GeneMerGraph(short_annotated_reads,
+                                3)
+        short_graph.generate_gml(os.path.join(args.output_dir, "short_graph"),
+                                3,
+                                1,
+                                1)
+    # remove components that have a coverage of 1
+    raw_graph.remove_low_coverage_components(4)
+    # get the new read annotations
+    readNodes = raw_graph.get_readNodes()
+    annotatedReads = {}
+    for readId in readNodes:
+        annotatedReads[readId] = raw_graph.follow_path_to_get_annotations(readNodes[readId])
+    # iteratively replace the lowest coverage path in a component with the highest coverage path
+    for i in range(5):
+        # build the updated graph without the removed nodes
+        graph = GeneMerGraph(annotatedReads,
+                        args.geneMer_size)
+        # remove components that have a coverage of 1
+        graph.remove_low_coverage_components(4)
+        for component in graph.components():
+            heaviest_path, reverse_heaviest_path = graph.get_heaviest_path_through_component(component)
+            lightest_path, heaviest_path = graph.get_lightest_path_through_component(heaviest_path, reverse_heaviest_path)
+            graph.correct_reads_to_heaviest_path(heaviest_path,
+                                            lightest_path)
+        # get the new read annotations
+        readNodes = graph.get_readNodes()
+        annotatedReads = {}
+        for readId in readNodes:
+            for i in range(len(readNodes[readId]) - 1):
+                sourceNode = graph.get_node_by_hash(readNodes[readId][i])
+                targetNode = graph.get_node_by_hash(readNodes[readId][i+1])
+                if not graph.check_if_nodes_are_adjacent(sourceNode, targetNode):
+                    graph.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
+            annotatedReads[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+    # build the corrected graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
+    # filter low coverage things
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
+    graph.remove_low_coverage_components(10)
+    # write out the gene mer graph as a gml
+    sys.stderr.write("\nAmira: writing gene-mer graph\n")
     if args.debug:
         # color nodes in the graph
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
-    readNodes = graph.get_readNodes()
-    annotatedReads = {}
-    for readId in tqdm(readNodes):
-        for i in range(len(readNodes[readId]) - 1):
-            sourceNode = graph.get_node_by_hash(readNodes[readId][i])
-            targetNode = graph.get_node_by_hash(readNodes[readId][i+1])
-            if not graph.check_if_nodes_are_adjacent(sourceNode, targetNode):
-                graph.add_edge(sourceNode.get_geneMer(), targetNode.get_geneMer())
-        annotatedReads[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
-    graph = GeneMerGraph(annotatedReads,
-                        args.geneMer_size)
-    sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
                     args.geneMer_size,
                     args.node_min_coverage,
                     args.edge_min_coverage)
-    # have a look at amr unitig plots
     # initialise the UnitigBuilder class
     unitigTools = TestUnitigTools(graph,
                             genesOfInterest,
                             args.readfile,
                             args.output_dir)
-    sys.exit(0)
-    sys.stderr.write("\nAmira: separating paralog reads\n")
-    # initialise the UnitigBuilder class
-    unitigTools = UnitigTools(graph,
-                            genesOfInterest,
-                            args.readfile,
-                            args.output_dir)
-    # subset the reads corresponding to each paralog
-    readFiles = unitigTools.separate_paralogs()
-    # run flye on the subsetted reads
-    if args.flye_path:
-        sys.stderr.write("\nAmira: assembling paralog reads with Flye\n")
-        unitigTools.multithread_flye(readFiles,
-                                    args.flye_path,
-                                    args.threads)
-    # run raven on subsetted reads and pandora consensus
-    if args.raven_path:
-        sys.stderr.write("\nAmira: assembling paralog reads with Raven\n")
-        unitigTools.multithread_raven(readFiles,
-                                    args.raven_path,
-                                    args.threads)
-    # use each gene's pandora consensus as the basis for polishing
-    if args.use_pandora_consensus:
-        sys.stderr.write("\nAmira: polishing Pandora AMR gene consensus sequences\n")
-        unitigTools.polish_pandora_consensus(readFiles,
-                                            args.racon_path,
-                                            args.pandoraConsensus,
-                                            genesOfInterest,
-                                            args.threads)
-    # make plots to visualise unitigs
-    # sys.stderr.write("\nAmira: generating unitig plots\n")
-    # unitigTools.visualise_unitigs(readDict,
-    #                             unitig_mapping,
-    #                             args.output_dir)
+    unitigTools.assign_reads_to_amr_genes()
     sys.exit(0)
 
 if __name__ == "__main__":
