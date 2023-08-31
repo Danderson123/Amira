@@ -3123,3 +3123,35 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_geneMers["read2"], genes2)
         self.assertEqual(actual_geneMers["read3"], genes2)
         self.assertEqual(actual_geneMers["read4"], genes2)
+
+    def test_follow_path_by_coverage_basic(self):
+        # Setup
+        graph = GeneMerGraph({}, 3)
+        # Mocking startNode and its methods
+        startNode = Mock()
+        startNode.__hash__ = Mock(return_value=1)
+        startNode.get_node_coverage.return_value = 10
+        # Mocking get_forward_neighbors and get_backward_neighbors
+        node2 = Mock()
+        node2.__hash__ = Mock(return_value=2)
+        node2.get_node_coverage.return_value = 20
+        graph.get_forward_neighbors = Mock(return_value=[node2])
+        graph.get_backward_neighbors = Mock(return_value=[])
+        # Mocking get_edges_between_nodes
+        mockEdge = Mock()
+        mockEdge.get_targetNodeDirection.return_value = 1
+        graph.get_edges_between_nodes = Mock(return_value=(mockEdge, mockEdge))
+        # Execute
+        path, path_coverages = graph.follow_path_by_coverage(startNode, 1, "highest")
+        # Verify
+        assert path == [1, 2]
+        assert path_coverages == [10, 20]
+
+    def test_follow_path_by_coverage_wrong_input(self):
+        # Setup
+        graph = GeneMerGraph({}, 3)
+        startNode = Mock()
+        # testing wrong traversal direction
+        self.assertRaises(AssertionError, graph.follow_path_by_coverage, startNode, 0, "highest")
+        # testing wrong coverage
+        self.assertRaises(AssertionError, graph.follow_path_by_coverage, startNode, 1, "middle")

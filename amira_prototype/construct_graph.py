@@ -1123,7 +1123,7 @@ class GeneMerGraph:
             reverse_sort = False
         # start the chain at the start node
         path = [startNode.__hash__()]
-        seen_nodes = set([startNode.__hash__()])
+        seen_nodes = {startNode.__hash__(): 1}
         current_node = startNode
         path_coverages = [startNode.get_node_coverage()]
         # use the direction variable to decide if we get the forward or reverse neighbors of the start node
@@ -1136,9 +1136,12 @@ class GeneMerGraph:
             next_nodes = sorted(next_neighbors, key=lambda x: x.get_node_coverage(), reverse=reverse_sort)
             if not all(n.__hash__() in seen_nodes for n in next_nodes):
                 for next_node in next_nodes:
-                    if not next_node.__hash__() in seen_nodes:
-                        path.append(next_node.__hash__())
-                        seen_nodes.add(next_node.__hash__())
+                    next_node_hash = next_node.__hash__()
+                    if not next_node_hash in seen_nodes:
+                        path.append(next_node_hash)
+                        if not next_node_hash in seen_nodes:
+                            seen_nodes[next_node_hash] = 0
+                        seen_nodes[next_node_hash] += 1
                         path_coverages.append(next_node.get_node_coverage())
                         sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(current_node,
                                                                                             next_node)
@@ -1159,149 +1162,103 @@ class GeneMerGraph:
             if all(node.get_node_coverage() < min_component_coverage for node in nodes_in_component):
                 for node in nodes_in_component:
                     self.remove_node(node)
-    def get_heaviest_path_through_component(self,
+    # def get_heaviest_path_through_component(self,
+    #                                     component_ID) -> list:
+    #     """ return the heaviest path through a component """
+    #     # get the highest coverage node in this component
+    #     start_node = self.get_highest_coverage_node_at_end_of_component(component_ID)
+    #     # get the heaviest path in the forward direction
+    #     heaviest_forward_path_from_start, heaviest_forward_coverages_from_start = self.follow_path_by_coverage(start_node,
+    #                                                                                                         1,
+    #                                                                                                         "highest")
+    #     # get the heaviest path in the backward direction
+    #     heaviest_backward_path_from_start, heaviest_forward_coverages_from_end = self.follow_path_by_coverage(start_node,
+    #                                                                                                         -1,
+    #                                                                                                         "highest")
+    #     # combine the foward and backward paths to get the heaviest path through the component
+    #     assert heaviest_forward_path_from_start[0] == heaviest_backward_path_from_start[0]
+    #     heaviest_path = list(reversed(heaviest_forward_path_from_start)) + heaviest_backward_path_from_start[1:]
+    #     reverse_heaviest_path = list(reversed(heaviest_path))
+    #     return heaviest_path, reverse_heaviest_path
+    def new_get_heaviest_path_through_component(self,
                                         component_ID) -> list:
         """ return the heaviest path through a component """
         # get the highest coverage node in this component
-        start_node = self.get_highest_coverage_node_at_end_of_component(component_ID)
-        # get the heaviest path in the forward direction
-        heaviest_forward_path_from_start, heaviest_forward_coverages_from_start = self.follow_path_by_coverage(start_node,
-                                                                                                            1,
-                                                                                                            "highest")
-        # get the heaviest path in the backward direction
-        heaviest_backward_path_from_start, heaviest_forward_coverages_from_end = self.follow_path_by_coverage(start_node,
-                                                                                                            -1,
-                                                                                                            "highest")
-        # combine the foward and backward paths to get the heaviest path through the component
-        assert heaviest_forward_path_from_start[0] == heaviest_backward_path_from_start[0]
-        heaviest_path = list(reversed(heaviest_forward_path_from_start)) + heaviest_backward_path_from_start[1:]
-        reverse_heaviest_path = list(reversed(heaviest_path))
-        return heaviest_path, reverse_heaviest_path
-    def get_lightest_path_through_component(self,
-                                        heaviest_path,
-                                        reverse_heaviest_path) -> list:
-        """ return the lightest path through a component """
-        # get the start and end nodes
-        start_node = self.get_node_by_hash(heaviest_path[0])
-        end_node = self.get_node_by_hash(reverse_heaviest_path[0])
-        # get the traversal direction for the paths
-        traversal_direction_forward_path = 1
-        sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(end_node,
-                                                                            self.get_node_by_hash(reverse_heaviest_path[1]))
-        traversal_direction_reverse_path = sourceToTargetEdge.get_targetNodeDirection()
-        # get the heaviest path in the forward direction
-        lightest_forward_path_from_start, lightest_forward_coverages_from_start = self.follow_path_by_coverage(start_node,
-                                                                                                            traversal_direction_forward_path,
-                                                                                                            "lowest")
-        # get the heaviest path in the backward direction
-        lightest_backward_path_from_start, lightest_backward_coverages_from_start = self.follow_path_by_coverage(start_node,
-                                                                                                            -1 * traversal_direction_forward_path,
-                                                                                                            "lowest")
-        lightest_forward_path = list(reversed(lightest_forward_path_from_start)) + lightest_backward_path_from_start[1:]
         import statistics
-        lightest_forward_mean_coverage = statistics.mean(lightest_backward_coverages_from_start + lightest_forward_coverages_from_start)
-        # get the heaviest path in the forward direction
-        lightest_forward_path_from_end, lightest_forward_coverages_from_end = self.follow_path_by_coverage(end_node,
-                                                                                                    traversal_direction_reverse_path,
-                                                                                                    "lowest")
-        # get the heaviest path in the backward direction
-        lightest_backward_path_from_end, lightest_backward_coverages_from_end = self.follow_path_by_coverage(end_node,
-                                                                                                    -1 * traversal_direction_reverse_path,
-                                                                                                    "lowest")
-        assert lightest_forward_path_from_end[0] == lightest_backward_path_from_end[0]
-        lightest_reverse_path = list(reversed(lightest_forward_path_from_end)) + lightest_backward_path_from_end[1:]
-        lightest_reverse_mean_coverage = statistics.mean(lightest_backward_coverages_from_end + lightest_forward_coverages_from_end)
-        # get the heaviest path in the forward direction
+        start_nodes = []
+        for node in self.get_nodes_in_component(component_ID):
+            if len(self.get_forward_neighbors(node)) == 0:
+                start_nodes.append((node, -1))
+            elif len(self.get_backward_neighbors(node)) == 0:
+                start_nodes.append((node, 1))
+            else:
+                pass
+        #start_node = self.get_highest_coverage_node_at_end_of_component(component_ID)
+        paths = []
+        for start_node in start_nodes:
+            # get the heaviest path in the forward direction
+            heaviest_path, heaviest_coverages = self.follow_path_by_coverage(start_node[0],
+                                                                            start_node[1],
+                                                                            "highest")
+            paths.append(heaviest_path)
+        sorted_paths = sorted(paths, key=len, reverse=True)
+        heaviest_path = sorted_paths[0]
         # combine the foward and backward paths to get the heaviest path through the component
-        assert lightest_forward_path_from_start[0] == lightest_backward_path_from_start[0]
-        assert lightest_forward_path_from_end[0] == lightest_backward_path_from_end[0]
-        if not lightest_forward_mean_coverage > lightest_reverse_mean_coverage:
-            return lightest_forward_path, heaviest_path
-        else:
-            return lightest_reverse_path, reverse_heaviest_path
-    def shared_indices(self, list1, list2):
-        first_index = None
-        last_index = None
-        for i, elem in enumerate(list1):
-            if elem in list2:
-                if first_index is None:
-                    first_index = i
-                last_index = i
-        return first_index, last_index
-    def correct_reads_to_heaviest_path(self,
-                                    heaviest_path,
-                                    lightest_path):
-        #print(heaviest_path)
-        #print(lightest_path)
-        #print("\n")
-        # print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in heaviest_path])
-        # print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in lightest_path], "\n")
-        #print([self.get_node_by_hash(nodeHash).get_node_coverage() > 5 for nodeHash in lightest_path])
-        if all(self.get_node_by_hash(nodeHash).get_node_coverage() > 10 for nodeHash in lightest_path):
-            return
-        if heaviest_path == lightest_path:
-            return
-        # get the list of genes for the heaviest path
+        return heaviest_path
+    def correct_read_nodes_to_heaviest_path(self, heaviest_path, reads_to_correct):
+        from collections import Counter
+        # get the list of genes in the heaviest path
         if not len(heaviest_path) == 1:
             heaviest_list_of_genes = self.follow_path_to_get_annotations(heaviest_path)
         else:
             heaviest_list_of_genes = self.get_gene_mer_label(self.get_node_by_hash(heaviest_path[0])).split("~~~")
-
-        def reverse_list_of_genes(list_of_genes):
-            reversed_list = list(reversed(list_of_genes))
-            for i in range(len(reversed_list)):
-                if reversed_list[i][0] == "+":
-                    reversed_list[i] = "-" + reversed_list[i][1:]
-                else:
-                    reversed_list[i] = "+" + reversed_list[i][1:]
-            return reversed_list
-
         # get the reverse list of genes in the heaviest path
-        reversed_heaviest_list_of_genes = reverse_list_of_genes(heaviest_list_of_genes)
-        #reversed_heaviest_list_of_genes = list(reversed(heaviest_path))
-        # get the reads in the lightest path
-        pathReads = set()
-        for nodeHash in lightest_path:
-            for readId in self.get_node_by_hash(nodeHash).get_reads():
-                pathReads.add(readId)
-        # correct the reads to the heaviest path
-        for readId in pathReads:
-            # get the nodes on this read
+        reversed_heaviest_list_of_genes = self.reverse_list_of_genes(heaviest_list_of_genes)
+        # iterate through the reads
+        for readId in reads_to_correct:
+            # get the nodes on the read
             readNodes = self.get_readNodes()[readId]
-            # get the list of genes on this read
+            # get the genes on the read
             if not len(readNodes) == 1:
                 read_list_of_genes = self.follow_path_to_get_annotations(readNodes)
-                #read_list_of_genes = readNodes
             else:
                 read_list_of_genes = self.get_gene_mer_label(self.get_node_by_hash(readNodes[0])).split("~~~")
-                #read_list_of_genes = readNodes
-            if len(set(read_list_of_genes).intersection(set(heaviest_list_of_genes))) > len(set(read_list_of_genes).intersection(set(reversed_heaviest_list_of_genes))):
-                # get the index of the first element in the reads that is also in the heaviest path
-                index_of_reads_first_shared_element, index_of_reads_last_shared_element = self.shared_indices(read_list_of_genes,
-                                                                                                            heaviest_list_of_genes)
-                # get the index of the first element in the heaviest path that is also in the reads
-                index_of_heaviest_first_shared_element, index_of_heaviest_last_shared_element = self.shared_indices(heaviest_list_of_genes,
-                                                                                                                read_list_of_genes)
-                heaviest_genes_relative_to_read = heaviest_list_of_genes
-            # if the read is reversed relative to the heaviest path then get the indices relative to the reverse heaviest path
+            # get the orientation of the genes in the heaviest path relative to the read
+            shared_forward = len(set(read_list_of_genes).intersection(set(heaviest_list_of_genes)))
+            shared_reverse = len(set(read_list_of_genes).intersection(set(reversed_heaviest_list_of_genes)))
+            if shared_forward == 0 and shared_reverse == 0:
+                continue
+            if shared_forward > shared_reverse:
+                path_genes_relative_to_read = heaviest_list_of_genes
             else:
-                # get the index of the first element in the heaviest path that is also in the reads
-                index_of_reads_first_shared_element, index_of_reads_last_shared_element = self.shared_indices(read_list_of_genes,
-                                                                                                            reversed_heaviest_list_of_genes)
-                # get the index of the first element in the heaviest path that is also in the reads
-                index_of_heaviest_first_shared_element, index_of_heaviest_last_shared_element = self.shared_indices(reversed_heaviest_list_of_genes,
-                                                                                                                read_list_of_genes)
-                heaviest_genes_relative_to_read = reversed_heaviest_list_of_genes
-            corrected_list_of_genes = heaviest_genes_relative_to_read[index_of_heaviest_first_shared_element: index_of_heaviest_last_shared_element + 1] + read_list_of_genes[index_of_reads_last_shared_element+1:]
-            if not index_of_heaviest_first_shared_element == 0:
-                corrected_list_of_genes = read_list_of_genes[:index_of_reads_first_shared_element] + corrected_list_of_genes
-            extra_upstream_genes = read_list_of_genes[index_of_reads_last_shared_element + 1:]
-            assert not (index_of_reads_first_shared_element == None or index_of_reads_last_shared_element == None)
-            assert not (index_of_heaviest_first_shared_element == None or index_of_heaviest_last_shared_element == None)
-            #print("\n")
+                path_genes_relative_to_read = reversed_heaviest_list_of_genes
+            # trim the genes on the read
+            first_index, last_index = self.shared_indices(read_list_of_genes, path_genes_relative_to_read)
+            read_list_of_genes = read_list_of_genes[first_index: last_index + 1]
+            # get the indices of the first gene on the read in the heaviest path
+            first_gene_indices = [index for index, value in enumerate(path_genes_relative_to_read) if value == read_list_of_genes[0]]
+            # get the indices of the last gene on the read in the heaviest path
+            last_gene_indices = [index for index, value in enumerate(path_genes_relative_to_read) if value == read_list_of_genes[-1]]
+            # get all possible combinations of start and stops in the heaviest path
+            pairs = {}
+            for f in first_gene_indices:
+                for l in last_gene_indices:
+                    # get the number of shared elements between two lists
+                    counter1 = Counter(path_genes_relative_to_read[f: l+1])
+                    counter2 = Counter(read_list_of_genes)
+                    shared_count = sum((counter1 & counter2).values())
+                    pairs[(f, l)] = shared_count / len(read_list_of_genes)
+            try:
+                highest_matching = max(pairs, key=pairs.get)
+            except:
+                print(path_genes_relative_to_read)
+                print(read_list_of_genes)
+                print(pairs, first_gene_indices, last_gene_indices)
+                oiSEFIOUEFI
+            corrected_read_genes = path_genes_relative_to_read[highest_matching[0]: highest_matching[1] +1]
             # get the gene mers for the corrected read
             read = Read("",
-                    corrected_list_of_genes)
+                    corrected_read_genes)
             geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
             # get the nodes for the corrected read
             corrected_nodes = []
@@ -1309,4 +1266,8 @@ class GeneMerGraph:
                 corrected_nodes.append(self.add_node(g, []).__hash__())
             # replace the read nodes with the new list
             self.get_readNodes()[readId] = corrected_nodes
-
+    def shared_indices(self, list1, list2):
+        indices = [i for i, elem in enumerate(list1) if elem in list2]
+        return (indices[0], indices[-1]) if indices else (None, None)
+    def reverse_list_of_genes(self, list_of_genes):
+        return [("-" if g[0] == "+" else "+") + g[1:] for g in reversed(list_of_genes)]

@@ -723,12 +723,20 @@ def parse_fastq(fastq_file):
     # Initialize an empty dictionary to store the results
     results = {}
     # Open the fastq file
-    with gzip.open(fastq_file, 'rt') as fh:
-        # Iterate over the lines in the file
-        for identifier, sequence, quality in parse_fastq_lines(fh):
-            # Add the identifier and sequence to the results dictionary
-            results[identifier] = {"sequence": sequence,
-                                "quality": quality}
+    if ".gz" in fastq_file:
+        with gzip.open(fastq_file, 'rt') as fh:
+            # Iterate over the lines in the file
+            for identifier, sequence, quality in parse_fastq_lines(fh):
+                # Add the identifier and sequence to the results dictionary
+                results[identifier] = {"sequence": sequence,
+                                    "quality": quality}
+    else:
+        with open(fastq_file, 'r') as fh:
+            # Iterate over the lines in the file
+            for identifier, sequence, quality in parse_fastq_lines(fh):
+                # Add the identifier and sequence to the results dictionary
+                results[identifier] = {"sequence": sequence,
+                                    "quality": quality}
     # Return the dictionary of results
     return results
 

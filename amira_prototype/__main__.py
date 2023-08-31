@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import statistics
 import sys
 from tqdm import tqdm
 
@@ -127,17 +128,43 @@ def main():
     for readId in readNodes:
         annotatedReads[readId] = raw_graph.follow_path_to_get_annotations(readNodes[readId])
     # iteratively replace the lowest coverage path in a component with the highest coverage path
-    for i in range(5):
+    for i in range(1):
         # build the updated graph without the removed nodes
         graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
         # remove components that have a coverage of 1
         graph.remove_low_coverage_components(4)
         for component in graph.components():
-            heaviest_path, reverse_heaviest_path = graph.get_heaviest_path_through_component(component)
-            lightest_path, heaviest_path = graph.get_lightest_path_through_component(heaviest_path, reverse_heaviest_path)
-            graph.correct_reads_to_heaviest_path(heaviest_path,
-                                            lightest_path)
+            # get the heaviest path through each component
+            heaviest_path = graph.new_get_heaviest_path_through_component(component)
+            # get the nodes that are not in the heaviest path
+            reads_to_correct = set()
+            path_set = set(heaviest_path)
+            for node in graph.get_nodes_in_component(component):
+                node_hash = node.__hash__()
+                if not node_hash in path_set:
+                    for readId in node.get_reads():
+                        reads_to_correct.add(readId)
+            # correct the reads to the heaviest path
+            graph.correct_read_nodes_to_heaviest_path(heaviest_path, reads_to_correct)
+            #heaviest_path, reverse_heaviest_path = graph.get_heaviest_path_through_component(component)
+            #lightest_path, heaviest_path = graph.get_lightest_path_through_component(heaviest_path, reverse_heaviest_path)
+            #graph.correct_reads_to_heaviest_path(heaviest_path,
+            #                                lightest_path)
+            #lightest_path_from_start, lightest_coverages_from_start = graph.new_get_lightest_path_through_component(heaviest_path)
+            #lightest_path_from_end, lightest_coverages_from_end = graph.new_get_lightest_path_through_component(reverse_heaviest_path)
+            #lightest_path_from_end = list(reversed(lightest_path_from_end))
+            # decide which lightest path we are correcting based on their coverages
+            #lightest_coverages_from_start = statistics.mean(lightest_coverages_from_start)
+            #lightest_coverages_from_end = statistics.mean(lightest_coverages_from_end)
+            #if lightest_coverages_from_start < lightest_coverages_from_end:
+            #    graph.correct_reads_to_heaviest_path(heaviest_path,
+            #                                lightest_path_from_start)
+            #elif lightest_coverages_from_start > lightest_coverages_from_end:
+            #    graph.correct_reads_to_heaviest_path(heaviest_path,
+            #                                lightest_path_from_end)
+            #else:
+            #    pass
         # get the new read annotations
         readNodes = graph.get_readNodes()
         annotatedReads = {}
@@ -155,7 +182,7 @@ def main():
     # filter low coverage things
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
-    graph.remove_low_coverage_components(10)
+    graph.remove_low_coverage_components(4)
     # write out the gene mer graph as a gml
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     if args.debug:

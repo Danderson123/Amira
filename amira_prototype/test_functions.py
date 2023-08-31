@@ -137,11 +137,6 @@ class TestUnitigTools:
             for nodeHash in list(u):
                 node = self.get_graph().get_node_by_hash(nodeHash)
                 coverages_for_this_unitig.append(node.get_node_coverage())
-            #import statistics
-            #if statistics.mean(coverages_for_this_unitig) < 3:
-            #    continue
-            #else:
-            #    print(statistics.mean(coverages_for_this_unitig))
             if not len(u) == 1:
                 # get the list of genes for this unitig
                 genes = self.get_graph().follow_path_to_get_annotations(u)
@@ -242,12 +237,20 @@ def parse_fastq(fastq_file):
     # Initialize an empty dictionary to store the results
     results = {}
     # Open the fastq file
-    with gzip.open(fastq_file, 'rt') as fh:
-        # Iterate over the lines in the file
-        for identifier, sequence, quality in parse_fastq_lines(fh):
-            # Add the identifier and sequence to the results dictionary
-            results[identifier] = {"sequence": sequence,
-                                "quality": quality}
+    if ".gz" in fastq_file:
+        with gzip.open(fastq_file, 'rt') as fh:
+            # Iterate over the lines in the file
+            for identifier, sequence, quality in parse_fastq_lines(fh):
+                # Add the identifier and sequence to the results dictionary
+                results[identifier] = {"sequence": sequence,
+                                    "quality": quality}
+    else:
+        with open(fastq_file, 'r') as fh:
+            # Iterate over the lines in the file
+            for identifier, sequence, quality in parse_fastq_lines(fh):
+                # Add the identifier and sequence to the results dictionary
+                results[identifier] = {"sequence": sequence,
+                                    "quality": quality}
     # Return the dictionary of results
     return results
 
