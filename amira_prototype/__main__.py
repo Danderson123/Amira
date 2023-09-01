@@ -128,7 +128,7 @@ def main():
     for readId in readNodes:
         annotatedReads[readId] = raw_graph.follow_path_to_get_annotations(readNodes[readId])
     # iteratively replace the lowest coverage path in a component with the highest coverage path
-    for i in range(1):
+    for i in range(3):
         # build the updated graph without the removed nodes
         graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)

@@ -1207,6 +1207,8 @@ class GeneMerGraph:
         return heaviest_path
     def correct_read_nodes_to_heaviest_path(self, heaviest_path, reads_to_correct):
         from collections import Counter
+        if len(reads_to_correct) == 0:
+            return
         # get the list of genes in the heaviest path
         if not len(heaviest_path) == 1:
             heaviest_list_of_genes = self.follow_path_to_get_annotations(heaviest_path)
@@ -1256,6 +1258,11 @@ class GeneMerGraph:
                 print(pairs, first_gene_indices, last_gene_indices)
                 oiSEFIOUEFI
             corrected_read_genes = path_genes_relative_to_read[highest_matching[0]: highest_matching[1] +1]
+            # add the genes that we chopped off the start and ends
+            if not first_index == 0:
+                corrected_read_genes = read_list_of_genes[:first_index] + corrected_read_genes
+            if not last_index == len(read_list_of_genes) - 1:
+                corrected_read_genes = corrected_read_genes + read_list_of_genes[last_index: ]
             # get the gene mers for the corrected read
             read = Read("",
                     corrected_read_genes)
