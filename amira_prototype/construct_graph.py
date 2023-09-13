@@ -1,5 +1,7 @@
 import os
 import statistics
+import sys
+sys.setrecursionlimit(5000)
 from tqdm import tqdm
 
 from construct_node import Node
@@ -450,7 +452,8 @@ class GeneMerGraph:
                         node_coverage,
                         reads,
                         component_ID,
-                        nodeColor):
+                        nodeColor,
+                        heaviest):
         """ return a string of a gml node entry """
         if node_coverage > 100:
             node_coverage = 100
@@ -458,6 +461,7 @@ class GeneMerGraph:
         node_entry += "\t\tid\t" + str(node_id) + "\n"
         node_entry += '\t\tlabel\t"' + node_string + '"\n'
         node_entry += "\t\tcoverage\t" + str(node_coverage) + "\n"
+        node_entry += "\t\theaviest_path\t" + str(heaviest) + "\n"
         if component_ID:
             node_entry += "\t\tcomponent\t" + str(component_ID) + "\n"
         node_entry += '\t\treads\t"' + ",".join(reads) + '"\n'
@@ -1037,7 +1041,8 @@ class GeneMerGraph:
                                             sourceNode.get_node_coverage(),
                                             [read for read in sourceNode.get_reads()],
                                             sourceNode.get_component(),
-                                            sourceNode.get_color())
+                                            sourceNode.get_color(),
+                                            sourceNode.heaviest_path)
             graph_data.append(nodeEntry)
             for edge in self.get_forward_edges(sourceNode) + self.get_backward_edges(sourceNode):
                 targetNode = edge.get_targetNode()
@@ -1162,29 +1167,10 @@ class GeneMerGraph:
             if all(node.get_node_coverage() < min_component_coverage for node in nodes_in_component):
                 for node in nodes_in_component:
                     self.remove_node(node)
-    # def get_heaviest_path_through_component(self,
-    #                                     component_ID) -> list:
-    #     """ return the heaviest path through a component """
-    #     # get the highest coverage node in this component
-    #     start_node = self.get_highest_coverage_node_at_end_of_component(component_ID)
-    #     # get the heaviest path in the forward direction
-    #     heaviest_forward_path_from_start, heaviest_forward_coverages_from_start = self.follow_path_by_coverage(start_node,
-    #                                                                                                         1,
-    #                                                                                                         "highest")
-    #     # get the heaviest path in the backward direction
-    #     heaviest_backward_path_from_start, heaviest_forward_coverages_from_end = self.follow_path_by_coverage(start_node,
-    #                                                                                                         -1,
-    #                                                                                                         "highest")
-    #     # combine the foward and backward paths to get the heaviest path through the component
-    #     assert heaviest_forward_path_from_start[0] == heaviest_backward_path_from_start[0]
-    #     heaviest_path = list(reversed(heaviest_forward_path_from_start)) + heaviest_backward_path_from_start[1:]
-    #     reverse_heaviest_path = list(reversed(heaviest_path))
-    #     return heaviest_path, reverse_heaviest_path
     def new_get_heaviest_path_through_component(self,
                                         component_ID) -> list:
         """ return the heaviest path through a component """
         # get the highest coverage node in this component
-        import statistics
         start_nodes = []
         for node in self.get_nodes_in_component(component_ID):
             if len(self.get_forward_neighbors(node)) == 0:

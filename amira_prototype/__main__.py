@@ -88,10 +88,10 @@ def write_debug_files(annotatedReads,
     with open(os.path.join(output_dir, "genesAnnotatedOnReads.json"), "w") as o:
         o.write(json.dumps(annotatedReads))
     sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
-    raw_graph.generate_gml(os.path.join(output_dir, "pre_correction_gene_mer_graph"),
-                                geneMer_size,
-                                1,
-                                1)
+    #raw_graph.generate_gml(os.path.join(output_dir, "pre_correction_gene_mer_graph"),
+    #                            geneMer_size,
+    #                            1,
+    #                            1)
     return raw_graph
 
 def main():
@@ -116,12 +116,12 @@ def main():
         short_annotated_reads = raw_graph._shortReads
         short_graph = GeneMerGraph(short_annotated_reads,
                                 3)
-        short_graph.generate_gml(os.path.join(args.output_dir, "short_graph"),
-                                3,
-                                1,
-                                1)
+        #short_graph.generate_gml(os.path.join(args.output_dir, "short_graph"),
+        #                        3,
+        #                        1,
+        #                        1)
     # remove components that have a coverage of 1
-    raw_graph.remove_low_coverage_components(4)
+    raw_graph.remove_low_coverage_components(3)
     # get the new read annotations
     readNodes = raw_graph.get_readNodes()
     annotatedReads = {}
@@ -133,38 +133,32 @@ def main():
         graph = GeneMerGraph(annotatedReads,
                         args.geneMer_size)
         # remove components that have a coverage of 1
-        graph.remove_low_coverage_components(4)
+        graph.remove_low_coverage_components(3)
+        for node_hash in graph._nodes:
+            node = graph._nodes[node_hash]
+            node.heaviest_path = "0"
         for component in graph.components():
             # get the heaviest path through each component
             heaviest_path = graph.new_get_heaviest_path_through_component(component)
-            # get the nodes that are not in the heaviest path
-            reads_to_correct = set()
-            path_set = set(heaviest_path)
-            for node in graph.get_nodes_in_component(component):
-                node_hash = node.__hash__()
-                if not node_hash in path_set:
-                    for readId in node.get_reads():
-                        reads_to_correct.add(readId)
-            # correct the reads to the heaviest path
-            graph.correct_read_nodes_to_heaviest_path(heaviest_path, reads_to_correct)
-            #heaviest_path, reverse_heaviest_path = graph.get_heaviest_path_through_component(component)
-            #lightest_path, heaviest_path = graph.get_lightest_path_through_component(heaviest_path, reverse_heaviest_path)
-            #graph.correct_reads_to_heaviest_path(heaviest_path,
-            #                                lightest_path)
-            #lightest_path_from_start, lightest_coverages_from_start = graph.new_get_lightest_path_through_component(heaviest_path)
-            #lightest_path_from_end, lightest_coverages_from_end = graph.new_get_lightest_path_through_component(reverse_heaviest_path)
-            #lightest_path_from_end = list(reversed(lightest_path_from_end))
-            # decide which lightest path we are correcting based on their coverages
-            #lightest_coverages_from_start = statistics.mean(lightest_coverages_from_start)
-            #lightest_coverages_from_end = statistics.mean(lightest_coverages_from_end)
-            #if lightest_coverages_from_start < lightest_coverages_from_end:
-            #    graph.correct_reads_to_heaviest_path(heaviest_path,
-            #                                lightest_path_from_start)
-            #elif lightest_coverages_from_start > lightest_coverages_from_end:
-            #    graph.correct_reads_to_heaviest_path(heaviest_path,
-            #                                lightest_path_from_end)
-            #else:
-            #    pass
+            for node_hash in graph._nodes:
+                node = graph._nodes[node_hash]
+                if node_hash in heaviest_path:
+                    node.heaviest_path = "1"
+        graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
+                        args.geneMer_size,
+                        args.node_min_coverage,
+                        args.edge_min_coverage)
+        sys.exit(0)
+            # # get the nodes that are not in the heaviest path
+            # reads_to_correct = set()
+            # path_set = set(heaviest_path)
+            # for node in graph.get_nodes_in_component(component):
+            #     node_hash = node.__hash__()
+            #     if not node_hash in path_set:
+            #         for readId in node.get_reads():
+            #             reads_to_correct.add(readId)
+            # # correct the reads to the heaviest path
+            # graph.correct_read_nodes_to_heaviest_path(heaviest_path, reads_to_correct)
         # get the new read annotations
         readNodes = graph.get_readNodes()
         annotatedReads = {}
@@ -182,7 +176,7 @@ def main():
     # filter low coverage things
     graph.filter_graph(args.node_min_coverage,
                     args.edge_min_coverage)
-    graph.remove_low_coverage_components(4)
+    graph.remove_low_coverage_components(3)
     # write out the gene mer graph as a gml
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     if args.debug:
