@@ -190,8 +190,10 @@ def main():
         annotatedReads, genesOfInterest = process_pandora_json(args.pandoraJSON,
                                                             genesOfInterest)
     if args.pandoraSam:
+        # load the pandora consensus and convert to a dictionary
+        pandora_consensus = parse_fastq(args.pandoraConsensus)
         annotatedReads, genesOfInterest = convert_pandora_output(args.pandoraSam,
-                                                        args.pandoraConsensus,
+                                                        pandora_consensus,
                                                         genesOfInterest,
                                                         args.gene_min_coverage)
     print(list(sorted(list(genesOfInterest))))
