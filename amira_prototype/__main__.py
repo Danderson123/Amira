@@ -74,6 +74,33 @@ def process_pandora_json(pandoraJSON, genesOfInterest):
     genesOfInterest = subsettedGenesOfInterest
     return annotatedReads, genesOfInterest
 
+def get_read_start(cigar):
+    """ return an int of the 0 based position where the read region starts mapping to the gene """
+    # check if there are any hard clipped bases at the start of the mapping
+    if cigar[0][0] == 5:
+        regionStart = cigar[0][1]
+    else:
+        regionStart = 0
+    return regionStart
+
+def get_read_end(cigar,
+                regionStart):
+    """ return an int of the 0 based position where the read region stops mapping to the gene """
+    regionLength = 0
+    for tuple in cigar:
+        if not tuple[0] == 5:
+            regionLength += tuple[1]
+    regionEnd = regionStart + regionLength
+    return regionEnd, regionLength
+
+def determine_gene_strand(read):
+    strandlessGene = read.reference_name.replace("~~~", ";").replace(".aln.fas", "").replace(".fasta", "").replace(".fa", "")
+    if not read.is_forward:
+        gene_name = "-" + strandlessGene
+    else:
+        gene_name = "+" + strandlessGene
+    return gene_name, strandlessGene
+
 def convert_pandora_output(pandoraSam,
                         pandora_consensus,
                         genesOfInterest,
