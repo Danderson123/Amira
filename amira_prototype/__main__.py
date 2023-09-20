@@ -45,8 +45,6 @@ def get_options():
     parser.add_argument('--use-consensus', dest='use_pandora_consensus',
                         help='polish the pandora consensus of each gene to recover AMR alleles',
                         action='store_true' , default=None, required=False)
-    parser.add_argument("--pandora-consensus", dest="pandoraConsensus",
-                        help='path to the pandora consensus fastq for this sample', default=None, required=False)
     parser.add_argument('--racon-path', dest='racon_path',
                         help='path to Racon binary', default=None, required=False)
     parser.add_argument('--threads', dest='threads', type=int, default=1,
@@ -74,6 +72,62 @@ def process_pandora_json(pandoraJSON, genesOfInterest):
         del annotatedReads[read]
     genesOfInterest = subsettedGenesOfInterest
     return annotatedReads, genesOfInterest
+
+def convert_pandora_output(pandoraSam,
+                        pandora_consensus,
+                        genesOfInterest,
+                        geneMinCoverage):
+    # load the pseudo SAM
+    pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
+    annotatedReads = {}
+    readLengthDict = {}
+    geneCounts = {}
+    # iterate through the read regions
+    for read in pandora_sam_content.fetch():
+        # convert the cigarsting to a Cigar object
+        cigar = read.cigartuples
+        # check if the read has mapped to any regions
+        if read.is_mapped:
+            # get the start base that the region maps to on the read
+            regionStart = get_read_start(cigar)
+            # get the end base that the region maps to on the read
+            regionEnd, regionLength = get_read_end(cigar,
+                                                regionStart)
+            # append the strand of the match to the name of the gene
+            gene_name, strandlessGene = determine_gene_strand(read)
+            # exclude genes that do not have a pandora consensus
+            if strandlessGene in pandora_consensus:
+                if not read.query_name in annotatedReads:
+                    annotatedReads[read.query_name] = []
+                    readLengthDict[read.query_name] = []
+                # count how many times we see each gene
+                if not strandlessGene in geneCounts:
+                    geneCounts[strandlessGene] = 0
+                geneCounts[strandlessGene] += 1
+                # store the per read gene names, gene starts and gene ends
+                readLengthDict[read.query_name].append((regionStart, regionEnd))
+                # store the per read gene names
+                annotatedReads[read.query_name].append(gene_name)
+    to_delete = []
+    subsettedGenesOfInterest = set()
+    for r in annotatedReads:
+        annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
+        containsAMRgene = False
+        for g in range(len(annotatedReads[r])):
+            split_names = annotatedReads[r][g][1:].split(".")
+            if any(subgene in genesOfInterest for subgene in split_names):
+                containsAMRgene = True
+                for subgene in split_names:
+                    if subgene in genesOfInterest:
+                        annotatedReads[r][g] = annotatedReads[r][g][0] + subgene
+                        break
+                subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
+        if not containsAMRgene:
+            to_delete.append(r)
+    for t in to_delete:
+        del annotatedReads[t]
+    assert not len(annotatedReads) == 0
+    return annotatedReads, list(subsettedGenesOfInterest)
 
 def write_debug_files(annotatedReads,
                     geneMer_size,
@@ -107,6 +161,11 @@ def main():
     if args.pandoraJSON:
         annotatedReads, genesOfInterest = process_pandora_json(args.pandoraJSON,
                                                             genesOfInterest)
+    if args.pandoraSam:
+        annotatedReads, genesOfInterest = convert_pandora_output(args.pandoraSam,
+                                                        args.pandoraConsensus,
+                                                        genesOfInterest,
+                                                        args.gene_min_coverage)
     print(list(sorted(list(genesOfInterest))))
     if args.debug:
         raw_graph = write_debug_files(annotatedReads,
@@ -140,25 +199,25 @@ def main():
         for component in graph.components():
             # get the heaviest path through each component
             heaviest_path = graph.new_get_heaviest_path_through_component(component)
-            for node_hash in graph._nodes:
-                node = graph._nodes[node_hash]
-                if node_hash in heaviest_path:
-                    node.heaviest_path = "1"
-        graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
-                        args.geneMer_size,
-                        args.node_min_coverage,
-                        args.edge_min_coverage)
-        sys.exit(0)
-            # # get the nodes that are not in the heaviest path
-            # reads_to_correct = set()
-            # path_set = set(heaviest_path)
-            # for node in graph.get_nodes_in_component(component):
-            #     node_hash = node.__hash__()
-            #     if not node_hash in path_set:
-            #         for readId in node.get_reads():
-            #             reads_to_correct.add(readId)
-            # # correct the reads to the heaviest path
-            # graph.correct_read_nodes_to_heaviest_path(heaviest_path, reads_to_correct)
+            #for node_hash in graph._nodes:
+            #    node = graph._nodes[node_hash]
+            #    if node_hash in heaviest_path:
+            #        node.heaviest_path = "1"
+       # graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
+       #                 args.geneMer_size,
+       #                 args.node_min_coverage,
+       #                 args.edge_min_coverage)
+       # sys.exit(0)
+            # get the nodes that are not in the heaviest path
+            reads_to_correct = set()
+            path_set = set(heaviest_path)
+            for node in graph.get_nodes_in_component(component):
+                node_hash = node.__hash__()
+                if not node_hash in path_set:
+                    for readId in node.get_reads():
+                        reads_to_correct.add(readId)
+            # correct the reads to the heaviest path
+            graph.correct_read_nodes_to_heaviest_path(heaviest_path, reads_to_correct)
         # get the new read annotations
         readNodes = graph.get_readNodes()
         annotatedReads = {}
