@@ -452,8 +452,7 @@ class GeneMerGraph:
                         node_coverage,
                         reads,
                         component_ID,
-                        nodeColor,
-                        heaviest):
+                        nodeColor):
         """ return a string of a gml node entry """
         if node_coverage > 100:
             node_coverage = 100
@@ -461,7 +460,6 @@ class GeneMerGraph:
         node_entry += "\t\tid\t" + str(node_id) + "\n"
         node_entry += '\t\tlabel\t"' + node_string + '"\n'
         node_entry += "\t\tcoverage\t" + str(node_coverage) + "\n"
-        node_entry += "\t\theaviest_path\t" + str(heaviest) + "\n"
         if component_ID:
             node_entry += "\t\tcomponent\t" + str(component_ID) + "\n"
         node_entry += '\t\treads\t"' + ",".join(reads) + '"\n'
@@ -1041,8 +1039,7 @@ class GeneMerGraph:
                                             sourceNode.get_node_coverage(),
                                             [read for read in sourceNode.get_reads()],
                                             sourceNode.get_component(),
-                                            sourceNode.get_color(),
-                                            sourceNode.heaviest_path)
+                                            sourceNode.get_color())
             graph_data.append(nodeEntry)
             for edge in self.get_forward_edges(sourceNode) + self.get_backward_edges(sourceNode):
                 targetNode = edge.get_targetNode()
