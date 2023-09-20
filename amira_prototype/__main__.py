@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import pysam
 import statistics
 import sys
 from tqdm import tqdm
