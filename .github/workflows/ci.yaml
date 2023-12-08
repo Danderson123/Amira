@@ -1,0 +1,32 @@
+# inspired by Leandro Lima https://github.com/leoisl/grp_meeting/blob/main/.github/workflows/ci.yaml
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  main:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ 3.8, 3.9, "3.10", 3.11 ]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Run pre-commit hooks
+      uses: pre-commit/action@v3.0.0
+
+    - name: Run pre-commit CI
+      uses: pre-commit-ci/lite-action@v1.0.1
+      if: always()
+
+    - name: Install and configure Poetry
+      uses: snok/install-poetry@v1
+
+    - name: Install
+      run:  make install-ci
+
+    - name: Test
+      run:  make test
