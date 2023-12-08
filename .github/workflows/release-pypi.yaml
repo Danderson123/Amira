@@ -1,0 +1,23 @@
+# Inspired by https://github.com/mbhall88/tbpore/blob/main/.github/workflows/release-pypi.yaml
+
+name: Release on PyPI
+
+on:
+  release:
+    types: [published]
+    
+jobs:
+  build-and-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and publish to pypi
+        uses: JRubics/poetry-publish@v1.17
+        with:
+          pypi_token: ${{ secrets.PYPI_TOKEN }}
+          ignore_dev_requirements: "yes"
+          repository_name: "testpypi"
+          repository_url: "https://test.pypi.org/legacy/"
