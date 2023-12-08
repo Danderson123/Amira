@@ -1,5 +1,5 @@
-from construct_gene import Gene
-from construct_gene_mer import GeneMer
+from amira_prototype.construct_gene import Gene
+from amira_prototype.construct_gene_mer import GeneMer
 
 def convert_genes(annotatedGenes):
     """ return a list of Gene objects for each gene in the list of genes for this read """

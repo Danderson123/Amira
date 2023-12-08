@@ -3111,13 +3111,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph({"read1": genes1,
                             "read2": genes1_reversed},
                             1)
-        graph.generate_gml("test/test", 1, 1,1)
         readNodes = graph.get_readNodes()
         # execution
         actual_geneMers = {}
         for readId in readNodes:
             actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId], readId)
-        print(actual_geneMers)
         # assertion
         self.assertTrue((actual_geneMers["read1"] == genes1) or (actual_geneMers["read1"] == genes1_reversed))
         self.assertTrue((actual_geneMers["read2"] == genes1) or (actual_geneMers["read2"] == genes1_reversed))

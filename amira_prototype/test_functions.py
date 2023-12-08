@@ -2,7 +2,7 @@ import gzip
 import os
 from tqdm import tqdm
 
-from construct_graph import GeneMerGraph
+from amira_prototype.construct_graph import GeneMerGraph
 
 class TestUnitigTools:
     def __init__(self,

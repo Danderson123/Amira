@@ -1,4 +1,4 @@
-from construct_node import Node
+from amira_prototype.construct_node import Node
 
 def extract_node_hashes(firstNode,
                         secondNode):

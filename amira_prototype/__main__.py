@@ -2,14 +2,13 @@ import argparse
 import json
 import os
 import pysam
-import statistics
 import sys
 from tqdm import tqdm
 
-from construct_graph import GeneMerGraph
-from construct_unitig import UnitigTools, parse_fastq
+from amira_prototype.construct_graph import GeneMerGraph
+from amira_prototype.construct_unitig import UnitigTools, parse_fastq
 
-from test_functions import TestUnitigTools, Unitig
+from amira_prototype.test_functions import TestUnitigTools, Unitig
 
 def get_options():
     """define args from the command line"""

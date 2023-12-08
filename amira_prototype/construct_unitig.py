@@ -5,8 +5,8 @@ import os
 import subprocess
 from tqdm import tqdm
 
-from construct_graph import GeneMerGraph
-from construct_gene import convert_int_strand_to_string
+from amira_prototype.construct_graph import GeneMerGraph
+from amira_prototype.construct_gene import convert_int_strand_to_string
 
 class UnitigTools:
     def __init__(self,

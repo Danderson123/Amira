@@ -1,5 +1,5 @@
-from construct_read import Read
-from construct_read import GeneMer
+from amira_prototype.construct_read import Read
+from amira_prototype.construct_read import GeneMer
 
 class Node:
     def __init__(self,

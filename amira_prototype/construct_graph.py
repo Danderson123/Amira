@@ -4,11 +4,11 @@ import sys
 sys.setrecursionlimit(50000)
 from tqdm import tqdm
 
-from construct_node import Node
-from construct_edge import Edge
-from construct_gene_mer import GeneMer
-from construct_read import Read
-from construct_gene import convert_int_strand_to_string
+from amira_prototype.construct_node import Node
+from amira_prototype.construct_edge import Edge
+from amira_prototype.construct_gene_mer import GeneMer
+from amira_prototype.construct_read import Read
+from amira_prototype.construct_gene import convert_int_strand_to_string
 
 def subsample_to_minimizers(kmers, window_size=5):
     minimizers = []

@@ -5,7 +5,7 @@ import subprocess
 
 from Bio import SeqIO
 from Bio.Seq import Seq
-from construct_unitig import parse_fastq
+from amira_prototype.construct_unitig import parse_fastq
 
 def parse_sam_file(sam_file_path,
                 genesOfInterest):
