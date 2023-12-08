@@ -1,11 +1,17 @@
-import unittest
 import sys
-sys.path.insert(0, "amira_prototype")
+import unittest
 
-from construct_gene import convert_string_strand_to_int, convert_int_strand_to_string, reverse_strand, Gene
+sys.path.insert(0, "..")
+
+from amira_prototype.construct_gene import (
+    Gene,
+    convert_int_strand_to_string,
+    convert_string_strand_to_int,
+    reverse_strand,
+)
+
 
 class TestGeneConstructor(unittest.TestCase):
-
     def test___init___construction_positive_strand(self):
         # setup
         gene = Gene("+gene1")
@@ -43,7 +49,7 @@ class TestGeneConstructor(unittest.TestCase):
         self.assertEqual(actual_strand, expected_strand)
 
     def test___split_gene_and_negative_strand(self):
-        #setup
+        # setup
         gene = Gene("-gene2")
         # execution
         actual_name = gene.get_name()

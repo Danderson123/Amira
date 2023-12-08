@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "amira_prototype"
+version = "0.0.0"
+description = "amira_prototype"
+authors = ["Daniel Anderson <dander@ebi.ac.uk>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/Danderson123/amira_prototype"
+repository = "https://github.com/Danderson123/amira_prototype"
+packages = [{include = "amira_prototype"}]
+keywords = ["AMR Prediction", "Genotyping", "Sequence Assembly"]
+
+[tool.poetry.scripts]
+amira_prototype = 'amira_prototype.__main__:main'
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "joblib==1.2.0", "matplotlib==3.6.2", "pysam==0.20.0", "pytest==7.2.0", "tqdm==4.64.1"]
+build-backend = "poetry.core.masonry.api"

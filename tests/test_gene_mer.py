@@ -1,13 +1,19 @@
-import unittest
 import sys
-sys.path.insert(0, "amira_prototype")
+import unittest
 
-from construct_gene_mer import define_rc_geneMer, sort_geneMers, choose_canonical_geneMer, define_geneMer, GeneMer
-from construct_gene import Gene
+sys.path.insert(0, "..")
+
+from amira_prototype.construct_gene import Gene
+from amira_prototype.construct_gene_mer import (
+    GeneMer,
+    choose_canonical_geneMer,
+    define_geneMer,
+    define_rc_geneMer,
+    sort_geneMers,
+)
 
 
 class TestGeneMerConstructor(unittest.TestCase):
-
     def test___init_genemer(self):
         # setup
         genes = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
@@ -62,46 +68,59 @@ class TestGeneMerConstructor(unittest.TestCase):
         geneMer = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
         rcGeneMer = [Gene("-gene3"), Gene("+gene2"), Gene("-gene1")]
         # execution
-        actual_geneMerHashes, actual_rcGeneMerHashes, actual_sortedGeneMerhashes = sort_geneMers(geneMer,
-                                                                                            rcGeneMer)
+        actual_geneMerHashes, actual_rcGeneMerHashes, actual_sortedGeneMerhashes = sort_geneMers(
+            geneMer, rcGeneMer
+        )
         # assertion
-        self.assertTrue((actual_geneMerHashes == actual_sortedGeneMerhashes[0] and actual_rcGeneMerHashes == actual_sortedGeneMerhashes[1]) or (actual_geneMerHashes == actual_sortedGeneMerhashes[1] and actual_rcGeneMerHashes == actual_sortedGeneMerhashes[0]))
+        self.assertTrue(
+            (
+                actual_geneMerHashes == actual_sortedGeneMerhashes[0]
+                and actual_rcGeneMerHashes == actual_sortedGeneMerhashes[1]
+            )
+            or (
+                actual_geneMerHashes == actual_sortedGeneMerhashes[1]
+                and actual_rcGeneMerHashes == actual_sortedGeneMerhashes[0]
+            )
+        )
 
     def test___choose_canonical_geneMer_size_3(self):
         # setup
         geneMer = [Gene("+gene1"), Gene("-gene2"), Gene("+gene3")]
         rcGeneMer = [Gene("-gene3"), Gene("+gene2"), Gene("-gene1")]
-        geneMerHashes, rcGeneMerHashes, sortedGeneMerhashes = sort_geneMers(geneMer,
-                                                                            rcGeneMer)
+        geneMerHashes, rcGeneMerHashes, sortedGeneMerhashes = sort_geneMers(geneMer, rcGeneMer)
         # execution
-        actual_canonicalGeneMer, actual_reverseCanonicalGeneMer = choose_canonical_geneMer(geneMer,
-                                                                                        geneMerHashes,
-                                                                                        rcGeneMer,
-                                                                                        rcGeneMerHashes,
-                                                                                        sortedGeneMerhashes)
+        actual_canonicalGeneMer, actual_reverseCanonicalGeneMer = choose_canonical_geneMer(
+            geneMer, geneMerHashes, rcGeneMer, rcGeneMerHashes, sortedGeneMerhashes
+        )
         # assertion
         self.assertNotEqual(actual_canonicalGeneMer, [])
         self.assertNotEqual(actual_reverseCanonicalGeneMer, [])
         self.assertNotEqual(actual_canonicalGeneMer, actual_reverseCanonicalGeneMer)
-        self.assertTrue((actual_canonicalGeneMer == geneMer and actual_reverseCanonicalGeneMer == rcGeneMer) or (actual_canonicalGeneMer == rcGeneMer and actual_reverseCanonicalGeneMer == geneMer))
+        self.assertTrue(
+            (actual_canonicalGeneMer == geneMer and actual_reverseCanonicalGeneMer == rcGeneMer)
+            or (actual_canonicalGeneMer == rcGeneMer and actual_reverseCanonicalGeneMer == geneMer)
+        )
 
     def test___choose_canonical_geneMer_size_1(self):
         # setup
         geneMer = [Gene("+gene1")]
         rcGeneMer = [Gene("-gene1")]
-        geneMerHashes, rcGeneMerHashes, sortedGeneMerhashes = sort_geneMers(geneMer,
-                                                                            rcGeneMer)
+        geneMerHashes, rcGeneMerHashes, sortedGeneMerhashes = sort_geneMers(geneMer, rcGeneMer)
         # execution
-        actual_canonicalGeneMer, actual_reverseCanonicalGeneMer = choose_canonical_geneMer(geneMer,
-                                                                                        geneMerHashes,
-                                                                                        rcGeneMer,
-                                                                                        rcGeneMerHashes,
-                                                                                        sortedGeneMerhashes)
+        actual_canonicalGeneMer, actual_reverseCanonicalGeneMer = choose_canonical_geneMer(
+            geneMer, geneMerHashes, rcGeneMer, rcGeneMerHashes, sortedGeneMerhashes
+        )
         # assertion
         self.assertNotEqual(actual_canonicalGeneMer, [])
         self.assertNotEqual(actual_reverseCanonicalGeneMer, [])
-        self.assertNotEqual([g.__hash__() for g in actual_canonicalGeneMer], [g.__hash__() for g in actual_reverseCanonicalGeneMer])
-        self.assertTrue((actual_canonicalGeneMer == geneMer and actual_reverseCanonicalGeneMer == rcGeneMer) or (actual_canonicalGeneMer == rcGeneMer and actual_reverseCanonicalGeneMer == geneMer))
+        self.assertNotEqual(
+            [g.__hash__() for g in actual_canonicalGeneMer],
+            [g.__hash__() for g in actual_reverseCanonicalGeneMer],
+        )
+        self.assertTrue(
+            (actual_canonicalGeneMer == geneMer and actual_reverseCanonicalGeneMer == rcGeneMer)
+            or (actual_canonicalGeneMer == rcGeneMer and actual_reverseCanonicalGeneMer == geneMer)
+        )
 
     def test___define_geneMer_size_3(self):
         # setup
@@ -111,7 +130,16 @@ class TestGeneMerConstructor(unittest.TestCase):
         # assertion
         expected_geneMer = geneMer
         expected_rcGeneMer = define_rc_geneMer(geneMer)
-        self.assertTrue((actual_canonicalGeneMer == expected_geneMer and actual_reverseCanonicalGeneMer == expected_rcGeneMer) or (actual_canonicalGeneMer == expected_rcGeneMer and actual_reverseCanonicalGeneMer == expected_geneMer))
+        self.assertTrue(
+            (
+                actual_canonicalGeneMer == expected_geneMer
+                and actual_reverseCanonicalGeneMer == expected_rcGeneMer
+            )
+            or (
+                actual_canonicalGeneMer == expected_rcGeneMer
+                and actual_reverseCanonicalGeneMer == expected_geneMer
+            )
+        )
 
     def test___define_geneMer_size_1_positive(self):
         # setup
@@ -121,7 +149,16 @@ class TestGeneMerConstructor(unittest.TestCase):
         # assertion
         expected_geneMer = geneMer
         expected_rcGeneMer = define_rc_geneMer(geneMer)
-        self.assertTrue((actual_canonicalGeneMer == expected_geneMer and actual_reverseCanonicalGeneMer == expected_rcGeneMer) or (actual_canonicalGeneMer == expected_rcGeneMer and actual_reverseCanonicalGeneMer == expected_geneMer))
+        self.assertTrue(
+            (
+                actual_canonicalGeneMer == expected_geneMer
+                and actual_reverseCanonicalGeneMer == expected_rcGeneMer
+            )
+            or (
+                actual_canonicalGeneMer == expected_rcGeneMer
+                and actual_reverseCanonicalGeneMer == expected_geneMer
+            )
+        )
 
     def test___define_geneMer_size_1_negative(self):
         # setup
@@ -131,7 +168,16 @@ class TestGeneMerConstructor(unittest.TestCase):
         # assertion
         expected_geneMer = geneMer
         expected_rcGeneMer = define_rc_geneMer(geneMer)
-        self.assertTrue((actual_canonicalGeneMer == expected_geneMer and actual_reverseCanonicalGeneMer == expected_rcGeneMer) or (actual_canonicalGeneMer == expected_rcGeneMer and actual_reverseCanonicalGeneMer == expected_geneMer))
+        self.assertTrue(
+            (
+                actual_canonicalGeneMer == expected_geneMer
+                and actual_reverseCanonicalGeneMer == expected_rcGeneMer
+            )
+            or (
+                actual_canonicalGeneMer == expected_rcGeneMer
+                and actual_reverseCanonicalGeneMer == expected_geneMer
+            )
+        )
 
     def test__define_geneMer_empty_list(self):
         # setup

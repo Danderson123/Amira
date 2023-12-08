@@ -1,59 +1,112 @@
 import argparse
 import json
 import os
-import pysam
-import statistics
 import sys
+
+import pysam
 from tqdm import tqdm
 
-from construct_graph import GeneMerGraph
-from construct_unitig import UnitigTools, parse_fastq
+from amira_prototype.construct_graph import GeneMerGraph
+from amira_prototype.construct_unitig import UnitigTools, parse_fastq
+from amira_prototype.test_functions import TestUnitigTools, Unitig
 
-from test_functions import TestUnitigTools, Unitig
 
 def get_options():
     """define args from the command line"""
-    parser = argparse.ArgumentParser(description='Build a prototype gene de Bruijn graph.')
+    parser = argparse.ArgumentParser(description="Build a prototype gene de Bruijn graph.")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--pandoraSam', dest='pandoraSam',
-                        help='Pandora map SAM file path')
-    group.add_argument('--pandoraJSON', dest='pandoraJSON',
-                        help='Pandora map JSON file path')
-    parser.add_argument('--pandoraConsensus', dest='pandoraConsensus',
-                        help='path to Pandora consensus fastq', required=False)
-    parser.add_argument('--readfile', dest='readfile',
-                        help='path of gzipped long read fastq', required=True)
-    parser.add_argument('--output', dest='output_dir', type=str, default="gene_de_Bruijn_graph",
-                        help='directory for Amira outputs')
-    parser.add_argument('-k', dest='geneMer_size', type=int, default=3,
-                        help='kmer length for the gene de Bruijn graph')
-    parser.add_argument('-n', dest='node_min_coverage', type=int, default=1,
-                        help='minimum threshold for gene-mer coverage')
-    parser.add_argument('-e', dest='edge_min_coverage', type=int, default=1,
-                        help='minimum threshold for edge coverage between gene-mers')
-    parser.add_argument('-g', dest='gene_min_coverage', type=int, default=1,
-                        help='minimum threshold for gene filtering')
-    parser.add_argument('-p', dest='bubble_popper_threshold', type=float, default=1.5,
-                        help='minimum difference in coverage threshold to collapse paths in the graph (default = 1.5)')
-    parser.add_argument('-c', dest='cleaning_iterations', type=int, default=2,
-                        help='number of gene-mer graph cleaning operations (default = 2)')
-    parser.add_argument('--gene-path', dest='path_to_interesting_genes',
-                        help='path to a newline delimited file of genes of interest', required=True)
-    parser.add_argument('--flye-path', dest='flye_path',
-                        help='path to Flye binary', default=None, required=False)
-    parser.add_argument('--raven-path', dest='raven_path',
-                        help='path to Raven binary', default=None, required=False)
-    parser.add_argument('--use-consensus', dest='use_pandora_consensus',
-                        help='polish the pandora consensus of each gene to recover AMR alleles',
-                        action='store_true' , default=None, required=False)
-    parser.add_argument('--racon-path', dest='racon_path',
-                        help='path to Racon binary', default=None, required=False)
-    parser.add_argument('--threads', dest='threads', type=int, default=1,
-                        help='number of threads to use')
-    parser.add_argument('--debug', dest='debug', action='store_true', default=False,
-                        help='Amira debugging')
+    group.add_argument("--pandoraSam", dest="pandoraSam", help="Pandora map SAM file path")
+    group.add_argument("--pandoraJSON", dest="pandoraJSON", help="Pandora map JSON file path")
+    parser.add_argument(
+        "--pandoraConsensus",
+        dest="pandoraConsensus",
+        help="path to Pandora consensus fastq",
+        required=False,
+    )
+    parser.add_argument(
+        "--readfile", dest="readfile", help="path of gzipped long read fastq", required=True
+    )
+    parser.add_argument(
+        "--output",
+        dest="output_dir",
+        type=str,
+        default="gene_de_Bruijn_graph",
+        help="directory for Amira outputs",
+    )
+    parser.add_argument(
+        "-k",
+        dest="geneMer_size",
+        type=int,
+        default=3,
+        help="kmer length for the gene de Bruijn graph",
+    )
+    parser.add_argument(
+        "-n",
+        dest="node_min_coverage",
+        type=int,
+        default=1,
+        help="minimum threshold for gene-mer coverage",
+    )
+    parser.add_argument(
+        "-e",
+        dest="edge_min_coverage",
+        type=int,
+        default=1,
+        help="minimum threshold for edge coverage between gene-mers",
+    )
+    parser.add_argument(
+        "-g",
+        dest="gene_min_coverage",
+        type=int,
+        default=1,
+        help="minimum threshold for gene filtering",
+    )
+    parser.add_argument(
+        "-p",
+        dest="bubble_popper_threshold",
+        type=float,
+        default=1.5,
+        help="minimum difference in coverage threshold to collapse paths in the graph (default = 1.5)",
+    )
+    parser.add_argument(
+        "-c",
+        dest="cleaning_iterations",
+        type=int,
+        default=2,
+        help="number of gene-mer graph cleaning operations (default = 2)",
+    )
+    parser.add_argument(
+        "--gene-path",
+        dest="path_to_interesting_genes",
+        help="path to a newline delimited file of genes of interest",
+        required=True,
+    )
+    parser.add_argument(
+        "--flye-path", dest="flye_path", help="path to Flye binary", default=None, required=False
+    )
+    parser.add_argument(
+        "--raven-path", dest="raven_path", help="path to Raven binary", default=None, required=False
+    )
+    parser.add_argument(
+        "--use-consensus",
+        dest="use_pandora_consensus",
+        help="polish the pandora consensus of each gene to recover AMR alleles",
+        action="store_true",
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "--racon-path", dest="racon_path", help="path to Racon binary", default=None, required=False
+    )
+    parser.add_argument(
+        "--threads", dest="threads", type=int, default=1, help="number of threads to use"
+    )
+    parser.add_argument(
+        "--debug", dest="debug", action="store_true", default=False, help="Amira debugging"
+    )
     args = parser.parse_args()
     return args
+
 
 def process_pandora_json(pandoraJSON, genesOfInterest):
     with open(pandoraJSON) as i:
@@ -74,8 +127,9 @@ def process_pandora_json(pandoraJSON, genesOfInterest):
     genesOfInterest = subsettedGenesOfInterest
     return annotatedReads, genesOfInterest
 
+
 def get_read_start(cigar):
-    """ return an int of the 0 based position where the read region starts mapping to the gene """
+    """return an int of the 0 based position where the read region starts mapping to the gene"""
     # check if there are any hard clipped bases at the start of the mapping
     if cigar[0][0] == 5:
         regionStart = cigar[0][1]
@@ -83,9 +137,9 @@ def get_read_start(cigar):
         regionStart = 0
     return regionStart
 
-def get_read_end(cigar,
-                regionStart):
-    """ return an int of the 0 based position where the read region stops mapping to the gene """
+
+def get_read_end(cigar, regionStart):
+    """return an int of the 0 based position where the read region stops mapping to the gene"""
     regionLength = 0
     for tuple in cigar:
         if not tuple[0] == 5:
@@ -93,18 +147,22 @@ def get_read_end(cigar,
     regionEnd = regionStart + regionLength
     return regionEnd, regionLength
 
+
 def determine_gene_strand(read):
-    strandlessGene = read.reference_name.replace("~~~", ";").replace(".aln.fas", "").replace(".fasta", "").replace(".fa", "")
+    strandlessGene = (
+        read.reference_name.replace("~~~", ";")
+        .replace(".aln.fas", "")
+        .replace(".fasta", "")
+        .replace(".fa", "")
+    )
     if not read.is_forward:
         gene_name = "-" + strandlessGene
     else:
         gene_name = "+" + strandlessGene
     return gene_name, strandlessGene
 
-def convert_pandora_output(pandoraSam,
-                        pandora_consensus,
-                        genesOfInterest,
-                        geneMinCoverage):
+
+def convert_pandora_output(pandoraSam, pandora_consensus, genesOfInterest, geneMinCoverage):
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
     annotatedReads = {}
@@ -119,8 +177,7 @@ def convert_pandora_output(pandoraSam,
             # get the start base that the region maps to on the read
             regionStart = get_read_start(cigar)
             # get the end base that the region maps to on the read
-            regionEnd, regionLength = get_read_end(cigar,
-                                                regionStart)
+            regionEnd, regionLength = get_read_end(cigar, regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
             # exclude genes that do not have a pandora consensus
@@ -139,7 +196,9 @@ def convert_pandora_output(pandoraSam,
     to_delete = []
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
-        annotatedReads[r] = [gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1]
+        annotatedReads[r] = [
+            gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1
+        ]
         containsAMRgene = False
         for g in range(len(annotatedReads[r])):
             split_names = annotatedReads[r][g][1:].split(".")
@@ -152,48 +211,44 @@ def convert_pandora_output(pandoraSam,
                 subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
         # if not containsAMRgene:
         #     to_delete.append(r)
-    #for t in to_delete:
+    # for t in to_delete:
     #    del annotatedReads[t]
     assert not len(annotatedReads) == 0
     return annotatedReads, list(subsettedGenesOfInterest)
 
-def write_debug_files(annotatedReads,
-                    geneMer_size,
-                    genesOfInterest,
-                    output_dir):
-    raw_graph = GeneMerGraph(annotatedReads,
-                            geneMer_size)
+
+def write_debug_files(annotatedReads, geneMer_size, genesOfInterest, output_dir):
+    raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
         node.color_node(genesOfInterest)
     import json
+
     with open(os.path.join(output_dir, "genesAnnotatedOnReads.json"), "w") as o:
         o.write(json.dumps(annotatedReads))
     sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
-    raw_graph.generate_gml(os.path.join(output_dir, "pre_correction_gene_mer_graph"),
-                            geneMer_size,
-                            1,
-                            1)
+    raw_graph.generate_gml(
+        os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
+    )
     return raw_graph
 
-def make_unitig_plot(readsAsUnitigs,
-                    output_dir):
+
+def make_unitig_plot(readsAsUnitigs, output_dir):
     readsAsUnitigIds = {}
     for read in readsAsUnitigs:
         readsAsUnitigIds[read] = ["+" + str(u.get_unitig_ID()) for u in readsAsUnitigs[read]]
-    unitig_graph = GeneMerGraph(readsAsUnitigIds,
-                                1)
-    unitig_graph.generate_gml(os.path.join(output_dir, "unitig_graph.gml"),
-                        1,
-                        1,
-                        1)
+    unitig_graph = GeneMerGraph(readsAsUnitigIds, 1)
+    unitig_graph.generate_gml(os.path.join(output_dir, "unitig_graph.gml"), 1, 1, 1)
+
 
 def shared_indices(list1, list2):
     indices = [i for i, elem in enumerate(list1) if elem in list2]
     return (indices[0], indices[-1]) if indices else (None, None)
 
+
 def calculate_unitig_distance_matrix(unitigs_in_component):
     from collections import Counter
+
     fw_genes_per_unitig = {}
     rv_genes_per_unitig = {}
     for i in range(len(unitigs_in_component)):
@@ -204,24 +259,32 @@ def calculate_unitig_distance_matrix(unitigs_in_component):
         distance_matrix = [0 for _ in range(len(unitigs_in_component))]
         for j in fw_genes_per_unitig:
             if not i == j:
-                sorted_matches = sorted([fw_genes_per_unitig[j][:],
-                                    rv_genes_per_unitig[j][:]],
-                                    key = lambda x: len(set(fw_genes_per_unitig[i]).intersection(set(x))),
-                                    reverse=True)
+                sorted_matches = sorted(
+                    [fw_genes_per_unitig[j][:], rv_genes_per_unitig[j][:]],
+                    key=lambda x: len(set(fw_genes_per_unitig[i]).intersection(set(x))),
+                    reverse=True,
+                )
                 counter1 = Counter(fw_genes_per_unitig[i])
                 counter2 = Counter(sorted_matches[0])
                 shared_count = len(list((counter1 & counter2).elements()))
-                union_count = len(fw_genes_per_unitig[i]) #len(list((counter1 | counter2).elements()))
+                union_count = len(
+                    fw_genes_per_unitig[i]
+                )  # len(list((counter1 | counter2).elements()))
                 distance_matrix[j] = shared_count / union_count
         with open("dist_mat.txt", "a+") as o:
             o.write("\t".join([str(round(c, 1)) for c in distance_matrix]) + "\n")
         max_index, max_value = max(enumerate(distance_matrix), key=lambda x: x[1])
         # only correct unitigs if there is another one that is more than 80% similar
-        if max_value > 0.7 and unitigs_in_component[max_index].get_coverage() >= unitigs_in_component[i].get_coverage():
+        if (
+            max_value > 0.7
+            and unitigs_in_component[max_index].get_coverage()
+            >= unitigs_in_component[i].get_coverage()
+        ):
             unitig_correction[unitigs_in_component[i]] = unitigs_in_component[max_index]
         else:
             unitig_correction[unitigs_in_component[i]] = unitigs_in_component[i]
     return unitig_correction
+
 
 def get_unitig_boundaries(nodes_in_component, graph):
     """Identify unitig boundaries within a component based on node degrees."""
@@ -239,6 +302,7 @@ def get_unitig_boundaries(nodes_in_component, graph):
             unitig_boundaries.add(node_hash)
     return unitig_boundaries, node_mapping
 
+
 def generate_unitigs(node_mapping, unitig_boundaries, graph, component, current_unitig_id):
     """Generate unitigs based on boundaries and graph structure."""
     unitigs_in_component = []
@@ -254,14 +318,23 @@ def generate_unitigs(node_mapping, unitig_boundaries, graph, component, current_
                 if not len(linear_path) == 1
                 else graph.get_gene_mer_label(graph.get_node_by_hash(linear_path[0])).split("~~~")
             )
-            if not (tuple(linear_path) in seen_unitigs or tuple(list(reversed(linear_path))) in seen_unitigs):
-                unitig = Unitig([node_mapping[h] for h in linear_path], list_of_genes, component, current_unitig_id)
+            if not (
+                tuple(linear_path) in seen_unitigs
+                or tuple(list(reversed(linear_path))) in seen_unitigs
+            ):
+                unitig = Unitig(
+                    [node_mapping[h] for h in linear_path],
+                    list_of_genes,
+                    component,
+                    current_unitig_id,
+                )
                 for node_hash in linear_path:
                     node_to_unitig_mapping[node_hash] = unitig
                 unitigs_in_component.append(unitig)
                 current_unitig_id += 1
                 seen_unitigs.add(tuple(linear_path))
     return unitigs_in_component, node_to_unitig_mapping, current_unitig_id
+
 
 def get_reads_to_correct(correct_per_unitig):
     """Get the set of reads that need to be corrected based on unitig correction."""
@@ -270,6 +343,7 @@ def get_reads_to_correct(correct_per_unitig):
         for read in unitig.get_reads():
             reads_to_correct.add(read)
     return reads_to_correct
+
 
 def update_reads_as_unitigs(graph, reads_to_correct, node_to_unitig_mapping, reads_as_unitigs):
     """Update reads to unitigs mapping based on corrections."""
@@ -286,6 +360,7 @@ def update_reads_as_unitigs(graph, reads_to_correct, node_to_unitig_mapping, rea
             reads_as_unitigs[read] = unitigs_on_read
     return reads_as_unitigs
 
+
 def get_unitigs(graph, output_dir):
     """Main function to extract unitigs from a graph and handle corrections."""
     current_unitig_id = 0
@@ -300,14 +375,19 @@ def get_unitigs(graph, output_dir):
         # make a dictionary to correct obviously false unitigs
         unitig_correction = calculate_unitig_distance_matrix(unitigs_in_component)
         # correct the obviously false unitigs
-        correct_per_unitig = {u: unitig_correction[u] for u in unitig_correction if not unitig_correction[u] == u}
+        correct_per_unitig = {
+            u: unitig_correction[u] for u in unitig_correction if not unitig_correction[u] == u
+        }
         # update the node to unitig
-        #for node_hash in node_to_unitig_mapping:
+        # for node_hash in node_to_unitig_mapping:
         #    if node_to_unitig_mapping[node_hash] in correct_per_unitig:
         #        node_to_unitig_mapping[node_hash] = correct_per_unitig[node_to_unitig_mapping[node_hash]]
         reads_to_correct = get_reads_to_correct(correct_per_unitig)
-        reads_as_unitigs = update_reads_as_unitigs(graph, reads_to_correct, node_to_unitig_mapping, reads_as_unitigs)
+        reads_as_unitigs = update_reads_as_unitigs(
+            graph, reads_to_correct, node_to_unitig_mapping, reads_as_unitigs
+        )
     make_unitig_plot(reads_as_unitigs, output_dir)
+
 
 def get_reads_that_span_full_component(graph):
     longest_reads = {}
@@ -329,15 +409,18 @@ def get_reads_that_span_full_component(graph):
         for nodeHash in component_boundaries:
             for read in node_mapping[nodeHash].get_reads():
                 if not read in seen_reads:
-                    boundaryNodesOnRead = [n for n in graph.get_readNodes()[read] if n in component_boundaries]
+                    boundaryNodesOnRead = [
+                        n for n in graph.get_readNodes()[read] if n in component_boundaries
+                    ]
                     if len(boundaryNodesOnRead) > 0:
                         boundary_reads.append((read, graph.get_readNodes()[read]))
                         seen_reads.add(read)
-        boundary_reads = sorted(boundary_reads, key = lambda x: len(x[1]), reverse=True)[:50]
+        boundary_reads = sorted(boundary_reads, key=lambda x: len(x[1]), reverse=True)[:50]
         for r in boundary_reads:
             longest_reads[r[0]] = graph.follow_path_to_get_annotations(r[1])
     long_graph = GeneMerGraph(longest_reads, 5)
     long_graph.generate_gml("amira.output/long_read_graph", 5, 1, 1)
+
 
 def main():
     # get command line options
@@ -351,28 +434,24 @@ def main():
     cleaned_genesOfInterest = []
     chars_to_remove = ".|()-*+#:=/,'"
     for g in genesOfInterest:
-        cleaned_gene = ''.join(char for char in g if char not in chars_to_remove)
-        cleaned_genesOfInterest.append(cleaned_gene)    # convert the Pandora SAM file to a dictionary
+        cleaned_gene = "".join(char for char in g if char not in chars_to_remove)
+        cleaned_genesOfInterest.append(cleaned_gene)  # convert the Pandora SAM file to a dictionary
     if args.pandoraJSON:
-        annotatedReads, genesOfInterest = process_pandora_json(args.pandoraJSON,
-                                                            genesOfInterest)
+        annotatedReads, genesOfInterest = process_pandora_json(args.pandoraJSON, genesOfInterest)
     if args.pandoraSam:
         # load the pandora consensus and convert to a dictionary
         pandora_consensus = parse_fastq(args.pandoraConsensus)
-        annotatedReads, genesOfInterest = convert_pandora_output(args.pandoraSam,
-                                                        pandora_consensus,
-                                                        genesOfInterest,
-                                                        args.gene_min_coverage)
+        annotatedReads, genesOfInterest = convert_pandora_output(
+            args.pandoraSam, pandora_consensus, genesOfInterest, args.gene_min_coverage
+        )
     print(list(sorted(list(genesOfInterest))))
     if args.debug:
-        raw_graph = write_debug_files(annotatedReads,
-                                    args.geneMer_size,
-                                    genesOfInterest,
-                                    args.output_dir)
+        raw_graph = write_debug_files(
+            annotatedReads, args.geneMer_size, genesOfInterest, args.output_dir
+        )
         short_annotated_reads = raw_graph._shortReads
-        short_graph = GeneMerGraph(short_annotated_reads,
-                                3)
-        #short_graph.generate_gml(os.path.join(args.output_dir, "short_graph"),
+        short_graph = GeneMerGraph(short_annotated_reads, 3)
+        # short_graph.generate_gml(os.path.join(args.output_dir, "short_graph"),
         #                        3,
         #                        1,
         #                        1)
@@ -415,11 +494,9 @@ def main():
     #         annotatedReads[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
     # build the corrected graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
-    graph = GeneMerGraph(annotatedReads,
-                        args.geneMer_size)
+    graph = GeneMerGraph(annotatedReads, args.geneMer_size)
     # # filter low coverage things
-    graph.filter_graph(args.node_min_coverage,
-                    args.edge_min_coverage)
+    graph.filter_graph(args.node_min_coverage, args.edge_min_coverage)
     # #graph.remove_low_coverage_components(3)
     # # get the new read annotations
     # readNodes = graph.get_readNodes()
@@ -444,7 +521,7 @@ def main():
     #                 1,
     #                 1,
     #                 1)
-    #graph = GeneMerGraph(annotatedReads,
+    # graph = GeneMerGraph(annotatedReads,
     #                    args.geneMer_size)
     # write out the gene mer graph as a gml
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
@@ -452,22 +529,22 @@ def main():
         # color nodes in the graph
         for node in graph.all_nodes():
             node.color_node(genesOfInterest)
-    graph.generate_gml(os.path.join(args.output_dir, "gene_mer_graph"),
-                    args.geneMer_size,
-                    args.node_min_coverage,
-                    args.edge_min_coverage)
-   # get_reads_that_span_full_component(graph)
+    graph.generate_gml(
+        os.path.join(args.output_dir, "gene_mer_graph"),
+        args.geneMer_size,
+        args.node_min_coverage,
+        args.edge_min_coverage,
+    )
+    # get_reads_that_span_full_component(graph)
     # return a list of unitigs in the graph
-    #unitigs = get_unitigs(graph,
+    # unitigs = get_unitigs(graph,
     #                    args.output_dir)
     # initialise the UnitigBuilder class
-    unitigTools = TestUnitigTools(graph,
-                            genesOfInterest,
-                            args.readfile,
-                            args.output_dir)
-    #unitigTools.assign_reads_to_amr_genes()
+    unitigTools = TestUnitigTools(graph, genesOfInterest, args.readfile, args.output_dir)
+    # unitigTools.assign_reads_to_amr_genes()
 
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
