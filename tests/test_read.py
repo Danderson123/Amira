@@ -1,10 +1,10 @@
 import sys
 import unittest
 
-sys.path.insert(0, "amira_prototype")
+sys.path.insert(0, "..")
 
-from construct_gene import Gene
-from construct_read import Read, convert_genes
+from amira_prototype.construct_gene import Gene
+from amira_prototype.construct_read import Read, convert_genes
 
 
 class TestReadConstructor(unittest.TestCase):

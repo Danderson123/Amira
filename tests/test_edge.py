@@ -1,11 +1,11 @@
 import sys
 import unittest
 
-sys.path.insert(0, "amira_prototype")
+sys.path.insert(0, "..")
 
-from construct_edge import Edge
-from construct_node import Node
-from construct_read import Read
+from amira_prototype.construct_edge import Edge
+from amira_prototype.construct_node import Node
+from amira_prototype.construct_read import Read
 
 
 class TestEdgeConstructor(unittest.TestCase):

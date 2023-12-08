@@ -1,10 +1,10 @@
 import sys
 import unittest
 
-sys.path.insert(0, "amira_prototype")
+sys.path.insert(0, "..")
 
-from construct_graph import GeneMerGraph
-from construct_unitig import UnitigTools
+from amira_prototype.construct_graph import GeneMerGraph
+from amira_prototype.construct_unitig import UnitigTools
 
 
 class TestUnitigsConstructor(unittest.TestCase):

@@ -1,10 +1,10 @@
 import sys
 import unittest
 
-sys.path.insert(0, "amira_prototype")
+sys.path.insert(0, "..")
 
-from construct_gene import Gene
-from construct_gene_mer import (
+from amira_prototype.construct_gene import Gene
+from amira_prototype.construct_gene_mer import (
     GeneMer,
     choose_canonical_geneMer,
     define_geneMer,

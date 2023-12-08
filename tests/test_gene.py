@@ -1,9 +1,9 @@
 import sys
 import unittest
 
-sys.path.insert(0, "amira_prototype")
+sys.path.insert(0, "..")
 
-from construct_gene import (
+from amira_prototype.construct_gene import (
     Gene,
     convert_int_strand_to_string,
     convert_string_strand_to_int,
