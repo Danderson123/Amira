@@ -17,7 +17,7 @@ jobs:
       - uses: google-github-actions/release-please-action@v3
         with:
           release-type: python
-          package-name: grp_meeting
+          package-name: amira_prototype
           changelog-types: >
             [
               { "type": "build", "section": "Build System", "hidden": false },
