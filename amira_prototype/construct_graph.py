@@ -1,7 +1,7 @@
 import os
 import statistics
 import sys
-sys.setrecursionlimit(5000)
+sys.setrecursionlimit(50000)
 from tqdm import tqdm
 
 from construct_node import Node
@@ -207,7 +207,7 @@ class GeneMerGraph:
         #                                     sourceNode,
         #                                     -1,
         #                                     1)
-        # define the edge that will go from the source gene mer to the target gene mer
+        # # define the edge that will go from the source gene mer to the target gene mer
         sourceToTargetEdge = Edge(sourceNode,
                                 targetNode,
                                 sourceGeneMerDirection,
@@ -323,26 +323,32 @@ class GeneMerGraph:
         # check that the two nodes are adjacent
         assert self.check_if_nodes_are_adjacent(sourceNode, targetNode)
         # get the edge hash from source to target
+        sourceNodeEdges = []
         for edge in self.get_forward_edges(sourceNode) + self.get_backward_edges(sourceNode):
             if edge.get_targetNode() == targetNode:
                 sourceNodeEdgeHash = edge.__hash__()
-                break
+                sourceNodeEdges.append(sourceNodeEdgeHash)
         # get the edge hash from target to source
+        targetNodeEdges = []
         for edge in self.get_forward_edges(targetNode) + self.get_backward_edges(targetNode):
             if edge.get_targetNode() == sourceNode:
                 targetNodeEdgeHash = edge.__hash__()
-                break
+                targetNodeEdges.append(targetNodeEdgeHash)
         assert not (sourceNodeEdgeHash == [] or targetNodeEdgeHash == []), "There are edges missing from the source and target nodes"
-        return (sourceNodeEdgeHash, targetNodeEdgeHash)
+        if not (len(sourceNodeEdges) > 1 or len(targetNodeEdges) > 1):
+            return (sourceNodeEdges[0], targetNodeEdges[0])
+        else:
+            return (sourceNodeEdges, targetNodeEdges)
     def get_edges_between_nodes(self,
                             sourceNode,
                             targetNode):
         # get the edge hashes between these nodes
         sourceToTargetHash, targetToSourceHash = self.get_edge_hashes_between_nodes(sourceNode,
                                                                                     targetNode)
-        sourceToTargetEdge = self.get_edge_by_hash(sourceToTargetHash)
-        targetToSourceEdge = self.get_edge_by_hash(targetToSourceHash)
-        return sourceToTargetEdge, targetToSourceEdge
+        if not (type(sourceToTargetHash) == list or type(targetToSourceHash) == list):
+            return self.get_edge_by_hash(sourceToTargetHash), self.get_edge_by_hash(targetToSourceHash)
+        else:
+            return [self.get_edge_by_hash(h) for h in sourceToTargetHash], [self.get_edge_by_hash(h) for h in targetToSourceHash]
     def remove_edge_from_edges(self,
                             edgeHash):
         """ remove an edge object from the dictionary of all edges by hash """
@@ -613,7 +619,10 @@ class GeneMerGraph:
             print([self.get_node_by_hash(listOfNodes[i+1]) in self.get_backward_neighbors(self.get_node_by_hash(listOfNodes[i])) for i in range(len(listOfNodes)-1)])
             raise AttributeError("The read does not occur in either orientation")
     def follow_path_to_get_annotations(self,
-                                    listOfNodes):
+                                    listOfNodes,
+                                    read_ID):
+        if len(listOfNodes) == 1:
+            return self.get_gene_mer_genes(self.get_node_by_hash(listOfNodes[0]))
         # store the new annotations in a list
         newAnnotations = []
         # iterate through the new readNodes
@@ -621,9 +630,11 @@ class GeneMerGraph:
             sourceNode = self.get_node_by_hash(listOfNodes[n])
             targetNode = self.get_node_by_hash(listOfNodes[n+1])
             # get the edge between the source and target node
-            edgeHash = self.get_edge_hashes_between_nodes(sourceNode,
+            edgeHashes = self.get_edge_hashes_between_nodes(sourceNode,
                                                         targetNode)
-            edge = self.get_edge_by_hash(edgeHash[0])
+            if type(edgeHashes[0]) == list:
+                return self.get_reads()[read_ID]
+            edge = self.get_edge_by_hash(edgeHashes[0])
             # add either the forward or reverse gene mer depending on the node direction
             if n == 0:
                 if edge.get_sourceNodeDirection() == 1:
@@ -631,53 +642,10 @@ class GeneMerGraph:
                 else:
                     newAnnotations += self.get_reverse_gene_mer_genes(sourceNode)
             if edge.get_targetNodeDirection() == 1:
-                    newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
+                newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
             else:
                 newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
         return newAnnotations
-    # def follow_path_to_get_annotations(self,
-    #                                 listOfNodes):
-    #     # get the orientation of a list of nodes on a read
-    #     orientation = self.get_orientation_of_read(listOfNodes)
-    #     # reverse the list of nodes if the read is in the backward orientation
-    #     if orientation == -1:
-    #         listOfNodes = list(reversed(listOfNodes))
-    #     # store the new annotations in a list
-    #     newAnnotations = []
-    #     # iterate through the new readNodes
-    #     for n in range(len(listOfNodes)-1):
-    #         sourceNode = self.get_node_by_hash(listOfNodes[n])
-    #         targetNode = self.get_node_by_hash(listOfNodes[n+1])
-    #         # get the edge hashes between these nodes
-    #         sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(sourceNode,
-    #                                                                             targetNode)
-    #         # initialise the annotation list and get the traversal direction for this read
-    #         if n == 0:
-    #             newAnnotations += self.get_gene_mer_genes(sourceNode)
-    #             previous_direction = 1
-    #         if sourceToTargetEdge.get_targetNodeDirection() == 1 and previous_direction == 1:
-    #             geneMer = self.get_gene_mer_genes(targetNode)
-    #         elif sourceToTargetEdge.get_targetNodeDirection() == 1 and previous_direction == -1:
-    #             geneMer = self.get_reverse_gene_mer_genes(targetNode)
-    #         elif sourceToTargetEdge.get_targetNodeDirection() == -1 and previous_direction == 1:
-    #             geneMer = self.get_reverse_gene_mer_genes(targetNode)
-    #             previous_direction = previous_direction * -1
-    #         else:
-    #             geneMer = self.get_gene_mer_genes(targetNode)
-    #             previous_direction = previous_direction * -1
-    #         # decide if we are adding the gene to the start or end of the list
-    #         if n == 0:
-    #             if newAnnotations[-self.get_kmerSize() + 1: ] == geneMer[:-1]:
-    #                 add_to = "end"
-    #             elif newAnnotations[:self.get_kmerSize()-1] == geneMer[1:]:
-    #                 add_to = "start"
-    #             else:
-    #                 raise AttributeError("Something went wrong while updating the read annotations")
-    #         if add_to == "start":
-    #             newAnnotations.insert(0, geneMer[0])
-    #         if add_to == "end":
-    #             newAnnotations.append(geneMer[-1])
-    #     return newAnnotations
     def get_new_read_annotations(self):
         """ return a dictionary of post-error cleaning read annotations """
         # get the corrected read node annotations
@@ -685,7 +653,7 @@ class GeneMerGraph:
         # convert the nodes to genes by traversing the nodes from start to finish
         annotatedReads = {}
         for readId in readNodeDict:
-            annotatedReads[readId] = self.follow_path_to_get_annotations(readNodeDict[readId])
+            annotatedReads[readId] = self.follow_path_to_get_annotations(readNodeDict[readId], readId)
         return annotatedReads
     def remove_short_linear_paths(self,
                                 min_length):
@@ -859,6 +827,63 @@ class GeneMerGraph:
         for t in to_delete:
             del groups[t]
         return groups
+    def get_triangles(self):
+        more_than_two_neighbors = [n for n in self.get_nodes() if self.get_degree(self.get_node_by_hash(n)) > 2]
+        triangles = []
+        seen_triangles = set()
+        for node_hash in more_than_two_neighbors:
+            start_node = self.get_node_by_hash(node_hash)
+            for start_direction, get_edges in [(1, self.get_forward_edges), (-1, self.get_backward_edges)]:
+                for start_edge in get_edges(start_node):
+                    next_node = start_edge.get_targetNode()
+                    target_node_direction = start_edge.get_targetNodeDirection()
+                    if target_node_direction == start_direction:
+                        next_edges = get_edges(next_node)
+                    else:
+                        if get_edges == self.get_forward_edges:
+                            next_edges = self.get_backward_edges(next_node)
+                        else:
+                            next_edges = self.get_forward_edges(next_node)
+                    for next_edge in next_edges:
+                        final_node_hash = next_edge.get_targetNode().__hash__()
+                        node_hashes = set(e.get_targetNode().__hash__() for e in get_edges(start_node))
+                        if final_node_hash in node_hashes:
+                            self.process_triangle(start_node, next_node, final_node_hash, triangles, seen_triangles)
+        return triangles
+    def process_triangle(self, start_node, next_node, final_node_hash, triangles, seen_triangles):
+        longest_path = [start_node.__hash__(), next_node.__hash__(), final_node_hash]
+        longest_path_edges = [self.get_edges_between_nodes(self.get_node_by_hash(longest_path[i]), self.get_node_by_hash(longest_path[i + 1]))[0] for i in range(len(longest_path) - 1)]
+        shortest_path = [start_node.__hash__(), final_node_hash]
+        shortest_path_edges = [self.get_edges_between_nodes(self.get_node_by_hash(shortest_path[i]), self.get_node_by_hash(shortest_path[i + 1]))[0] for i in range(len(shortest_path) - 1)]
+        try:
+            longest_path_coverage = [e.get_edge_coverage() for e in longest_path_edges]
+            shortest_path_coverage = [e.get_edge_coverage() for e in shortest_path_edges]
+        except:
+            [print(e.get_targetNode().__hash__()) for e in longest_path_edges]
+        this_triangle = tuple(sorted(longest_path))
+        if this_triangle not in seen_triangles:
+            triangles.append(((longest_path, statistics.mean(longest_path_coverage)), (shortest_path, shortest_path_coverage[0])))
+            seen_triangles.add(this_triangle)
+    def cut_triangles(self):
+        # get the triangles we are going to correct
+        triangles = self.get_triangles()
+        # iterate through the pairs of paths
+        for paths in triangles:
+            # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
+            shortest_path, shortest_coverage = paths[-1]
+            longest_path, longest_coverage = paths[0]
+            # skip this correction if we have already corrected it
+            if shortest_coverage >= 2 * longest_coverage:
+                self.correct_incorrectly_found_gene(longest_path,
+                                                shortest_path)
+            if longest_coverage >= 2 * shortest_coverage:
+                self.correct_missing_gene(shortest_path,
+                                        longest_path)
+        readNodes = self.get_readNodes()
+        annotatedReads = {}
+        for readId in readNodes:
+            annotatedReads[readId] = self.follow_path_to_get_annotations(readNodes[readId], readId)
+        return annotatedReads
     def pop_bubbles(self,
                 bubble_popper_threshold):
         """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and \
@@ -887,6 +912,8 @@ class GeneMerGraph:
                 # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
                 lowest_coverage_path, lowest_path_coverage = paths[0]
                 highest_coverage_path, highest_path_coverage = paths[-1]
+                if lowest_coverage_path == highest_coverage_path:
+                    continue
                 # skip this correction if we have already corrected it
                 bubbleTerminals = tuple(sorted([lowest_coverage_path[0], lowest_coverage_path[-1]]))
                 # skip the correction if we have corrected this path already
@@ -1042,6 +1069,8 @@ class GeneMerGraph:
                                             sourceNode.get_color())
             graph_data.append(nodeEntry)
             for edge in self.get_forward_edges(sourceNode) + self.get_backward_edges(sourceNode):
+                if edge.get_edge_coverage() == 0:
+                    continue
                 targetNode = edge.get_targetNode()
                 edgeEntry = self.write_edge_entry(sourceNode.get_node_Id(),
                                                 targetNode.get_node_Id(),
@@ -1194,7 +1223,7 @@ class GeneMerGraph:
             return
         # get the list of genes in the heaviest path
         if not len(heaviest_path) == 1:
-            heaviest_list_of_genes = self.follow_path_to_get_annotations(heaviest_path)
+            heaviest_list_of_genes = self.follow_path_to_get_annotations(heaviest_path, None)
         else:
             heaviest_list_of_genes = self.get_gene_mer_label(self.get_node_by_hash(heaviest_path[0])).split("~~~")
         # get the reverse list of genes in the heaviest path
@@ -1205,7 +1234,7 @@ class GeneMerGraph:
             readNodes = self.get_readNodes()[readId]
             # get the genes on the read
             if not len(readNodes) == 1:
-                read_list_of_genes = self.follow_path_to_get_annotations(readNodes)
+                read_list_of_genes = self.follow_path_to_get_annotations(readNodes, readId)
             else:
                 read_list_of_genes = self.get_gene_mer_label(self.get_node_by_hash(readNodes[0])).split("~~~")
             # get the orientation of the genes in the heaviest path relative to the read

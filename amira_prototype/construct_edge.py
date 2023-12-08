@@ -69,6 +69,10 @@ class Edge:
         """ increase the edge coverage by 1 and return the new edge coverage """
         self.edgeCoverage += 1
         return self.get_edge_coverage()
+    def reduce_edge_coverage(self):
+        """ reduce the edge coverage by 1 and return the new edge coverage """
+        self.edgeCoverage -= 1
+        return self.get_edge_coverage()
     def __eq__(self,
             otherEdge) -> bool:
         """ return a bool of whether the two edges connect the same nodes """

@@ -1701,6 +1701,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                                 ']']]
         import os
         self.assertTrue(os.path.exists("tests/test_graph.3.1.1.gml"))
+        print(actual_writtenGraph)
         self.assertTrue(any(actual_writtenGraph == e for e in expected_writtenGraph))
         os.remove("tests/test_graph.3.1.1.gml")
 
@@ -3096,12 +3097,30 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         actual_geneMers = {}
         for readId in readNodes:
-            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId], readId)
         # assertion
         self.assertTrue((actual_geneMers["read1"] == genes1) or (actual_geneMers["read1"] == genes1_reversed))
         self.assertTrue((actual_geneMers["read2"] == genes1) or (actual_geneMers["read2"] == genes1_reversed))
         self.assertTrue((actual_geneMers["read3"] == genes2) or (actual_geneMers["read3"] == genes2_reversed))
         self.assertTrue((actual_geneMers["read4"] == genes2) or (actual_geneMers["read4"] == genes2_reversed))
+
+    def test_follow_path_to_get_annotations_k_1(self):
+        # setup
+        genes1 = ["-gene6", "+gene10", "+gene9", "-gene6", "+gene3", "-gene7", "+gene5", "-gene6", "+gene3", "-gene7", "-gene6", "+gene3", "-gene7", "-gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "+gene8", "-gene4", "+gene5"]
+        genes1_reversed = ["-gene5", "+gene4", "-gene8", "-gene5", "+gene4", "-gene3", "-gene5", "+gene4", "-gene3", "+gene7", "-gene3", "+gene6", "+gene7", "-gene3", "+gene6", "-gene5", "+gene7", "-gene3", "+gene6", "-gene9", "-gene10", "+gene6"]
+        graph = GeneMerGraph({"read1": genes1,
+                            "read2": genes1_reversed},
+                            1)
+        graph.generate_gml("test/test", 1, 1,1)
+        readNodes = graph.get_readNodes()
+        # execution
+        actual_geneMers = {}
+        for readId in readNodes:
+            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId], readId)
+        print(actual_geneMers)
+        # assertion
+        self.assertTrue((actual_geneMers["read1"] == genes1) or (actual_geneMers["read1"] == genes1_reversed))
+        self.assertTrue((actual_geneMers["read2"] == genes1) or (actual_geneMers["read2"] == genes1_reversed))
 
     def test_follow_path_to_get_annotations_popped_bubble(self):
         # setup
@@ -3117,7 +3136,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         readNodes = graph.get_readNodes()
         actual_geneMers = {}
         for readId in readNodes:
-            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId])
+            actual_geneMers[readId] = graph.follow_path_to_get_annotations(readNodes[readId], readId)
         # assertion
         self.assertEqual(actual_geneMers["read1"], genes2)
         self.assertEqual(actual_geneMers["read2"], genes2)
@@ -3155,3 +3174,30 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertRaises(AssertionError, graph.follow_path_by_coverage, startNode, 0, "highest")
         # testing wrong coverage
         self.assertRaises(AssertionError, graph.follow_path_by_coverage, startNode, 1, "middle")
+
+    def test___get_triangles(self):
+        # Setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene10"]
+        genes2 = ["+gene1", "-gene2", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
+        genes2_reversed = ["+gene10", "-gene9", "+gene8", "-gene7", "+gene6", "-gene5", "+gene4", "+gene2", "-gene1"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes2_reversed},
+                            1)
+        # execution
+        triangles = graph.get_triangles()
+        # assertion
+        self.assertEqual(len(triangles), 3)
+
+    def test___cut_triangles(self):
+        # Setup
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene10"]
+        genes2 = ["+gene1", "-gene2", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
+        genes2_reversed = ["+gene10", "-gene9", "-gene7", "+gene6", "-gene5", "+gene4", "+gene2", "-gene1"]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes2_reversed},
+                            1)
+        # execution
+        new_annotations = graph.cut_triangles()
+        # assertion
+        true_genes = ["+gene1", "-gene2", "-gene4", "+gene5", "-gene6", "+gene7", "+gene9", "-gene10"]
+        reverse_true_genes = ["+gene10", "-gene9", "-gene7", "+gene6", "-gene5", "+gene4", "+gene2", "-gene1"]
+        for read in new_annotations:
+            self.assertTrue(new_annotations[read] == true_genes or new_annotations[read] == reverse_true_genes)

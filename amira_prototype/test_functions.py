@@ -267,3 +267,52 @@ def write_fastq(fastq_file,
             # Write the placeholder quality lines
             fh.write('+\n')
             fh.write(f'{value["quality"]}\n')
+
+
+class Unitig:
+    def __init__(self,
+                listOfNodes: list,
+                listOfGenes: list,
+                component_ID: int,
+                unitig_ID: int):
+        self._nodes = listOfNodes
+        self._genes = listOfGenes
+
+        def get_reverse_genes(listOfGenes):
+            return ["+" + g[1:] if g[0] == "-" else "-" + g[1:] for g in list(reversed(listOfGenes))]
+
+        self._reverse_genes = get_reverse_genes(self.get_genes())
+        self._component_ID = component_ID
+        self._unitig_ID = unitig_ID
+
+        def get_read_union(listOfNodes):
+            read_union = set()
+            for node in listOfNodes:
+                for read in node.get_reads():
+                    read_union.add(read)
+            return list(read_union)
+
+        self._reads = get_read_union(self.get_nodes())
+        self._coverage = len(self.get_reads())
+
+    def get_nodes(self):
+        """ returns an ordered list of nodes in this unitig """
+        return self._nodes
+    def get_genes(self):
+        """ returns an ordered list of genes in this unitig """
+        return self._genes
+    def get_reverse_genes(self):
+        """ returns an ordered list of the reverse complement genes for this unitig """
+        return self._reverse_genes
+    def get_component_ID(self):
+        """ returns an integer of the component containing this unitig """
+        return self._component_ID
+    def get_unitig_ID(self):
+        """ returns the integer identifier of this unitig """
+        return self._unitig_ID
+    def get_reads(self):
+        """ returns a list of the reads in the nodes of this unitig """
+        return self._reads
+    def get_coverage(self):
+        """ returns an integer of the number of reads supporting this unitig """
+        return self._coverage
