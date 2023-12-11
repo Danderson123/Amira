@@ -76,40 +76,40 @@ class GeneMerGraph:
         # assign component Ids to all nodes in the graph
         self.assign_component_ids()
 
-    def get_reads(self):
+    def get_reads(self) -> dict[str, list[str]]:
         """return a dictionary of all reads and their genes"""
         return self._reads
 
-    def get_readNodes(self):
+    def get_readNodes(self) -> dict[str, list[str]]:
         """return a dictionary of all reads and their node hashes"""
         return self._readNodes
 
-    def get_kmerSize(self):
+    def get_kmerSize(self) -> int:
         """return an integer of the gene-mer size"""
         return self._kmerSize
 
-    def get_minEdgeCoverage(self):
+    def get_minEdgeCoverage(self) -> int:
         """return an integer of the minimum coverage for edges"""
         return self._minEdgeCoverage
 
-    def get_nodes(self):
+    def get_nodes(self) -> dict[int, Node]:
         """return the node dictionary"""
         return self._nodes
 
-    def get_edges(self):
+    def get_edges(self) -> dict[int, Edge]:
         """return the edge dictionary"""
         return self._edges
 
-    def get_minNodeCoverage(self):
+    def get_minNodeCoverage(self) -> int:
         """return the minimum node coverage"""
         return self._minNodeCoverage
 
-    def all_nodes(self):
+    def all_nodes(self) -> list[Node]:
         """return a generator for all nodes in the graph and their attributes"""
         for nodeHash in self.get_nodes():
             yield self.get_nodes()[nodeHash]
 
-    def add_node_to_read(self, node: Node, readId: str):
+    def add_node_to_read(self, node: Node, readId: str) -> list[int]:
         # add the read ID to the read dict if it is not present
         if readId not in self.get_readNodes():
             self.get_readNodes()[readId] = []
@@ -118,7 +118,7 @@ class GeneMerGraph:
         # each node occurrence will occur in the list (including duplicates)
         return self.get_readNodes()[readId]
 
-    def get_nodes_containing_read(self, readId):
+    def get_nodes_containing_read(self, readId: str) -> list[Node]:
         """return a list of nodes that contain a read of interest"""
         # get the node hashes that contain this read
         listOfNodeHashes = self.get_readNodes()[readId]
@@ -126,11 +126,11 @@ class GeneMerGraph:
         listOfNodes = [self.get_node_by_hash(h) for h in listOfNodeHashes if h in self.get_nodes()]
         return listOfNodes
 
-    def add_node_to_nodes(self, node, nodeHash):
+    def add_node_to_nodes(self, node: Node, nodeHash: int) -> None:
         """add a node to the dictionary of nodes"""
         self._nodes[nodeHash] = node
 
-    def get_node_by_hash(self, nodeHash):
+    def get_node_by_hash(self, nodeHash: int) -> Node:
         """return a node object corresponding to a node hash"""
         return self.get_nodes()[nodeHash]
 
@@ -161,7 +161,7 @@ class GeneMerGraph:
         # return the node
         return self.get_nodes()[nodeHash]
 
-    def get_nodes_containing(self, geneOfInterest: str) -> list:
+    def get_nodes_containing(self, geneOfInterest: str) -> list[Node]:
         """
         Return all nodes that contain a given gene.
         This is useful for later, when we want to get nodes that contain AMR genes.
@@ -222,11 +222,11 @@ class GeneMerGraph:
         )
         return sourceToTargetEdge, reverseTargetToSourceEdge
 
-    def get_edge_by_hash(self, edgeHash):
+    def get_edge_by_hash(self, edgeHash: int) -> Edge:
         """return an edge object corresponding to a edge hash"""
         return self.get_edges()[edgeHash]
 
-    def add_edge_to_edges(self, edge):
+    def add_edge_to_edges(self, edge: Edge) -> Edge:
         """Add the edge to the graph if not present, else increment the coverage by 1.
         Returns the edge.
         """
@@ -237,13 +237,15 @@ class GeneMerGraph:
             self._edges[edgeHash] = edge
         return self.get_edge_by_hash(edgeHash)
 
-    def add_edges_to_graph(self, sourceToTargetEdge, reverseTargetToSourceEdge):
+    def add_edges_to_graph(
+        self, sourceToTargetEdge: Edge, reverseTargetToSourceEdge: Edge
+    ) -> tuple:
         """add the edges to the dictionary of edges and return the updated edges"""
         sourceToTargetEdge = self.add_edge_to_edges(sourceToTargetEdge)
         reverseTargetToSourceEdge = self.add_edge_to_edges(reverseTargetToSourceEdge)
         return sourceToTargetEdge, reverseTargetToSourceEdge
 
-    def add_edge_to_node(self, node, edge):
+    def add_edge_to_node(self, node: Node, edge: Edge) -> Node:
         """
         Add the edge and reverse edge hashes to the node attributes.
         Return the forward and reverse edge hashes for this node.
@@ -256,7 +258,7 @@ class GeneMerGraph:
             node.add_backward_edge_hash(edgeHash)
         return node
 
-    def add_edge(self, sourceGeneMer: GeneMer, targetGeneMer: GeneMer):
+    def add_edge(self, sourceGeneMer: GeneMer, targetGeneMer: GeneMer) -> tuple:
         """
         Add a forward and backward edge if they do not exist, else increment the edge coverage by 1.
         Also add the nodes to the graph if they are not present already.
@@ -295,26 +297,26 @@ class GeneMerGraph:
         """return a list of nodes corresponding to the backward neighbors for this node"""
         return [edge.get_targetNode() for edge in self.get_backward_edges(node)]
 
-    def get_all_neighbors(self, node: Node):
+    def get_all_neighbors(self, node: Node) -> list[Node]:
         """return a list of combined forward and reverse neighbor nodes for this node"""
         return [
             neighbor
             for neighbor in self.get_forward_neighbors(node) + self.get_backward_neighbors(node)
         ]
 
-    def get_all_neighbor_hashes(self, node: Node):
+    def get_all_neighbor_hashes(self, node: Node) -> set[int]:
         """return a set of combined forward and reverse node hashes for this node"""
         return set([neighbor.__hash__() for neighbor in self.get_all_neighbors(node)])
 
-    def get_forward_edges(self, node: Node) -> list:
+    def get_forward_edges(self, node: Node) -> list[Edge]:
         """return a list of integers of node identifiers connected to this node by a forward edge"""
         return [self.get_edge_by_hash(edgeHash) for edgeHash in node.get_forward_edge_hashes()]
 
-    def get_backward_edges(self, node: Node) -> list:
+    def get_backward_edges(self, node: Node) -> list[Edge]:
         """return a list of backward node identifiers"""
         return [self.get_edge_by_hash(edgeHash) for edgeHash in node.get_backward_edge_hashes()]
 
-    def check_if_nodes_are_adjacent(self, sourceNode: Node, targetNode: Node):
+    def check_if_nodes_are_adjacent(self, sourceNode: Node, targetNode: Node) -> bool:
         """returns a bool of if the sourceNode and targetNode are neighbors"""
         return targetNode.__hash__() in self.get_all_neighbor_hashes(
             sourceNode
@@ -344,7 +346,7 @@ class GeneMerGraph:
         else:
             return (sourceNodeEdges, targetNodeEdges)
 
-    def get_edges_between_nodes(self, sourceNode, targetNode):
+    def get_edges_between_nodes(self, sourceNode: Node, targetNode: Node) -> list[Edge]:
         # get the edge hashes between these nodes
         sourceToTargetHash, targetToSourceHash = self.get_edge_hashes_between_nodes(
             sourceNode, targetNode
@@ -358,14 +360,14 @@ class GeneMerGraph:
                 self.get_edge_by_hash(h) for h in targetToSourceHash
             ]
 
-    def remove_edge_from_edges(self, edgeHash):
+    def remove_edge_from_edges(self, edgeHash: int) -> None:
         """remove an edge object from the dictionary of all edges by hash"""
         del self._edges[edgeHash]
         assert (
             edgeHash not in self.get_edges()
         ), "This edge was not removed from the graph successfully"
 
-    def remove_edge(self, edgeHash: int):
+    def remove_edge(self, edgeHash: int) -> None:
         """remove an edge from all graph edges and the node edges"""
         # check that the edge exists in the graph
         assert edgeHash in self.get_edges(), "This edge is not in the graph"
@@ -396,7 +398,7 @@ class GeneMerGraph:
         """return an integer of the total number of reads contributing to the filtered graph"""
         return len(self.get_reads())
 
-    def remove_node_from_reads(self, node_to_remove):
+    def remove_node_from_reads(self, node_to_remove: Node) -> list[int]:
         """remove a node from the list of nodes and return the modified node list"""
         for readId in node_to_remove.get_reads():
             # filter out the nodes we want to remove
@@ -431,17 +433,17 @@ class GeneMerGraph:
         # remove the node from the node dictionary
         del self.get_nodes()[nodeHash]
 
-    def set_minNodeCoverage(self, minNodeCoverage):
+    def set_minNodeCoverage(self, minNodeCoverage: int):
         """set the minimum node coverage for the graph and return the new node coverage"""
         self._minNodeCoverage = minNodeCoverage
         return self.get_minNodeCoverage()
 
-    def set_minEdgeCoverage(self, minEdgeCoverage):
+    def set_minEdgeCoverage(self, minEdgeCoverage: int):
         """set the minimum edge coverage for the graph and return the new edge coverage"""
         self._minEdgeCoverage = minEdgeCoverage
         return self.get_minEdgeCoverage()
 
-    def filter_graph(self, minNodeCoverage, minEdgeCoverage):
+    def filter_graph(self, minNodeCoverage: int, minEdgeCoverage: int):
         """filters the nodes and edges in the graph and then returns the filtered graph"""
         # set the new node coverage
         minNodeCoverage = self.set_minNodeCoverage(minNodeCoverage)
@@ -1432,5 +1434,5 @@ class GeneMerGraph:
         indices = [i for i, elem in enumerate(list1) if elem in list2]
         return (indices[0], indices[-1]) if indices else (None, None)
 
-    def reverse_list_of_genes(self, list_of_genes):
+    def reverse_list_of_genes(self, list_of_genes: list[str]) -> list[str]:
         return [("-" if g[0] == "+" else "+") + g[1:] for g in reversed(list_of_genes)]

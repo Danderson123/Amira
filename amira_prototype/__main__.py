@@ -11,7 +11,7 @@ from amira_prototype.construct_unitig import parse_fastq
 from amira_prototype.test_functions import TestUnitigTools
 
 
-def get_options():
+def get_options() -> argparse.Namespace:
     """define args from the command line"""
     parser = argparse.ArgumentParser(description="Build a prototype gene de Bruijn graph.")
     group = parser.add_mutually_exclusive_group(required=True)
@@ -74,7 +74,9 @@ def get_options():
     return args
 
 
-def process_pandora_json(pandoraJSON, genesOfInterest):
+def process_pandora_json(
+    pandoraJSON: str, genesOfInterest: list[str]
+) -> tuple[dict[str, list[str]], list[str]]:
     with open(pandoraJSON) as i:
         annotatedReads = json.loads(i.read())
     to_delete = []
@@ -90,11 +92,11 @@ def process_pandora_json(pandoraJSON, genesOfInterest):
             to_delete.append(read)
     for read in to_delete:
         del annotatedReads[read]
-    genesOfInterest = subsettedGenesOfInterest
+    genesOfInterest = list(subsettedGenesOfInterest)
     return annotatedReads, genesOfInterest
 
 
-def get_read_start(cigar):
+def get_read_start(cigar: list[tuple[int, int]]) -> int:
     """return an int of the 0 based position where the read region starts mapping to the gene"""
     # check if there are any hard clipped bases at the start of the mapping
     if cigar[0][0] == 5:
@@ -104,7 +106,7 @@ def get_read_start(cigar):
     return regionStart
 
 
-def get_read_end(cigar, regionStart):
+def get_read_end(cigar: list[tuple[int, int]], regionStart: int) -> tuple[int, int]:
     """return an int of the 0 based position where the read region stops mapping to the gene"""
     regionLength = 0
     for tuple in cigar:
@@ -114,7 +116,7 @@ def get_read_end(cigar, regionStart):
     return regionEnd, regionLength
 
 
-def determine_gene_strand(read):
+def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tuple[str, str]:
     strandlessGene = (
         read.reference_name.replace("~~~", ";")
         .replace(".aln.fas", "")
@@ -128,12 +130,17 @@ def determine_gene_strand(read):
     return gene_name, strandlessGene
 
 
-def convert_pandora_output(pandoraSam, pandora_consensus, genesOfInterest, geneMinCoverage):
+def convert_pandora_output(
+    pandoraSam: str,
+    pandora_consensus: dict[str, list[str]],
+    genesOfInterest: list[str],
+    geneMinCoverage: int,
+) -> tuple[dict[str, list[str]], list[str]]:
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
-    annotatedReads = {}
-    readLengthDict = {}
-    geneCounts = {}
+    annotatedReads: dict[str, list[str]] = {}
+    readLengthDict: dict[str, list[tuple[int, int]]] = {}
+    geneCounts: dict[str, int] = {}
     # iterate through the read regions
     for read in pandora_sam_content.fetch():
         # convert the cigarsting to a Cigar object
@@ -183,7 +190,12 @@ def convert_pandora_output(pandoraSam, pandora_consensus, genesOfInterest, geneM
     return annotatedReads, list(subsettedGenesOfInterest)
 
 
-def write_debug_files(annotatedReads, geneMer_size, genesOfInterest, output_dir):
+def write_debug_files(
+    annotatedReads: dict[str, list[str]],
+    geneMer_size: int,
+    genesOfInterest: list[str],
+    output_dir: str,
+) -> GeneMerGraph:
     raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
@@ -199,7 +211,7 @@ def write_debug_files(annotatedReads, geneMer_size, genesOfInterest, output_dir)
     return raw_graph
 
 
-def main():
+def main() -> None:
     # get command line options
     args = get_options()
     # make the output directory if it does not exist
