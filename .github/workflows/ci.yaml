@@ -25,8 +25,8 @@ jobs:
     - name: Install and configure Poetry
       uses: snok/install-poetry@v1
 
-    - name: Install
-      run: make install
+    - name: Install dependencies
+      run: pip install .
       
     - name: Install CI
       run:  make install-ci
