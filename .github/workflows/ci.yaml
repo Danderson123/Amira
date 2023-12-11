@@ -26,6 +26,9 @@ jobs:
       uses: snok/install-poetry@v1
 
     - name: Install
+      run: make install
+      
+    - name: Install CI
       run:  make install-ci
 
     - name: Test
