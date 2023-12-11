@@ -209,10 +209,10 @@ def convert_pandora_output(pandoraSam, pandora_consensus, genesOfInterest, geneM
                         annotatedReads[r][g] = annotatedReads[r][g][0] + subgene
                         break
                 subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
-        # if not containsAMRgene:
-        #     to_delete.append(r)
-    # for t in to_delete:
-    #    del annotatedReads[t]
+        if not containsAMRgene:
+            to_delete.append(r)
+    for t in to_delete:
+        del annotatedReads[t]
     assert not len(annotatedReads) == 0
     return annotatedReads, list(subsettedGenesOfInterest)
 
@@ -436,6 +436,7 @@ def main():
     for g in genesOfInterest:
         cleaned_gene = "".join(char for char in g if char not in chars_to_remove)
         cleaned_genesOfInterest.append(cleaned_gene)  # convert the Pandora SAM file to a dictionary
+    genesOfInterest = cleaned_genesOfInterest
     if args.pandoraJSON:
         annotatedReads, genesOfInterest = process_pandora_json(args.pandoraJSON, genesOfInterest)
     if args.pandoraSam:
