@@ -1,8 +1,5 @@
-import sys
 import unittest
-from unittest.mock import MagicMock, Mock
-
-sys.path.insert(0, "..")
+from unittest.mock import Mock
 
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
@@ -423,7 +420,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_selectedGenes = []
         self.assertEqual(actual_selectedGenes, expected_selectedGenes)
 
-    def test___get_nodes_containing_strand(self):
+    def test___get_nodes_containing_strand_list(self):
         # setup
         genes = [
             "+gene1",
@@ -445,7 +442,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertRaises(AssertionError, graph.get_nodes_containing, selectedGenes)
 
-    def test___get_nodes_containing_strand(self):
+    def test___get_nodes_containing_strand_string(self):
         # setup
         genes = [
             "+gene1",
@@ -1306,7 +1303,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___add_two_duplicate_reverse_edges_to_graph_one_positive_one_negative(self):
         # setup
-        #### UNIT TEST NEEDED ####
 
         class fakeNode:
             def __init__(self, id, direction):
@@ -1922,48 +1918,55 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         actual_writtenGraph = graph.generate_gml("tests/test_graph", 3, 1, 1)
         # assertion
+        node_prefix = "\tnode\t[\n\t\tid\t"
+        edge_prefix = "\tedge\t[\n\t\tsource\t"
+        gap = "\n\t\t"
+        source_bw = "-gene3~~~+gene2~~~-gene1"
+        source_fw = "+gene1~~~-gene2~~~+gene3"
+        target_bw = "+gene4~~~-gene3~~~+gene2"
+        target_fw = "-gene2~~~+gene3~~~-gene4"
         expected_writtenGraph = [
             [
                 "graph\t[",
                 "multigraph 1",
-                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t-1\n\t\tweight\t1\n\t]",
-                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"+gene4~~~-gene3~~~+gene2"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t1\n\t\tweight\t1\n\t]",
+                f'{node_prefix}0{gap}label\t"{source_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}0{gap}target\t1{gap}direction\t-1{gap}weight\t1\n\t]",
+                f'{node_prefix}1{gap}label\t"{target_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}1{gap}target\t0{gap}direction\t1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
-                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"+gene1~~~-gene2~~~+gene3"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t1\n\t\tweight\t1\n\t]",
-                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"-gene2~~~+gene3~~~-gene4"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t-1\n\t\tweight\t1\n\t]",
+                f'{node_prefix}0{gap}label\t"{source_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}0{gap}target\t1{gap}direction\t1{gap}weight\t1\n\t]",
+                f'{node_prefix}1{gap}label\t"{target_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}1{gap}target\t0{gap}direction\t-1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
-                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"-gene3~~~+gene2~~~-gene1"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t1\n\t\tweight\t1\n\t]",
-                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"-gene2~~~+gene3~~~-gene4"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t1\n\t\tweight\t1\n\t]",
+                f'{node_prefix}0{gap}label\t"{source_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}0{gap}target\t1{gap}direction\t1{gap}weight\t1\n\t]",
+                f'{node_prefix}1{gap}label\t"{target_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}1{gap}target\t0{gap}direction\t1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
-                '\tnode\t[\n\t\tid\t0\n\t\tlabel\t"+gene1~~~-gene2~~~+gene3"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t0\n\t\ttarget\t1\n\t\tdirection\t-1\n\t\tweight\t1\n\t]",
-                '\tnode\t[\n\t\tid\t1\n\t\tlabel\t"+gene4~~~-gene3~~~+gene2"\n\t\tcoverage\t1\n\t\treads\t""\n\t]',
-                "\tedge\t[\n\t\tsource\t1\n\t\ttarget\t0\n\t\tdirection\t-1\n\t\tweight\t1\n\t]",
+                f'{node_prefix}0{gap}label\t"{source_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}0{gap}target\t1{gap}direction\t-1{gap}weight\t1\n\t]",
+                f'{node_prefix}1{gap}label\t"{target_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
+                f"{edge_prefix}1{gap}target\t0{gap}direction\t-1{gap}weight\t1\n\t]",
                 "]",
             ],
         ]
         import os
 
         self.assertTrue(os.path.exists("tests/test_graph.3.1.1.gml"))
-        print(actual_writtenGraph)
+        print(actual_writtenGraph, expected_writtenGraph[0])
         self.assertTrue(any(actual_writtenGraph == e for e in expected_writtenGraph))
         os.remove("tests/test_graph.3.1.1.gml")
 
@@ -2027,7 +2030,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph({"read1": genes1, "read2": genes2}, 3)
         # execution
         graph.filter_graph(2, 2)
-        actual_writtenGraph = graph.generate_gml("tests/test_graph", 3, 2, 2)
+        graph.generate_gml("tests/test_graph", 3, 2, 2)
         actual_numberOfNodes = graph.get_total_number_of_nodes()
         actual_numberOfEdges = graph.get_total_number_of_edges()
         # assertion
@@ -2067,7 +2070,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph({"read1": genes1, "read2": genes1, "read3": genes2}, 1)
         # execution
         graph.filter_graph(1, 2)
-        actual_writtenGraph = graph.generate_gml("tests/test_graph", 1, 1, 2)
+        graph.generate_gml("tests/test_graph", 1, 1, 2)
         actual_numberOfNodes = graph.get_total_number_of_nodes()
         actual_numberOfEdges = graph.get_total_number_of_edges()
         # assertion
@@ -3073,7 +3076,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_replacementDict = {1: 1, "*": 2, 3: 3}
         self.assertEqual(actual_replacementDict, expected_replacementDict)
 
-    def test___make_replacement_dict_odd_three(self):
+    def test___make_replacement_dict_odd_three_one(self):
         # setup
         graph = GeneMerGraph({}, 3)
         old_path = [1, 2, 3, 4]
@@ -3084,7 +3087,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_replacementDict = {1: 1, 2: 5, "*": 6, 3: 7, 4: 4}
         self.assertEqual(actual_replacementDict, expected_replacementDict)
 
-    def test___make_replacement_dict_odd_three(self):
+    def test___make_replacement_dict_odd_three_two(self):
         # setup
         graph = GeneMerGraph({}, 3)
         old_path = [1, 2, 3, 4, 5, 6]
@@ -3841,21 +3844,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "+gene3",
             "-gene7",
         ]
-        genes2_reversed = [
-            "+gene7",
-            "-gene3",
-            "-gene9",
-            "-gene10",
-            "-gene5",
-            "+gene4",
-            "-gene3",
-            "+gene2",
-            "-gene1",
-        ]
         graph = GeneMerGraph({"read1": genes1, "read2": genes1_reversed, "read3": genes2}, 1)
         # execution
         actual_annotatedReads = graph.correct_errors(0, 1.1)
-        print(actual_annotatedReads)
         # assertion
         self.assertTrue(
             (actual_annotatedReads["read1"] == genes1)

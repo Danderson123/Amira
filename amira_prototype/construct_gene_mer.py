@@ -4,7 +4,7 @@ from amira_prototype.construct_gene import Gene
 def define_rc_geneMer(geneMer):
     """return a reversed list of reverse complement geneMers for the input list of geneMers"""
     # ensure that all input genes are gene objects
-    assert all(type(gene) == Gene for gene in geneMer)
+    assert all(isinstance(gene, Gene) for gene in geneMer)
     # reverse the list of gene objects
     reverse_geneMer = list(reversed(geneMer))
     # get the reverse complement gene object for each gene in the geneMer
@@ -13,7 +13,7 @@ def define_rc_geneMer(geneMer):
 
 
 def sort_geneMers(geneMer, rcGeneMer):
-    """return a list of hashes of each gene in the gene mer and rc gene mer and a sorted list of the two hash lists"""
+    """return a list of gene-mer and rc gene-mer hashes and a sorted list of the two hash lists"""
     # get the list of hashes for the genes in this gene mer
     geneMerHashes = [g.__hash__() for g in geneMer]
     # get the list of hashes for the genes in the reverse complement gene mer
@@ -40,9 +40,9 @@ def choose_canonical_geneMer(
 
 
 def define_geneMer(geneMer):
-    """returns the canonical gene mer and the reverse complement gene mer for this gene mer, ensuring consistency across reads"""
+    """returns the canonical gene mer and the reverse complement gene mer for this gene mer"""
     # ensure the gene-mer is a list
-    assert type(geneMer) == list, "Gene-mer is not a list of Gene objects"
+    assert isinstance(geneMer, list), "Gene-mer is not a list of Gene objects"
     # ensure the gene-mer is not an empty list
     assert not geneMer == [], "Gene-mer is empty"
     # get the reverse complement gene mer of the seen gene mer
@@ -85,7 +85,7 @@ class GeneMer:
         return self.geneMerSize
 
     def __eq__(self, otherGeneMer):
-        """check if this gene mer is identical to another gene mer by checking the canonical and rc gene mer"""
+        """check if this gene mer is identical to another gene-mer"""
         return (
             self.canonicalGeneMer == otherGeneMer.get_canonical_geneMer()
             and self.rcGeneMer == otherGeneMer.get_rc_geneMer()

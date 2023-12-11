@@ -1,7 +1,4 @@
-import sys
 import unittest
-
-sys.path.insert(0, "..")
 
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_node import Node
@@ -74,28 +71,6 @@ class TestEdgeConstructor(unittest.TestCase):
                 for i in range(len(edges1))
             )
         )
-
-    def test___eq_edge_reads_identical(self):
-        # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4"]
-        read1 = Read("read1", genes1)
-        read2 = Read("read2", genes2)
-        nodes1 = [Node(g) for g in read1.get_geneMers(3)]
-        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)]
-        nodes2 = [Node(g) for g in read2.get_geneMers(3)]
-        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)]
-        edges1 = []
-        for n in range(len(nodes1) - 1):
-            edge = Edge(nodes1[n], nodes1[n + 1], directions1[n], directions1[n + 1])
-            edges1.append(edge)
-        edges2 = []
-        for n in range(len(nodes2) - 1):
-            edge = Edge(nodes2[n], nodes2[n + 1], directions2[n], directions2[n + 1])
-            edges2.append(edge)
-        # assertion
-        self.assertTrue(all(edges2[i].__eq__(edges1[i]) for i in range(len(edges1))))
-        self.assertTrue(all(edges1[i].__eq__(edges2[i]) for i in range(len(edges1))))
 
     def test___eq_edge_different(self):
         # setup

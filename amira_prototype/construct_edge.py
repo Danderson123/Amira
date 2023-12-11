@@ -9,7 +9,7 @@ def extract_node_hashes(firstNode, secondNode):
 
 
 def sort_node_hashes(firstNodeHash, secondNodeHash):
-    """sorted the hashes in ascending order and assign the sourceNode as index 0 and targetNode as index 1"""
+    """sort the hashes in ascending order"""
     sortedHashes = sorted([firstNodeHash, secondNodeHash])
     # the sourceNode is at index 0
     sourceNode = sortedHashes[0]
@@ -19,7 +19,7 @@ def sort_node_hashes(firstNodeHash, secondNodeHash):
 
 
 def define_source_and_target(firstNode, secondNode):
-    """decides which node will be source and which will be the target based on the smallest of the two hashes"""
+    """assigns and returns the source node and target node"""
     # get the hashes of the gene mers for the two nodes
     firstNodeHash, secondNodeHash = extract_node_hashes(firstNode, secondNode)
     # decide which gene mer will be the source node and which the target node
@@ -44,16 +44,16 @@ class Edge:
         return self.targetNode
 
     def set_sourceNodeDirection(self, sourceDirection) -> int:
-        """modify the direction of the source node and return and int of the direction of the source node"""
+        """return and int of the new direction of the source node"""
         self.sourceNodeDirection = sourceDirection
         return self.get_sourceNodeDirection()
 
     def get_sourceNodeDirection(self) -> int:
-        """return and int of the direction of the source node"""
+        """modify and return and int of the direction of the source node"""
         return self.sourceNodeDirection
 
     def set_targetNodeDirection(self, targetDirection) -> int:
-        """modify the direction of the target node and return and int of the direction of the target node"""
+        """modify and return and int of the direction of the target node"""
         self.targetNodeDirection = targetDirection
         return self.get_targetNodeDirection()
 

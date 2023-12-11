@@ -1,7 +1,4 @@
-import sys
 import unittest
-
-sys.path.insert(0, "..")
 
 from amira_prototype.construct_gene import Gene
 from amira_prototype.construct_gene_mer import (

@@ -119,7 +119,7 @@ class TestUnitigTools:
                     tuple(c) for c in chunks
                 ]  # if all(nodeHash in AMRNodes for nodeHash in c)]
                 for c in chunks:
-                    if not c in chunkToIdMapping:
+                    if c not in chunkToIdMapping:
                         chunkToIdMapping[c] = chunkId
                         IdToChunkMapping[chunkToIdMapping[c]] = c
                         readsInChunks[chunkToIdMapping[c]] = set()
@@ -170,7 +170,7 @@ class TestUnitigTools:
                 gene_indices = [j for j in range(i, i + kmer_size)]
                 for g in gene_indices:
                     if genes[g][1:] in self.get_selected_genes():
-                        if not g in node_indices_for_each_gene_index:
+                        if g not in node_indices_for_each_gene_index:
                             node_indices_for_each_gene_index[g] = []
                         node_indices_for_each_gene_index[g].append(i)
             # get the reads for each gene index
@@ -229,7 +229,7 @@ class TestUnitigTools:
         seen_nodes = set()
         chains = []
         for node in tqdm(graph.nodes):
-            if not node in seen_nodes:
+            if node not in seen_nodes:
                 component = nx.node_connected_component(graph, node)
                 chains.append(list(component))
                 for connected_node in component:

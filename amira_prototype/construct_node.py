@@ -66,7 +66,7 @@ class Node:
 
     def add_read(self, read: str):
         """add a read object to a list of reads for this node"""
-        if not read in self.get_list_of_reads():
+        if read not in self.get_list_of_reads():
             self.listOfReads.append(read)
 
     def remove_read(self, read: Read):
@@ -81,7 +81,7 @@ class Node:
 
     def add_forward_edge_hash(self, forwardEdgeHash):
         """add a forward edge hash if it is not already in the forward edge list, return the edge"""
-        if not forwardEdgeHash in self.get_forward_edge_hashes():
+        if forwardEdgeHash not in self.get_forward_edge_hashes():
             self.forwardEdgeHashes.append(forwardEdgeHash)
         return self
 
@@ -99,7 +99,7 @@ class Node:
 
     def add_backward_edge_hash(self, backwardEdgeHash):
         """add a backward edge if it is not already in the backward edge list, return the edge"""
-        if not backwardEdgeHash in self.get_backward_edge_hashes():
+        if backwardEdgeHash not in self.get_backward_edge_hashes():
             self.backwardEdgeHashes.append(backwardEdgeHash)
         return self
 
@@ -132,7 +132,7 @@ class Node:
         )
 
     def __hash__(self):
-        """return a hash of the canonical gene mer to check if two nodes represent the same gene-mer"""
+        """return a hash of the canonical gene mer"""
         return self.geneMerHash
 
     def color_node(self, listOfAMRGenes):

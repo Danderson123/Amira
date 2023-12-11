@@ -1,7 +1,4 @@
-import sys
 import unittest
-
-sys.path.insert(0, "..")
 
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_unitig import UnitigTools

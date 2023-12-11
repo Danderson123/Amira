@@ -32,7 +32,7 @@ class Read:
 
     def get_geneMers(self, kmerSize: int):
         """return a generator to create GeneMer objects of length kmerSize for this read"""
-        # if the number of genes on the read is equal to or more than the kmerSize, get the gene-mers
+        # check if number of genes is greater than gene-mer size
         if self.get_number_of_genes() > kmerSize - 1:
             # iterate through the list of genes by index
             for i in range(self.get_number_of_genes() - (kmerSize - 1)):

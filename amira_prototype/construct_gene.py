@@ -35,7 +35,7 @@ def convert_int_strand_to_string(intStrand: int) -> str:
 class Gene:
     def __init__(self, gene: str):
         def split_gene_and_strand(gene: str):
-            """returns the separated string name and integer strand for an input gene with strand information"""
+            """returns the separated string name and integer strand for an input gene"""
             # ensure the input gene is not an empty string
             assert gene.replace(" ", "") != "", "Gene information is missing"
             # isolate the strand
@@ -77,5 +77,5 @@ class Gene:
         return geneStrand == otherGeneStrand and self.get_name() == otherGene.get_name()
 
     def __hash__(self):
-        """return a hash of the gene name multiplied by the strand to compare against hashes of other Gene instances"""
+        """return a hash of the gene name multiplied by the strand"""
         return hash(self.name) * self.strand

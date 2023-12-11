@@ -1,7 +1,4 @@
-import sys
 import unittest
-
-sys.path.insert(0, "..")
 
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read

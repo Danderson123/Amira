@@ -1,7 +1,4 @@
-import sys
 import unittest
-
-sys.path.insert(0, "..")
 
 from amira_prototype.construct_gene import (
     Gene,
@@ -158,10 +155,10 @@ class TestGeneConstructor(unittest.TestCase):
     def test___convert_zero_int_strand_to_string(self):
         self.assertRaises(AssertionError, convert_int_strand_to_string, 0)
 
-    def test___convert_positive_string_strand_to_string(self):
+    def test___convert_positive_string_strand_to_string_plus(self):
         self.assertRaises(AssertionError, convert_int_strand_to_string, "+")
 
-    def test___convert_positive_string_strand_to_string(self):
+    def test___convert_positive_string_strand_to_string_minus(self):
         self.assertRaises(AssertionError, convert_int_strand_to_string, "-")
 
     def test___convert_positive_string_strand_to_int(self):

@@ -2,7 +2,6 @@ import os
 import statistics
 import sys
 
-sys.setrecursionlimit(50000)
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
@@ -11,13 +10,15 @@ from amira_prototype.construct_gene_mer import GeneMer
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
 
+sys.setrecursionlimit(50000)
+
 
 def subsample_to_minimizers(kmers, window_size=5):
     minimizers = []
     for i in range(len(kmers) - window_size + 1):
         window = kmers[i : i + window_size]
         minimizer = sorted(window, key=hash)[0]
-        if not minimizer in minimizers:
+        if minimizer not in minimizers:
             minimizers.append(minimizer)
     return minimizers
 
@@ -110,7 +111,7 @@ class GeneMerGraph:
 
     def add_node_to_read(self, node: Node, readId: str):
         # add the read ID to the read dict if it is not present
-        if not readId in self.get_readNodes():
+        if readId not in self.get_readNodes():
             self.get_readNodes()[readId] = []
         # add the hash for the node as attributes for this read
         self.get_readNodes()[readId].append(node.__hash__())
@@ -139,7 +140,7 @@ class GeneMerGraph:
         Returns the Node itself
         """
         nodeHash = geneMer.__hash__()
-        if not nodeHash in self.get_nodes():
+        if nodeHash not in self.get_nodes():
             # convert the gene-mer to a node
             node = Node(geneMer)
             # add the node to the graph
@@ -169,6 +170,7 @@ class GeneMerGraph:
         assert not (
             geneOfInterest[0] == "+" or geneOfInterest[0] == "-"
         ), "Strand information cannot be present for any specified genes"
+        assert isinstance(geneOfInterest, str), "Gene of interest is the wrong type"
         selectedNodes = []
         # iterate through the nodes in the graph
         for node in self.all_nodes():
@@ -189,8 +191,8 @@ class GeneMerGraph:
         sourceGeneMerDirection: int,
         targetGeneMerDirection: int,
     ):
-        """create and return the forward and reverse edges from source to target and target to source"""
-        # define the edge that will go from the source gene mer to the target gene mer
+        """create and return the forward and reverse edges"""
+        # the edge that will go source to target
         # if sourceGeneMerDirection * targetGeneMerDirection == 1:
         #     sourceToTargetEdge = Edge(sourceNode,
         #                             targetNode,
@@ -205,16 +207,16 @@ class GeneMerGraph:
         #                             targetNode,
         #                             1,
         #                             -1)
-        #     # define the edge that will go from the reverse source gene mer to the reverse target gene mer
+        #     # the edge that goes from the reverse source to reverse target
         #     reverseTargetToSourceEdge = Edge(targetNode,
         #                                     sourceNode,
         #                                     -1,
         #                                     1)
-        # # define the edge that will go from the source gene mer to the target gene mer
+        # # the edge that will go from the source to target
         sourceToTargetEdge = Edge(
             sourceNode, targetNode, sourceGeneMerDirection, targetGeneMerDirection
         )
-        # define the edge that will go from the reverse source gene mer to the reverse target gene mer
+        # the edge that will go from the reverse source to reverse target
         reverseTargetToSourceEdge = Edge(
             targetNode, sourceNode, targetGeneMerDirection * -1, sourceGeneMerDirection * -1
         )
@@ -225,13 +227,13 @@ class GeneMerGraph:
         return self.get_edges()[edgeHash]
 
     def add_edge_to_edges(self, edge):
-        """Add the edge to the graph edges if it is not present, else increment the edge coverage by 1.
+        """Add the edge to the graph if not present, else increment the coverage by 1.
         Returns the edge.
         """
         # get the hash for the edge we want
         edgeHash = edge.__hash__()
         # see if the edge is in the edge dictionary
-        if not edgeHash in self.get_edges():
+        if edgeHash not in self.get_edges():
             self._edges[edgeHash] = edge
         return self.get_edge_by_hash(edgeHash)
 
@@ -309,17 +311,17 @@ class GeneMerGraph:
         return [self.get_edge_by_hash(edgeHash) for edgeHash in node.get_forward_edge_hashes()]
 
     def get_backward_edges(self, node: Node) -> list:
-        """return a list of integers of node identifiers connected to this node by a backward edge"""
+        """return a list of backward node identifiers"""
         return [self.get_edge_by_hash(edgeHash) for edgeHash in node.get_backward_edge_hashes()]
 
     def check_if_nodes_are_adjacent(self, sourceNode: Node, targetNode: Node):
-        """returns a bool of whether or not the sourceNode and targetNode are neighbors of eachother"""
+        """returns a bool of if the sourceNode and targetNode are neighbors"""
         return targetNode.__hash__() in self.get_all_neighbor_hashes(
             sourceNode
         ) and sourceNode.__hash__() in self.get_all_neighbor_hashes(targetNode)
 
     def get_edge_hashes_between_nodes(self, sourceNode: Node, targetNode: Node) -> tuple:
-        """return a tuple of the source to target and target to source edge hash that are adjacent"""
+        """return a tuple of the source to target edge hashes"""
         # check that the two nodes are adjacent
         assert self.check_if_nodes_are_adjacent(sourceNode, targetNode)
         # get the edge hash from source to target
@@ -347,7 +349,7 @@ class GeneMerGraph:
         sourceToTargetHash, targetToSourceHash = self.get_edge_hashes_between_nodes(
             sourceNode, targetNode
         )
-        if not (type(sourceToTargetHash) == list or type(targetToSourceHash) == list):
+        if not (isinstance(sourceToTargetHash, list) or isinstance(targetToSourceHash, list)):
             return self.get_edge_by_hash(sourceToTargetHash), self.get_edge_by_hash(
                 targetToSourceHash
             )
@@ -360,7 +362,7 @@ class GeneMerGraph:
         """remove an edge object from the dictionary of all edges by hash"""
         del self._edges[edgeHash]
         assert (
-            not edgeHash in self.get_edges()
+            edgeHash not in self.get_edges()
         ), "This edge was not removed from the graph successfully"
 
     def remove_edge(self, edgeHash: int):
@@ -395,7 +397,7 @@ class GeneMerGraph:
         return len(self.get_reads())
 
     def remove_node_from_reads(self, node_to_remove):
-        """remove a node from the list of nodes annotated on each read and return the modified node list"""
+        """remove a node from the list of nodes and return the modified node list"""
         for readId in node_to_remove.get_reads():
             # filter out the nodes we want to remove
             new_nodes = [
@@ -538,7 +540,7 @@ class GeneMerGraph:
 
     def get_nodes_with_degree(self, degree: int):
         """return a list of node objects with the specified degree"""
-        assert type(degree) == int, "The input degree must be an integer."
+        assert isinstance(degree, int), "The input degree must be an integer."
         nodesWithDegree = []
         for node in self.all_nodes():
             nodeDegree = self.get_degree(node)
@@ -547,7 +549,7 @@ class GeneMerGraph:
         return nodesWithDegree
 
     def insert_between_nodes_on_read(self, readNodes, preInsertion, postInsertion, node_to_insert):
-        """returns a modified list where "*" has been inserted at the sit where a node will be added later"""
+        """returns a modified list with "*" marking site to insert node"""
         if not len(readNodes) == 1:
             newReadNodes = []
             i = 0
@@ -601,14 +603,15 @@ class GeneMerGraph:
             if to_replace[i] == "*":
                 preInsertion = to_replace[i - 1]
                 postInsertion = to_replace[i + 1]
-                # get the indices of the node hashes immediately adjacent to the node to the insertion site
+                # get the indices of node hashes immediately adjacent to the insertion site
                 modifiedReadNodes = self.insert_between_nodes_on_read(
                     modifiedReadNodes, preInsertion, postInsertion, "*"
                 )
         return modifiedReadNodes
 
     def correct_read_nodes(self, readId, replacementDict):
-        """replace a single node hash in a list with the elements in a list and return the new readNode dictionary"""
+        """replace a single node hash in a list with a list, \
+            return the new readNode dictionary"""
         # get the nodes on this read
         readNodes = self.get_readNodes()[readId]
         # get the keys of nodes that are adjacent to the insertion
@@ -619,7 +622,8 @@ class GeneMerGraph:
         return self.get_readNodes()[readId]
 
     def get_orientation_of_read(self, listOfNodes):
-        """get the orientation of a read relative to the graph. 1 means forward and -1 means backward"""
+        """get the orientation of a read relative to the graph. \
+            1 means forward and -1 means backward"""
         if all(
             self.get_node_by_hash(listOfNodes[i + 1])
             in self.get_forward_neighbors(self.get_node_by_hash(listOfNodes[i]))
@@ -661,7 +665,7 @@ class GeneMerGraph:
             targetNode = self.get_node_by_hash(listOfNodes[n + 1])
             # get the edge between the source and target node
             edgeHashes = self.get_edge_hashes_between_nodes(sourceNode, targetNode)
-            if type(edgeHashes[0]) == list:
+            if isinstance(edgeHashes[0], list):
                 return self.get_reads()[read_ID]
             edge = self.get_edge_by_hash(edgeHashes[0])
             # add either the forward or reverse gene mer depending on the node direction
@@ -689,7 +693,8 @@ class GeneMerGraph:
         return annotatedReads
 
     def remove_short_linear_paths(self, min_length):
-        """remove nodeHash annotations on reads if they belong to a linear path of length < min_length. Returns a list of nodeHashes that have bene removed"""
+        """remove nodeHashes on reads if on a linear path of length < min_length. \
+            Returns a list of nodeHashes that have bene removed"""
         paths_to_remove = []
         for node in self.all_nodes():
             if self.get_degree(node) == 1:
@@ -701,7 +706,7 @@ class GeneMerGraph:
         removed = set()
         for path in paths_to_remove:
             for nodeHash in path:
-                if not nodeHash in removed:
+                if nodeHash not in removed:
                     self.remove_node(self.get_node_by_hash(nodeHash))
                     removed.add(nodeHash)
         return list(removed)
@@ -800,13 +805,12 @@ class GeneMerGraph:
                 pathReads.add(readId)
         # correct the reads
         for readId in list(pathReads):
-            old_readNodes = self.get_readNodes()[readId][:]
-            newReadNodes = self.correct_read_nodes(readId, replacementDict)
+            self.correct_read_nodes(readId, replacementDict)
 
     def replace_nodes_on_read(self, modifiedReadNodes, replacementDict):
         corrected_list = []
         for nodeHash in modifiedReadNodes:
-            if not nodeHash in replacementDict:
+            if nodeHash not in replacementDict:
                 corrected_list.append(nodeHash)
             else:
                 corrected_list.append(replacementDict[nodeHash])
@@ -926,11 +930,11 @@ class GeneMerGraph:
             )[0]
             for i in range(len(shortest_path) - 1)
         ]
-        try:
-            longest_path_coverage = [e.get_edge_coverage() for e in longest_path_edges]
-            shortest_path_coverage = [e.get_edge_coverage() for e in shortest_path_edges]
-        except:
-            [print(e.get_targetNode().__hash__()) for e in longest_path_edges]
+        # try:
+        longest_path_coverage = [e.get_edge_coverage() for e in longest_path_edges]
+        shortest_path_coverage = [e.get_edge_coverage() for e in shortest_path_edges]
+        # except:
+        #     [print(e.get_targetNode().__hash__()) for e in longest_path_edges]
         this_triangle = tuple(sorted(longest_path))
         if this_triangle not in seen_triangles:
             triangles.append(
@@ -946,7 +950,7 @@ class GeneMerGraph:
         triangles = self.get_triangles()
         # iterate through the pairs of paths
         for paths in triangles:
-            # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
+            # only consider lowest and highest coverage paths
             shortest_path, shortest_coverage = paths[-1]
             longest_path, longest_coverage = paths[0]
             # skip this correction if we have already corrected it
@@ -961,9 +965,9 @@ class GeneMerGraph:
         return annotatedReads
 
     def pop_bubbles(self, bubble_popper_threshold):
-        """ this function takes each path of length k and k - 1 between pairs of nodes that have a degree of 3 or 4 and \
-            removes the path with the lowest coverage from the reads to replace all occurrences of the lower coverage path with the higher one. \
-            A sensitivity of 1 and an equal number of reads through both paths will mean we correct from the longer path to the shorter path. """
+        """Finds k and k - 1 length paths. \
+            Replaces the lower coverage path with the higher. \
+            Sensitivity=1 and equal reads corrects from the longer path to the shorter path. """
         assert (
             bubble_popper_threshold >= 1
         ), "bubbler popping threshold (-p) must be greater than or equal to 1."
@@ -987,11 +991,11 @@ class GeneMerGraph:
             # converging_paths = self.get_converging_paths(startNode)
             # iterate through the pairs of paths
             # for terminals in converging_paths:
-            # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
+            # only consider the lowest and highest coverage paths
             #    lowest_coverage_path, lowest_path_coverage = converging_paths[terminals][0]
             #    highest_coverage_path, highest_path_coverage = converging_paths[terminals][-1]
             for paths in converging_paths:
-                # we have sorted by coverage and choose to replace the lowest coverage path in case there are more than 2 converging paths
+                # only consider the lowest and highest coverage paths
                 lowest_coverage_path, lowest_path_coverage = paths[0]
                 highest_coverage_path, highest_path_coverage = paths[-1]
                 if lowest_coverage_path == highest_coverage_path:
@@ -999,16 +1003,16 @@ class GeneMerGraph:
                 # skip this correction if we have already corrected it
                 bubbleTerminals = tuple(sorted([lowest_coverage_path[0], lowest_coverage_path[-1]]))
                 # skip the correction if we have corrected this path already
-                if not bubbleTerminals in seenBubbles:
-                    # skip the correction if the coverage of the highest coverage path < 150% the coverage of the lowest coverage path
+                if bubbleTerminals not in seenBubbles:
+                    # skip the correction if the coverage of the highest coverage path < threshold
                     if highest_path_coverage >= bubble_popper_threshold * lowest_path_coverage:
-                        # we have missed a gene if the length of the highest coverage path is 1 MORE than the lowest coverage path
+                        # see if a single gene has been missed
                         if (
                             len(lowest_coverage_path) == self.get_kmerSize() + 1
                             and len(highest_coverage_path) == self.get_kmerSize() + 2
                         ):
                             self.correct_missing_gene(lowest_coverage_path, highest_coverage_path)
-                        # we have incorrectly called a gene if the length of the highest coverage path is 1 LESS than the lowest coverage path
+                        # see if a single gene has been missed
                         elif (
                             len(highest_coverage_path) == self.get_kmerSize() + 1
                             and len(lowest_coverage_path) == self.get_kmerSize() + 2
@@ -1024,7 +1028,7 @@ class GeneMerGraph:
                     seenBubbles.add(bubbleTerminals)
 
     def correct_errors(self, min_linearPathLength, bubble_popper_threshold):
-        """return a dictionary of corrected read annotation to build a new, cleaner gene-mer graph"""
+        """return a dictionary of corrected read annotations"""
         # clean up short linear paths that look like hairs on the gene-mer graph
         self.remove_short_linear_paths(min_linearPathLength)
         # pop bubbles in the graph where a single gene annotation has been missed
@@ -1046,7 +1050,7 @@ class GeneMerGraph:
                 targetNodeDegree = self.get_degree(targetNode)
                 # get the direction we are going into the target node
                 targetNodeDirection = edge.get_targetNodeDirection()
-                # if the degree of the target node is 1 or 2 we can extend the linear path to the next node
+                # see if we can extend the linear path to the next node
                 if targetNodeDegree == 2 or targetNodeDegree == 1:
                     return True, targetNode, targetNodeDirection
                 else:
@@ -1067,7 +1071,7 @@ class GeneMerGraph:
                 targetNodeDegree = self.get_degree(targetNode)
                 # get the direction we are going into the target node
                 targetNodeDirection = edge.get_targetNodeDirection()
-                # if the degree of the target node is 1 or 2 we can extend the linear path to the next node
+                # see if we can extend the linear path to the next node
                 if targetNodeDegree == 2 or targetNodeDegree == 1:
                     # get the direction we are going into the target node
                     return True, targetNode, targetNodeDirection
@@ -1146,7 +1150,8 @@ class GeneMerGraph:
         return backward_nodes_from_node
 
     def get_linear_path_for_node(self, node: Node, wantBranchedNode=False) -> list:
-        """return a list of nodes that correspond to the linear path that contains the specified node and does not include the terminal nodes with a degree of more than 2"""
+        """return a list of nodes in the linear path that contains the specified node. \
+            Does not include the terminal nodes with a degree of more than 2"""
         linear_path = (
             self.get_backward_path_from_node(
                 node, -1 * node.get_geneMer().get_geneMerDirection(), wantBranchedNode
@@ -1166,7 +1171,8 @@ class GeneMerGraph:
     def generate_gml(
         self, output_file: str, geneMerSize: int, min_node_coverage: int, min_edge_coverage: int
     ):
-        """Write a gml of the filtered graph to the output directory. Returns the written content as a list"""
+        """Write a gml of the filtered graph to the output directory. \
+            Returns the written content as a list"""
         graph_data = ["graph\t[", "multigraph 1"]
         self.assign_Id_to_nodes()
         # iterate through the nodes in the graph
@@ -1250,7 +1256,7 @@ class GeneMerGraph:
             ):
                 # get the coverage of the node
                 coverage = node.get_node_coverage()
-                # see if the coverage of this node is greater than the previous highest coverage node
+                # see if the coverage of this node is greater than the previous highest
                 if coverage > highest_coverage:
                     highest_coverage = coverage
                     start_node = node
@@ -1270,7 +1276,7 @@ class GeneMerGraph:
         seen_nodes = {startNode.__hash__(): 1}
         current_node = startNode
         path_coverages = [startNode.get_node_coverage()]
-        # use the direction variable to decide if we get the forward or reverse neighbors of the start node
+        # use the direction to decide if we get the forward or reverse neighbors
         if traversal_direction == 1:
             next_neighbors = self.get_forward_neighbors(startNode)
         else:
@@ -1283,9 +1289,9 @@ class GeneMerGraph:
             if not all(n.__hash__() in seen_nodes for n in next_nodes):
                 for next_node in next_nodes:
                     next_node_hash = next_node.__hash__()
-                    if not next_node_hash in seen_nodes:
+                    if next_node_hash not in seen_nodes:
                         path.append(next_node_hash)
-                        if not next_node_hash in seen_nodes:
+                        if next_node_hash not in seen_nodes:
                             seen_nodes[next_node_hash] = 0
                         seen_nodes[next_node_hash] += 1
                         path_coverages.append(next_node.get_node_coverage())
@@ -1391,20 +1397,19 @@ class GeneMerGraph:
             ]
             # get all possible combinations of start and stops in the heaviest path
             pairs = {}
-            for f in first_gene_indices:
-                for l in last_gene_indices:
+            for first in first_gene_indices:
+                for last in last_gene_indices:
                     # get the number of shared elements between two lists
-                    counter1 = Counter(path_genes_relative_to_read[f : l + 1])
+                    counter1 = Counter(path_genes_relative_to_read[first : last + 1])
                     counter2 = Counter(read_list_of_genes)
                     shared_count = sum((counter1 & counter2).values())
-                    pairs[(f, l)] = shared_count / len(read_list_of_genes)
-            try:
-                highest_matching = max(pairs, key=pairs.get)
-            except:
-                print(path_genes_relative_to_read)
-                print(read_list_of_genes)
-                print(pairs, first_gene_indices, last_gene_indices)
-                oiSEFIOUEFI
+                    pairs[(first, last)] = shared_count / len(read_list_of_genes)
+            # try:
+            highest_matching = max(pairs, key=pairs.get)
+            # except:
+            #     print(path_genes_relative_to_read)
+            #     print(read_list_of_genes)
+            #     print(pairs, first_gene_indices, last_gene_indices)
             corrected_read_genes = path_genes_relative_to_read[
                 highest_matching[0] : highest_matching[1] + 1
             ]

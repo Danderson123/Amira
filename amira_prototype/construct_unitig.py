@@ -88,7 +88,7 @@ class UnitigTools:
         return nodeAnchors, nodeJunctions
 
     def resolve_one_junction_clusters(self, reads_to_separate, clusterJunctions, graph):
-        """separate reads in intermediate clusters based on the path they follow through junctions"""
+        """separate reads in intermediate clusters based on the path through junctions"""
         paths = {}
         for r in range(len(reads_to_separate)):
             nodeHashes = graph.get_readNodes()[reads_to_separate[r]]
@@ -109,7 +109,7 @@ class UnitigTools:
         for readId in paths:
             paths[readId].sort()
             pathTuple = tuple(paths[readId])
-            if not pathTuple in subclusters:
+            if pathTuple not in subclusters:
                 subclusters[pathTuple] = []
             subclusters[pathTuple].append(readId)
         # there is only 1 junction so two potential paths through it
@@ -186,7 +186,7 @@ class UnitigTools:
                 # if self.contains_sublist(clusterReadNodes[readId],
                 #                        list(path)):
                 if all(p in clusterReadNodes[readId] for p in list(path)):
-                    if not path in subclusteredReads:
+                    if path not in subclusteredReads:
                         subclusteredReads[path] = []
                     subclusteredReads[path].append(readId)
         return subclusteredReads
@@ -286,7 +286,7 @@ class UnitigTools:
                         trimmedReadNodes = readNodes[firstJunctionIndex + 1 : secondJunctionIndex]
                 else:
                     # trim the read nodes so that we are only adding nodes outside of the junctions
-                    trimmedReadNodes = [n for n in readNodes if not n in junctionSet]
+                    trimmedReadNodes = [n for n in readNodes if n not in junctionSet]
                 uniqueNodes.update(trimmedReadNodes)
             # get the reads for each of these useful nodes
             subclusterAllReads[subcluster] = self.get_all_reads_in_path(uniqueNodes, graph)
@@ -309,11 +309,7 @@ class UnitigTools:
                 chunk.append(element)
         return output
 
-    def resolve_intermediate_clusters(
-        self, intermediateClusters, amrJunctions, amrAnchors, clusterId
-    ):
-        # initialise a list of read file paths
-        readFiles = []
+    def resolve_intermediate_clusters(self, intermediateClusters, amrJunctions, amrAnchors):
         # get the graph
         graph = self.get_graph()
         # join the junction and anchor sets
@@ -416,7 +412,7 @@ class UnitigTools:
         for nodeHash in nodeAnchors:
             node = graph.get_node_by_hash(nodeHash)
             for readId in node.get_reads():
-                if not readId in anchorReads:
+                if readId not in anchorReads:
                     anchorReads[readId] = []
                 anchorReads[readId].append(nodeHash)
         # get reads that have at least 2 anchors
@@ -455,9 +451,7 @@ class UnitigTools:
         # resolve the easy clusters
         readFiles = self.resolve_easy_clusters(easy)
         # resolve the intermediate clusters
-        readFiles += self.resolve_intermediate_clusters(
-            intermediate, amrJunctions, amrAnchors, clusterId
-        )
+        readFiles += self.resolve_intermediate_clusters(intermediate, amrJunctions, amrAnchors)
         return readFiles
 
     def convert_paths_to_genes(self, pathGeneMers):
@@ -484,40 +478,39 @@ class UnitigTools:
                     os.path.join(os.path.dirname(inputFastq), "flye_output"),
                 ]
             )
-            try:
-                subprocess.run(flye_command, shell=True, check=True)
-                if os.path.exists(
+            # try:
+            subprocess.run(flye_command, shell=True, check=True)
+            if os.path.exists(
+                os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta")
+            ):
+                # map the reads to the consensus file
+                map_command = "minimap2 -a --MD -t 1 "
+                map_command += (
                     os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta")
-                ):
-                    # map the reads to the consensus file
-                    map_command = "minimap2 -a --MD -t 1 "
-                    map_command += (
-                        os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta")
-                        + " "
-                        + inputFastq
-                    )
-                    map_command += " > " + os.path.join(
-                        os.path.dirname(inputFastq), "reads_mapped_to_consensus.sam"
-                    )
-                    subprocess.run(map_command, shell=True, check=True)
-                    # polish the pandora consensus
-                    racon_command = "panRG_building_tools/racon/build/bin/racon" + " -t 1 "
-                    racon_command += (
-                        inputFastq
-                        + " "
-                        + os.path.join(os.path.dirname(inputFastq), "reads_mapped_to_consensus.sam")
-                        + " "
-                    )
-                    racon_command += (
-                        os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta")
-                        + " "
-                    )
-                    racon_command += "> " + os.path.join(
-                        os.path.dirname(inputFastq), "racon_polished_assembly.fasta"
-                    )
-                    subprocess.run(racon_command, shell=True, check=True)
-            except:
-                pass
+                    + " "
+                    + inputFastq
+                )
+                map_command += " > " + os.path.join(
+                    os.path.dirname(inputFastq), "reads_mapped_to_consensus.sam"
+                )
+                subprocess.run(map_command, shell=True, check=True)
+                # polish the pandora consensus
+                racon_command = "panRG_building_tools/racon/build/bin/racon" + " -t 1 "
+                racon_command += (
+                    inputFastq
+                    + " "
+                    + os.path.join(os.path.dirname(inputFastq), "reads_mapped_to_consensus.sam")
+                    + " "
+                )
+                racon_command += (
+                    os.path.join(os.path.dirname(inputFastq), "flye_output", "assembly.fasta") + " "
+                )
+                racon_command += "> " + os.path.join(
+                    os.path.dirname(inputFastq), "racon_polished_assembly.fasta"
+                )
+                subprocess.run(racon_command, shell=True, check=True)
+            # except:
+            #     pass
 
         job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
         for subset in tqdm(job_list):
@@ -529,10 +522,10 @@ class UnitigTools:
             raven_command = " ".join(
                 [raven_path, "-t", str(raven_threads), inputFastq, ">", outputConsensus]
             )
-            try:
-                subprocess.run(raven_command, shell=True, check=True)
-            except:
-                pass
+            # try:
+            subprocess.run(raven_command, shell=True, check=True)
+            # except:
+            #    pass
 
         job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
         for subset in tqdm(job_list):
@@ -555,7 +548,7 @@ class UnitigTools:
             geneCounts = {}
             for gene in unitigGenes:
                 if unitigGenes.count(gene) > 1:
-                    if not gene in geneCounts:
+                    if gene not in geneCounts:
                         geneCounts[gene] = 0
                     else:
                         geneCounts[gene] += 1
@@ -595,21 +588,19 @@ class UnitigTools:
                 )
                 racon_command += os.path.join(outputDir, gene, "01.pandora.consensus.fasta") + " "
                 racon_command += "> " + os.path.join(outputDir, gene, "03.polished.consensus.fasta")
-                try:
-                    subprocess.run(racon_command, shell=True, check=True)
-                    # trim the buffer
-                    with open(
-                        os.path.join(outputDir, gene, "03.polished.consensus.fasta"), "r"
-                    ) as i:
-                        racon_seq = i.read()
-                    header = racon_seq.split("\n")[0]
-                    sequence = "\n".join(racon_seq.split("\n")[1:]).replace("N", "")
-                    with open(
-                        os.path.join(outputDir, gene, "04.polished.consensus.trimmed.fasta"), "w"
-                    ) as outTrimmed:
-                        outTrimmed.write(">" + header + "\n" + sequence + "\n")
-                except:
-                    pass
+                # try:
+                subprocess.run(racon_command, shell=True, check=True)
+                # trim the buffer
+                with open(os.path.join(outputDir, gene, "03.polished.consensus.fasta"), "r") as i:
+                    racon_seq = i.read()
+                header = racon_seq.split("\n")[0]
+                sequence = "\n".join(racon_seq.split("\n")[1:]).replace("N", "")
+                with open(
+                    os.path.join(outputDir, gene, "04.polished.consensus.trimmed.fasta"), "w"
+                ) as outTrimmed:
+                    outTrimmed.write(">" + header + "\n" + sequence + "\n")
+                # except:
+                #    pass
 
         # load the pandora consensus fastq
         fastqContent = parse_fastq(consensusFastq)
@@ -662,13 +653,11 @@ class UnitigTools:
         return unitiglengths
 
     def visualise_unitigs(self, geneLengths: dict, unitig_mapping: dict, output_dir: str):
-        """generate a figure to visualise the genes, order of genes, direction and lengths of genes on unitigs containing AMR genes"""
+        """generate a figure to visualise the genes on unitigs containing AMR genes"""
         allAMRGenes = self.get_unitigs().get_selected_genes()
         unitigGenesOfInterest = self.get_unitigsOfInterest()
         # initialise the unitig figure
         fig, ax = self.initialise_plots(len(unitigGenesOfInterest))
-        # get minimum length of all genes
-        minLength = min(min(list(geneLengths.values())))
         # iterate through the unitigs
         for unitig in tqdm(unitigGenesOfInterest):
             if not len(unitigGenesOfInterest[unitig]) == 0:
