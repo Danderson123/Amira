@@ -24,7 +24,7 @@ pre-commit:
 
 .PHONY: test
 test:
-	pip install pytest
+	poetry install
 	pytest tests
 
 build:
