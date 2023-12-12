@@ -24,6 +24,7 @@ pre-commit:
 
 .PHONY: test
 test:
+	pip install pytest
 	pytest tests
 
 build:
