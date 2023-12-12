@@ -19,6 +19,7 @@ install-ci:
 
 .PHONY: pre-commit
 pre-commit:
+	poetry run pre-commit autoupdate
 	poetry run pre-commit run --all-files -v
 
 .PHONY: test
