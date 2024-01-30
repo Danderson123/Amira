@@ -156,7 +156,7 @@ class TestUnitigTools:
                 coverages_for_this_unitig.append(node.get_node_coverage())
             if not len(u) == 1:
                 # get the list of genes for this unitig
-                genes = self.get_graph().follow_path_to_get_annotations(u)
+                genes = self.get_graph().follow_path_to_get_annotations(u, None)
             else:
                 genes = (
                     self.get_graph()
@@ -298,7 +298,7 @@ def write_fastq(fastq_file, data):
 
 
 class Unitig:
-    def __init__(self, listOfNodes: list, listOfGenes: list, component_ID: int, unitig_ID: int):
+    def __init__(self, listOfNodes: list, listOfGenes: list, component_ID: int, unitig_ID: int, mean_edge_coverage: int):
         self._nodes = listOfNodes
         self._genes = listOfGenes
 
@@ -310,6 +310,7 @@ class Unitig:
         self._reverse_genes = get_reverse_genes(self.get_genes())
         self._component_ID = component_ID
         self._unitig_ID = unitig_ID
+        self._mean_edge_coverage = mean_edge_coverage
 
         def get_read_union(listOfNodes):
             read_union = set()
@@ -348,3 +349,6 @@ class Unitig:
     def get_coverage(self):
         """returns an integer of the number of reads supporting this unitig"""
         return self._coverage
+
+    def get_mean_edge_coverage(self):
+        return self._mean_edge_coverage
