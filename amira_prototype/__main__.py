@@ -3,12 +3,16 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from sklearn.mixture import GaussianMixture
+from scipy.optimize import fsolve, minimize_scalar
+from scipy.signal import argrelextrema, find_peaks, savgol_filter
+from scipy.stats import norm
+from sklearn.neighbors import KernelDensity
 import sys
 
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_unitig import parse_fastq
 from amira_prototype.pre_process import convert_pandora_output, process_pandora_json
-from amira_prototype.test_functions import TestUnitigTools, Unitig
 
 
 def get_options() -> argparse.Namespace:
@@ -44,7 +48,7 @@ def get_options() -> argparse.Namespace:
         "-n",
         dest="node_min_coverage",
         type=int,
-        default=1,
+        default=None,
         help="minimum threshold for gene-mer coverage",
     )
     parser.add_argument(
@@ -73,6 +77,58 @@ def get_options() -> argparse.Namespace:
     args = parser.parse_args()
     return args
 
+def find_trough(node_coverages, filename):
+    # Calculate the frequency of each coverage value
+    coverages = {}
+    for cov in node_coverages:
+        coverages[cov] = coverages.get(cov, 0) + 1
+    # Sort the coverage values and their frequencies
+    vals = sorted(coverages.items())
+    x_values = [v[0] for v in vals]
+    y_values = [v[1] for v in vals]
+    # Apply log transformation to the counts, adding 1 to avoid log(0)
+    log_counts = np.log(np.array(y_values) + 1)
+    # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
+    window_length, poly_order = 45, 3  # Example values; need to be chosen based on your data
+    if len(log_counts) < window_length:  # Ensure we have enough data points for the chosen window
+        window_length = len(log_counts) // 2 * 2 + 1  # Make the window length the next odd number less than the data length
+    smoothed_log_counts = savgol_filter(log_counts, window_length, poly_order)
+    plt.figure(figsize=(10, 6))
+    plt.bar(x_values, log_counts, label='Counts', color='white', edgecolor='black')
+    plt.plot(x_values, smoothed_log_counts, color='red', label='Smoothed counts')  # Exponentiate to undo log transform for plotting
+    plt.title('Histogram of node coverages with Smoothed Curve')
+    plt.xlabel('Node Coverage')
+    plt.ylabel('Log of absolute frequency')
+    plt.xlim([0, max(x_values)])
+    plt.legend()
+    plt.savefig(filename)
+    plt.close()
+
+    # Check if the first or last data point is a peak and handle it
+    modified_smoothed_log_counts = np.array([0] + list(smoothed_log_counts))
+    # Find the indices of the peaks
+    peak_indices, _ = find_peaks(modified_smoothed_log_counts)
+    # Find the two most prominent peaks
+    if len(peak_indices) < 2:
+        raise ValueError("Not enough peaks to find a trough.")
+    prominent_peaks = peak_indices[np.argsort(modified_smoothed_log_counts[peak_indices])[-2:]]
+    prominent_peaks.sort()
+    # Find the index of the minimum value (trough) between the two peaks
+    trough_index = np.argmin(modified_smoothed_log_counts[prominent_peaks[0]:prominent_peaks[1]]) + prominent_peaks[0]
+    trough_value = x_values[trough_index - 1]
+    # Plot the histogram and the trough
+    plt.figure(figsize=(10, 6))
+    plt.bar(x_values, log_counts, label='Counts', color='white', edgecolor='black')
+    plt.plot(x_values, smoothed_log_counts, color='red', label='Smoothed counts')  # Exponentiate to undo log transform for plotting
+    plt.axvline(x=trough_value, color='r', linestyle='--', label=f'Trough at x={trough_value:.2f}')
+    plt.title('Histogram of node coverages with Smoothed Curve')
+    plt.xlabel('Node Coverage')
+    plt.ylabel('Log of absolute frequency')
+    plt.xlim([0, max(x_values)])
+    plt.legend()
+    plt.savefig(filename)
+    plt.close()
+    return trough_value
 
 def plot_log_histogram(node_coverages, filename):
     # Calculate histogram data (counts and bin edges) without plotting
@@ -84,7 +140,7 @@ def plot_log_histogram(node_coverages, filename):
     # Create the bar plot
     plt.figure(figsize=(10, 6))  # Optional: Adjust figure size
     # Plot bars with bin centers as x values and logged counts as heights
-    plt.bar(bin_centers, log_counts, align='center', width=np.diff(bin_edges), color='skyblue', edgecolor='black')
+    plt.bar(bin_centers, log_counts, align='center', width=np.diff(bin_edges), color='white', edgecolor='black')
     # Set plot title and labels
     plt.title('Histogram of node coverages')
     plt.xlabel('Node Coverage')
@@ -92,6 +148,7 @@ def plot_log_histogram(node_coverages, filename):
     # Save the plot as a PNG file
     plt.savefig(filename, dpi=300)  # Adjust dpi for higher resolution if needed
     plt.close()
+    #kde_min_derivative(node_coverages, os.path.join(os.path.dirname(filename), "kde_plot.png"))
 
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
@@ -111,170 +168,7 @@ def write_debug_files(
     raw_graph.generate_gml(
         os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
     )
-    # plot a histogram of node coverages
-    plot_log_histogram(raw_graph.get_all_node_coverages(), os.path.join(output_dir, "node_coverages.png"))
     return raw_graph
-
-def get_unitig_boundaries(nodes_in_component, graph):
-    """Identify unitig boundaries within a component based on node degrees."""
-    unitig_boundaries = set()
-    node_mapping = {}
-    for node in nodes_in_component:
-        node_hash = node.__hash__()
-        node_mapping[node_hash] = node
-        if not graph.get_degree(node) > 2:
-            forward_neighbors = graph.get_forward_neighbors(node)
-            backward_neighbors = graph.get_backward_neighbors(node)
-            if len(backward_neighbors) == 0 or len(forward_neighbors) == 0:
-                unitig_boundaries.add(node_hash)
-        else:
-            unitig_boundaries.add(node_hash)
-    return unitig_boundaries, node_mapping
-
-
-def generate_unitigs(node_mapping, unitig_boundaries, graph, component, current_unitig_id):
-    """Generate unitigs based on boundaries and graph structure."""
-    import statistics
-    unitigs_in_component = []
-    node_to_unitig_mapping = {}
-    seen_unitigs = set()
-    for node_hash in unitig_boundaries:
-        node = node_mapping[node_hash]
-        for neighbour_node in graph.get_all_neighbors(node):
-            assert node_hash == node.__hash__()
-            if not graph.get_degree(neighbour_node) > 2:
-                linear_path = graph.get_linear_path_for_node(neighbour_node, True)
-            else:
-                if graph.get_edges_between_nodes(node, neighbour_node)[0].get_sourceNodeDirection() == 1:
-                    linear_path = [node_hash, neighbour_node.__hash__()]
-                if graph.get_edges_between_nodes(node, neighbour_node)[0].get_sourceNodeDirection() == -1:
-                    linear_path = [neighbour_node.__hash__(), node_hash]
-            assert linear_path[0] in unitig_boundaries and linear_path[-1] in unitig_boundaries
-            list_of_genes = (
-                graph.follow_path_to_get_annotations(linear_path, node.get_list_of_reads()[0])
-                if not len(linear_path) == 1
-                else graph.get_gene_mer_label(graph.get_node_by_hash(linear_path[0])).split("~~~")
-            )
-            if not (
-                tuple(linear_path) in seen_unitigs
-                or tuple(list(reversed(linear_path))) in seen_unitigs
-            ):
-                # if len(linear_path) == 1:
-                #     print(component, linear_path, node_hash, neighbour_node.__hash__())
-                #     print([n.__hash__() for n in graph.get_all_neighbors(node)], [n.__hash__() for n in graph.get_all_neighbors(neighbour_node)])
-                path_edge_coverages = [
-                    graph.get_edges_between_nodes(
-                        graph.get_node_by_hash(linear_path[i]), graph.get_node_by_hash(linear_path[i + 1])
-                    )[0].get_edge_coverage()
-                    for i in range(len(linear_path) - 1)
-                ]
-                unitig = Unitig(
-                    [node_mapping[h] for h in linear_path],
-                    list_of_genes,
-                    component,
-                    current_unitig_id,
-                    statistics.mean(path_edge_coverages),
-                )
-                for h in linear_path:
-                    node_to_unitig_mapping[h] = unitig
-                unitigs_in_component.append(unitig)
-                current_unitig_id += 1
-                seen_unitigs.add(tuple(linear_path))
-    return unitigs_in_component, node_to_unitig_mapping, current_unitig_id
-
-def unitig_list_of_genes(unitigs_in_component):
-    fw_genes_per_unitig = {}
-    rv_genes_per_unitig = {}
-    for i in range(len(unitigs_in_component)):
-        fw_genes_per_unitig[i] = unitigs_in_component[i].get_genes()
-        rv_genes_per_unitig[i] = unitigs_in_component[i].get_reverse_genes()
-    return fw_genes_per_unitig, rv_genes_per_unitig
-
-def calculate_unitig_distance_matrix(unitigs_in_component):
-    from collections import Counter
-    from tqdm import tqdm
-
-    fw_genes_per_unitig, rv_genes_per_unitig = unitig_list_of_genes(unitigs_in_component)
-
-    unitig_correction = {}
-    for i in tqdm(fw_genes_per_unitig):
-        distance_matrix = [0 for _ in range(len(unitigs_in_component))]
-        for j in fw_genes_per_unitig:
-            if i != j:
-                sorted_matches = sorted(
-                    [fw_genes_per_unitig[j][:], rv_genes_per_unitig[j][:]],
-                    key=lambda x: len(set(fw_genes_per_unitig[i]).intersection(set(x))),
-                    reverse=True,
-                )
-                counter1 = Counter(fw_genes_per_unitig[i])
-                counter2 = Counter(sorted_matches[0])
-                shared_count = len(list((counter1 & counter2).elements()))
-                union_count = len(
-                    fw_genes_per_unitig[i]
-                )
-                distance_matrix[j] = shared_count / union_count
-        with open("dist_mat.txt", "a+") as o:
-            o.write("\t".join([str(round(c, 1)) for c in distance_matrix]) + "\n")
-        max_index, max_value = max(enumerate(distance_matrix), key=lambda x: x[1])
-        # only correct unitigs if there is another one that is more than 80% similar
-        if (
-            max_value > 0.8
-            and unitigs_in_component[max_index].get_coverage()
-            >= unitigs_in_component[i].get_coverage()
-        ):
-            unitig_correction[unitigs_in_component[i]] = unitigs_in_component[max_index]
-        else:
-            unitig_correction[unitigs_in_component[i]] = unitigs_in_component[i]
-    return unitig_correction
-
-def split_unitigs(unitigs_in_component):
-    true_unitigs = []
-    false_unitigs = []
-    for unitig in unitigs_in_component:
-        if unitig.get_mean_edge_coverage() < 10:
-            false_unitigs.append(unitig)
-        else:
-            true_unitigs.append(unitig)
-    return true_unitigs, false_unitigs
-
-def get_unitigs(graph, output_dir):
-    from tqdm import tqdm
-    """Main function to extract unitigs from a graph and handle corrections."""
-    current_unitig_id = 0
-    reads_as_unitigs = {}
-    for component in tqdm(graph.components()):
-        nodes_in_component = graph.get_nodes_in_component(component)
-        unitig_boundaries, node_mapping = get_unitig_boundaries(nodes_in_component, graph)
-        # get the unitigs in the component
-        unitigs_in_component, node_to_unitig_mapping, current_unitig_id = generate_unitigs(
-            node_mapping, unitig_boundaries, graph, component, current_unitig_id
-        )
-        if component == 5:
-            true_unitigs, false_unitigs = split_unitigs(unitigs_in_component)
-            # make a dictionary to correct obviously false unitigs
-            unitig_correction = correct_unitigs(true_unitigs, false_unitigs)
-            print(unitig_correction)
-
-def correct_unitigs(true_unitigs, false_unitigs):
-    from tqdm import tqdm
-    from collections import Counter
-    fw_genes_true_unitigs, rv_genes_true_unitigs = unitig_list_of_genes(true_unitigs)
-    for unitig in tqdm(false_unitigs):
-        fw_genes = unitig.get_genes()
-        distances = []
-        for i in range(len(true_unitigs)):
-            sorted_matches = sorted(
-                [fw_genes_true_unitigs[i][:], rv_genes_true_unitigs[i][:]],
-                key=lambda x: len(set(fw_genes).intersection(set(x))),
-                reverse=True,
-            )
-            counter1 = Counter(fw_genes)
-            counter2 = Counter(sorted_matches[0])
-            shared_count = len(list((counter1 & counter2).elements()))
-            union_count = len(fw_genes_true_unitigs[i])
-            distances.append(shared_count / len(list((counter1 | counter2).elements())))
-        max_index, max_value = max(enumerate(distances), key=lambda x: x[1])
-        print(max_value, fw_genes, fw_genes_true_unitigs[max_index])
 
 def main() -> None:
     # get command line options
@@ -306,27 +200,23 @@ def main() -> None:
     if args.debug:
         write_debug_files(annotatedReads, args.geneMer_size, genesOfInterest, args.output_dir)
     # build the gene-mer graph
-    sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(annotatedReads, args.geneMer_size)
     sys.stderr.write("\nAmira: correcting reads\n")
+    # decide what threshold we are using for filtering
+    if not args.node_min_coverage:
+        node_min_coverage = find_trough(graph.get_all_node_coverages(), os.path.join(args.output_dir, "node_coverages.png"))
+    else:
+        node_min_coverage = args.node_min_coverage
     # filter low coverage nodes and edges
-    graph.filter_graph(args.node_min_coverage, args.edge_min_coverage)
-    new_annotatedReads = graph.correct_reads()
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
-    graph.filter_graph(args.node_min_coverage, args.edge_min_coverage)
-    graph.assign_component_ids()
-    # remove dead ends
-    graph.remove_short_linear_paths(20)
+    graph.filter_graph(node_min_coverage, args.edge_min_coverage)
     # remove low coverage components
+    graph.assign_component_ids()
     graph.remove_low_coverage_components(5)
-    graph.pop_bubbles(5)
-    # align reads to unitigs and get the new annotations
     new_annotatedReads = graph.correct_reads()
+    sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
-    graph.pop_bubbles(5)
-    new_annotatedReads = graph.correct_reads()
-    graph.remove_low_coverage_components(5)
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
+    # plot a histogram of node coverages
+    find_trough(graph.get_all_node_coverages(), os.path.join(args.output_dir, "post_correction_node_coverages.png"))
     # color nodes in the graph if --debug is used
     if args.debug:
         for node in graph.all_nodes():
@@ -340,6 +230,7 @@ def main() -> None:
         args.edge_min_coverage,
     )
     # assign reads to AMR genes by path
+    sys.stderr.write("\nAmira: clustering reads\n")
     clusters = graph.assign_reads_to_genes(genesOfInterest)
     # write out the clustered reads
     with open(os.path.join(args.output_dir, "reads_per_amr_gene.json"), "w") as o:
