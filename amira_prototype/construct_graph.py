@@ -1757,19 +1757,6 @@ class GeneMerGraph:
         return []
         # return self.get_reads()[read_id]
 
-    def find_read_boundaries(self, readNode):
-        """Find the first and last non-None positions in a read."""
-        start, end = 0, len(readNode) - 1
-        for i, node in enumerate(readNode):
-            if node:
-                start = i
-                break
-        for i, node in enumerate(reversed(readNode)):
-            if node:
-                end = len(readNode) - 1 - i
-                break
-        return start, end
-
     def needleman_wunsch(self, x, y):
         N, M = len(x), len(y)
         # Scoring function: returns 1 if elements are equal, 0 otherwise
@@ -2073,19 +2060,6 @@ class GeneMerGraph:
         assert None not in new_annotations
         return new_annotations
 
-    def identify_path_terminals(self, corrected, start, end):
-        """Identify terminals for paths that need correction within a read."""
-        path_terminals = []
-        for i in range(len(corrected)):
-            if i >= start and i <= end:
-                if not corrected[i]:
-                    if corrected[i - 1]:
-                        path_start = i - 1
-                    if corrected[i + 1]:
-                        path_end = i + 1
-                        path_terminals.append((path_start, path_end))
-        return path_terminals
-
     def new_identify_path_terminals(self, corrected, start, end):
         """Identify terminals for paths that need correction within a read."""
         path_terminals = []
@@ -2143,3 +2117,66 @@ class GeneMerGraph:
         # if len(paths) == 1:
         #    return {pair: paths[0]}
         # return {}
+
+    def find_read_boundaries(self, readNode):
+        """Find the first and last non-None positions in a read."""
+        start, end = 0, len(readNode) - 1
+        for i, node in enumerate(readNode):
+            if node is not None:
+                start = i
+                break
+        for i, node in enumerate(reversed(readNode)):
+            if node is not None:
+                end = len(readNode) - 1 - i
+                break
+        return start, end
+
+    def identify_path_terminals(self, corrected, start, end):
+        """Identify terminals for paths that need correction within a read."""
+        path_terminals = []
+        path_start = None  # Initialize path_start outside the loop
+        for i in range(start, end):  # Adjust the loop to iterate within the boundaries
+            if not corrected[i]:
+                if corrected[i - 1] or i == start:  # Adjust to include start boundary
+                    path_start = i - 1 if i > start else start  # Adjust for start boundary
+                if corrected[i + 1]:
+                    path_end = i + 1
+                    if path_start is not None:  # Ensure path_start is set before appending
+                        path_terminals.append((path_start, path_end))
+                    path_start = None  # Reset path_start for the next path
+        return path_terminals
+
+    def get_structural_gene_calls(self):
+        structural_genes = {}
+        read_index = 0
+        for read_id in self.get_readNodes():
+            this_read_nodes = self.get_readNodes()[read_id]
+            this_read_directions = self.get_readNodeDirections()[read_id]
+            if all(n is not None for n in this_read_nodes):
+                structural_genes[str(read_index)] = self.get_reads()[read_id]
+                read_index += 1  # Increment read_index for each structural gene added
+            else:
+                if any(n is not None for n in this_read_nodes):
+                    start, end = self.find_read_boundaries(this_read_nodes)
+                    path_terminals = self.identify_path_terminals(this_read_nodes, start, end)
+                    current_start = start
+                    if path_terminals:
+                        for start, end in path_terminals:
+                            genes = self.get_annotation_for_read(this_read_nodes[current_start: start + 1],
+                                                                this_read_directions[current_start: start + 1],
+                                                                None)
+                            structural_genes[str(read_index)] = genes
+                            current_start = end
+                            read_index += 1
+                        genes = self.get_annotation_for_read(this_read_nodes[current_start: end + 1],
+                                                            this_read_directions[current_start: end + 1],
+                                                            None)
+                        structural_genes[str(read_index)] = genes
+                        read_index += 1
+                    else:
+                        genes = self.get_annotation_for_read(this_read_nodes[start: end + 1],
+                                                            this_read_directions[start: end + 1],
+                                                            None)
+                        structural_genes[str(read_index)] = genes
+                        read_index += 1
+        return structural_genes

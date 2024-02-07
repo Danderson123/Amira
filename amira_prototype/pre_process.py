@@ -39,9 +39,9 @@ def get_read_start(cigar: list[tuple[int, int]]) -> int:
 def get_read_end(cigar: list[tuple[int, int]], regionStart: int) -> tuple[int, int]:
     """return an int of the 0 based position where the read region stops mapping to the gene"""
     regionLength = 0
-    for tuple in cigar:
-        if not tuple[0] == 5:
-            regionLength += tuple[1]
+    for cig_tuple in cigar:  # Changed variable name from 'tuple' to 'cig_tuple'
+        if cig_tuple[0] != 5:  # Using '!=' for consistency
+            regionLength += cig_tuple[1]
     regionEnd = regionStart + regionLength
     return regionEnd, regionLength
 
@@ -87,7 +87,7 @@ def convert_pandora_output(
             regionEnd, regionLength = get_read_end(cigar, regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
-            if regionStart - read_tracking[read.query_name]["end"] > 5000:
+            if regionStart - read_tracking[read.query_name]["end"] > 7000:
                 read_tracking[read.query_name]["index"] += 1
             distances.append(regionStart - read_tracking[read.query_name]["end"])
             # exclude genes that do not have a pandora consensus

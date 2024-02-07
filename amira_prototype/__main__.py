@@ -406,9 +406,11 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     # correct on a per component basis
     new_annotatedReads = {}
-    for component in graph.components():
+    components = graph.components()
+    for i in range(len(components)):
+        component = components[i]
         sys.stderr.write(
-            f"\nAmira: correcting reads for component {component}/{len(graph.components())}\n"
+            f"\nAmira: correcting reads for component {i + 1}/{len(components)}\n"
         )
         # get the nodes in the component
         nodes_in_component = graph.get_nodes_in_component(component)
@@ -420,33 +422,40 @@ def main() -> None:
                     component_annotated_reads[read] = annotatedReads[read]
         # build a graph of just this component
         component_graph = GeneMerGraph(component_annotated_reads, args.geneMer_size)
-        # remove short linear paths
+        # # remove short linear paths
         component_graph.remove_short_linear_paths(20)
         component_annotated_reads = component_graph.correct_reads()
+        component_graph.filter_graph(2, 1)
+        component_annotated_reads = component_graph.correct_reads()
         component_graph = GeneMerGraph(component_annotated_reads, args.geneMer_size)
+        # component_annotated_reads = component_graph.correct_reads()
+        # component_graph = GeneMerGraph(component_annotated_reads, args.geneMer_size)
         # dynamically determine the node threshold for filtering
         if not args.node_min_coverage:
             try:
                 node_min_coverage = find_trough(
                     component_graph.get_all_node_coverages(),
-                    os.path.join(args.output_dir, f"node_coverages_{component}.png"),
+                    os.path.join(args.output_dir, f"node_coverages_{i + 1}.png"),
                 )
             except:
                 node_min_coverage = 5
         else:
             node_min_coverage = args.node_min_coverage
         component_graph.filter_graph(node_min_coverage, 1)
-        component_annotated_reads = component_graph.correct_reads()
-        # remove low coverage components
-        component_graph = GeneMerGraph(component_annotated_reads, args.geneMer_size)
+        component_graph.remove_short_linear_paths(20)
+        # # remove low coverage components
+        component_graph.assign_component_ids()
         component_graph.remove_low_coverage_components(5)
-        component_annotated_reads = component_graph.correct_reads()
+        component_annotated_reads = component_graph.get_structural_gene_calls()
+        component_graph = GeneMerGraph(component_annotated_reads, args.geneMer_size)
+        component_graph.generate_gml(
+                os.path.join(args.output_dir, f"component_{i+1}_gene_mer_graph"),
+                args.geneMer_size,
+                node_min_coverage,
+                args.edge_min_coverage,
+            )
         # collect the component read annotations
         for read_id in component_annotated_reads:
-            if read_id in new_annotatedReads:
-                print(read_id)
-                print(new_annotatedReads[read_id])
-                print(component_annotated_reads[read_id])
             new_annotatedReads[read_id] = component_annotated_reads[read_id]
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
