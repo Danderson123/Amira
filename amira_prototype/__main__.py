@@ -224,25 +224,30 @@ def main() -> None:
         write_debug_files(annotatedReads, args.geneMer_size, genesOfInterest, args.output_dir)
     # build the gene-mer graph
     graph = GeneMerGraph(annotatedReads, args.geneMer_size)
-    # get rid of low coverage components
-    #graph.remove_low_coverage_components(5)
-    # remove short linear paths
-    #graph.remove_short_linear_paths(20)
-    new_annotatedReads = graph.correct_reads()
-    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
     # dynamically determine the node threshold for filtering
-    # if not args.node_min_coverage:
-    #     try:
-    #         node_min_coverage = find_trough(
-    #             graph.get_all_node_coverages(),
-    #             os.path.join(args.output_dir, f"node_coverages.png"),
-    #         )
-    #     except:
-    #         node_min_coverage = 5
-    # else:
-    #     node_min_coverage = args.node_min_coverage
-    #graph.filter_graph(node_min_coverage, 1)
-    #new_annotatedReads = graph.correct_reads()
+    if not args.node_min_coverage:
+        try:
+            node_min_coverage = find_trough(
+                graph.get_all_node_coverages(),
+                os.path.join(args.output_dir, f"node_coverages.png"),
+            )
+        except:
+            node_min_coverage = 5
+    else:
+        node_min_coverage = args.node_min_coverage
+    graph.filter_graph(node_min_coverage, 1)
+    new_annotatedReads = graph.correct_reads()
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
+    # get rid of low coverage components
+    graph.remove_low_coverage_components(5)
+    # remove short linear paths
+    graph.remove_short_linear_paths(20)
+    new_annotatedReads = graph.correct_reads()
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
+    find_trough(
+        graph.get_all_node_coverages(),
+        os.path.join(args.output_dir, f"post_corretion_node_coverages.png"),
+    )
     # remove low coverage components
     # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
     # graph.remove_low_coverage_components(5)
@@ -258,7 +263,7 @@ def main() -> None:
     graph.generate_gml(
         os.path.join(args.output_dir, "gene_mer_graph"),
         args.geneMer_size,
-        None,
+        node_min_coverage,
         args.edge_min_coverage,
     )
     # assign reads to AMR genes by path
