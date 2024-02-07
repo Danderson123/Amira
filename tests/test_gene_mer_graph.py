@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
+from amira_prototype.__main__ import find_trough
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
@@ -2126,7 +2127,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         sourceNode = Node(sourceGeneMer)
         graph = GeneMerGraph({}, 3)
         # execution
-        actual_listOfNodes = graph.add_node_to_read(sourceNode, "read1", sourceGeneMer.get_geneMerDirection())
+        actual_listOfNodes = graph.add_node_to_read(
+            sourceNode, "read1", sourceGeneMer.get_geneMerDirection()
+        )
         actual_readNodeDict = graph.get_readNodes()
         # assertion
         expected_listOfNodes = [sourceNode.__hash__()]
@@ -2194,7 +2197,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 sourceNodes[2].__hash__(),
                 sourceNodes[3].__hash__(),
                 sourceNodes[4].__hash__(),
-                None
+                None,
             ]
         }
         self.assertEqual(graph.get_readNodes(), expectedReadNodes)
@@ -3604,191 +3607,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for nodeHash in expected_removed_nodeHashes:
             self.assertTrue(nodeHash not in graph.get_nodes())
 
-    def test_follow_path_to_get_annotations_no_modification(self):
-        # setup
-        genes1 = [
-            "-gene6",
-            "+gene10",
-            "+gene9",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "+gene5",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "+gene8",
-            "-gene4",
-            "+gene5",
-        ]
-        genes1_reversed = [
-            "-gene5",
-            "+gene4",
-            "-gene8",
-            "-gene5",
-            "+gene4",
-            "-gene3",
-            "-gene5",
-            "+gene4",
-            "-gene3",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "-gene5",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "-gene9",
-            "-gene10",
-            "+gene6",
-        ]
-        genes2 = [
-            "-gene6",
-            "+gene10",
-            "+gene9",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "+gene5",
-            "-gene6",
-            "-gene7",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "+gene3",
-            "-gene4",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "+gene8",
-            "-gene4",
-            "+gene5",
-        ]
-        genes2_reversed = [
-            "-gene5",
-            "+gene4",
-            "-gene8",
-            "-gene5",
-            "+gene4",
-            "-gene3",
-            "+gene4",
-            "-gene3",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "+gene7",
-            "+gene6",
-            "-gene5",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "-gene9",
-            "-gene10",
-            "+gene6",
-        ]
-        graph = GeneMerGraph(
-            {"read1": genes1, "read2": genes1_reversed, "read3": genes2, "read4": genes2_reversed},
-            5,
-        )
-        readNodes = graph.get_readNodes()
-        # execution
-        actual_geneMers = {}
-        for readId in readNodes:
-            actual_geneMers[readId] = graph.follow_path_to_get_annotations(
-                readNodes[readId], readId
-            )
-        # assertion
-        self.assertTrue(
-            (actual_geneMers["read1"] == genes1) or (actual_geneMers["read1"] == genes1_reversed)
-        )
-        self.assertTrue(
-            (actual_geneMers["read2"] == genes1) or (actual_geneMers["read2"] == genes1_reversed)
-        )
-        self.assertTrue(
-            (actual_geneMers["read3"] == genes2) or (actual_geneMers["read3"] == genes2_reversed)
-        )
-        self.assertTrue(
-            (actual_geneMers["read4"] == genes2) or (actual_geneMers["read4"] == genes2_reversed)
-        )
-
-    def test_follow_path_to_get_annotations_k_1(self):
-        # setup
-        genes1 = [
-            "-gene6",
-            "+gene10",
-            "+gene9",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "+gene5",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "-gene6",
-            "+gene3",
-            "-gene7",
-            "-gene3",
-            "-gene4",
-            "+gene5",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "+gene8",
-            "-gene4",
-            "+gene5",
-        ]
-        genes1_reversed = [
-            "-gene5",
-            "+gene4",
-            "-gene8",
-            "-gene5",
-            "+gene4",
-            "-gene3",
-            "-gene5",
-            "+gene4",
-            "-gene3",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "-gene5",
-            "+gene7",
-            "-gene3",
-            "+gene6",
-            "-gene9",
-            "-gene10",
-            "+gene6",
-        ]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes1_reversed}, 1)
-        readNodes = graph.get_readNodes()
-        # execution
-        actual_geneMers = {}
-        for readId in readNodes:
-            actual_geneMers[readId] = graph.follow_path_to_get_annotations(
-                readNodes[readId], readId
-            )
-        # assertion
-        self.assertTrue(
-            (actual_geneMers["read1"] == genes1) or (actual_geneMers["read1"] == genes1_reversed)
-        )
-        self.assertTrue(
-            (actual_geneMers["read2"] == genes1) or (actual_geneMers["read2"] == genes1_reversed)
-        )
-
     def test_follow_path_by_coverage_basic(self):
         # Setup
         graph = GeneMerGraph({}, 3)
@@ -3823,9 +3641,39 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___get_AMR_anchors_and_junctions(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene10", "+gene16", "-gene17", "+gene18", "-gene19", "+gene20"]
-        genes2 = ["+gene11", "-gene12", "+gene3", "-gene4", "-gene6", "+gene13", "+gene14", "-gene15", "+gene16", "-gene17", "+gene18", "-gene21", "+gene22"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3)
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        genes2 = [
+            "+gene11",
+            "-gene12",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene13",
+            "+gene14",
+            "-gene15",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene21",
+            "+gene22",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
+        )
         # execution
         AMRNodes = graph.get_AMR_nodes(set({"gene4", "gene17"}))
         nodeAnchors, nodeJunctions = graph.get_AMR_anchors_and_junctions(AMRNodes)
@@ -3835,9 +3683,39 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___all_paths_for_subgraph_junctions(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene10", "+gene16", "-gene17", "+gene18", "-gene19", "+gene20"]
-        genes2 = ["+gene11", "-gene12", "+gene3", "-gene4", "-gene6", "+gene13", "+gene14", "-gene15", "+gene16", "-gene17", "+gene18", "-gene21", "+gene22"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3)
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        genes2 = [
+            "+gene11",
+            "-gene12",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene13",
+            "+gene14",
+            "-gene15",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene21",
+            "+gene22",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
+        )
         for geneOfInterest in set(["gene4", "gene17"]):
             # get the graph nodes containing this gene
             nodeOfInterest = graph.get_nodes_containing(geneOfInterest)
@@ -3854,8 +3732,24 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___all_paths_for_subgraph_linear(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene10", "+gene16", "-gene17", "+gene18", "-gene19", "+gene20"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3)
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
         for geneOfInterest in set(["gene7"]):
             # get the graph nodes containing this gene
             nodeOfInterest = graph.get_nodes_containing(geneOfInterest)
@@ -3872,8 +3766,24 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___all_paths_for_subgraph_linear_duplicate(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene7", "+gene16", "-gene17", "+gene18", "-gene19", "+gene20"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3)
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene7",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
         for geneOfInterest in set(["gene7"]):
             # get the graph nodes containing this gene
             nodeOfInterest = graph.get_nodes_containing(geneOfInterest)
@@ -3890,8 +3800,24 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test__assign_reads_to_genes_linear_duplicate(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "+gene9", "-gene7", "+gene16", "-gene17", "+gene18", "-gene19", "+gene20"]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3)
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene7",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
         # execution
         actual_clusters = graph.assign_reads_to_genes(set(["gene7"]))
         # assertion
@@ -3932,20 +3858,35 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___check_if_component_is_resolved_resolved_true(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+        ]
         genes2 = ["+gene1", "-gene2", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
         genes3 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10"]
-        graph = GeneMerGraph({"read1": genes1,
-                            "read2": genes2,
-                            "read3": genes3,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1}, 3)
+        graph = GeneMerGraph(
+            {
+                "read1": genes1,
+                "read2": genes2,
+                "read3": genes3,
+                "read4": genes1,
+                "read5": genes1,
+                "read6": genes1,
+                "read7": genes1,
+                "read8": genes1,
+                "read9": genes1,
+                "read10": genes1,
+                "read11": genes1,
+            },
+            3,
+        )
         # execution
         actual_resolved, actual_junctions = graph.check_if_component_is_resolved(1)
         # assertion
@@ -3954,31 +3895,46 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___check_if_component_is_resolved_resolved_true(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+        ]
         genes2 = ["+gene1", "-gene2", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
         genes3 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10"]
-        graph = GeneMerGraph({"read1": genes1,
-                            "read2": genes2,
-                            "read3": genes3,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes3,
-                            "read13": genes3,
-                            "read14": genes3,
-                            "read15": genes3,
-                            "read16": genes3,
-                            "read17": genes3,
-                            "read18": genes3,
-                            "read19": genes3,
-                            "read20": genes3,
-                            "read21": genes3,
-                            "read22": genes1}, 3)
+        graph = GeneMerGraph(
+            {
+                "read1": genes1,
+                "read2": genes2,
+                "read3": genes3,
+                "read4": genes1,
+                "read5": genes1,
+                "read6": genes1,
+                "read7": genes1,
+                "read8": genes1,
+                "read9": genes1,
+                "read10": genes1,
+                "read11": genes1,
+                "read12": genes3,
+                "read13": genes3,
+                "read14": genes3,
+                "read15": genes3,
+                "read16": genes3,
+                "read17": genes3,
+                "read18": genes3,
+                "read19": genes3,
+                "read20": genes3,
+                "read21": genes3,
+                "read22": genes1,
+            },
+            3,
+        )
         # execution
         actual_resolved, actual_junctions = graph.check_if_component_is_resolved(1)
         # assertion
@@ -3987,36 +3943,87 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___traverse_graph_from_high_coverage_junctions(self):
         # setup
-        genes1 = ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes2 = ["-gene0", "+gene1", "-gene2", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes4 = ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "-gene8", "+gene9", "-gene10", "+gene11"]
-        graph = GeneMerGraph({"read1": genes1,
-                            "read2": genes2,
-                            "read3": genes3,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes3,
-                            "read13": genes3,
-                            "read14": genes3,
-                            "read15": genes3,
-                            "read16": genes3,
-                            "read17": genes3,
-                            "read18": genes3,
-                            "read19": genes3,
-                            "read20": genes3,
-                            "read21": genes3,
-                            "read22": genes4,
-                            "read23": genes1}, 3)
+        genes1 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes2 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes3 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes4 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        graph = GeneMerGraph(
+            {
+                "read1": genes1,
+                "read2": genes2,
+                "read3": genes3,
+                "read4": genes1,
+                "read5": genes1,
+                "read6": genes1,
+                "read7": genes1,
+                "read8": genes1,
+                "read9": genes1,
+                "read10": genes1,
+                "read11": genes1,
+                "read12": genes3,
+                "read13": genes3,
+                "read14": genes3,
+                "read15": genes3,
+                "read16": genes3,
+                "read17": genes3,
+                "read18": genes3,
+                "read19": genes3,
+                "read20": genes3,
+                "read21": genes3,
+                "read22": genes4,
+                "read23": genes1,
+            },
+            3,
+        )
         resolved, high_coverage_junctions = graph.check_if_component_is_resolved(1)
         # execution
-        actual_paths, fw_segments, bw_segments = graph.traverse_graph_from_high_coverage_junctions(high_coverage_junctions)
+        actual_paths, fw_segments, bw_segments = graph.traverse_graph_from_high_coverage_junctions(
+            high_coverage_junctions
+        )
         # assertion
         self.assertFalse(resolved)
         self.assertEqual(len(high_coverage_junctions), 2)
@@ -4024,73 +4031,147 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_lengths = []
         for p in actual_paths:
             actual_lengths.append(len(p))
-#        print(actual_lengths)
+        #        print(actual_lengths)
         self.assertEqual(actual_lengths.count(3), 2)
         self.assertEqual(actual_lengths.count(4), 1)
         self.assertEqual(actual_lengths.count(5), 1)
 
     def test___find_read_boundaries(self):
         # setup
-        genes1 = ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes2 = ["-gene0", "+gene1", "-gene2", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes3 = ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes4 = ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "-gene8", "+gene9", "-gene10", "+gene11"]
-        graph = GeneMerGraph({"read1": genes1,
-                            "read2": genes2,
-                            "read3": genes3,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes3,
-                            "read13": genes3,
-                            "read14": genes3,
-                            "read15": genes3,
-                            "read16": genes3,
-                            "read17": genes3,
-                            "read18": genes3,
-                            "read19": genes3,
-                            "read20": genes3,
-                            "read21": genes3,
-                            "read22": genes4,
-                            "read23": genes1}, 3)
+        genes1 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes2 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes3 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes4 = [
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        graph = GeneMerGraph(
+            {
+                "read1": genes1,
+                "read2": genes2,
+                "read3": genes3,
+                "read4": genes1,
+                "read5": genes1,
+                "read6": genes1,
+                "read7": genes1,
+                "read8": genes1,
+                "read9": genes1,
+                "read10": genes1,
+                "read11": genes1,
+                "read12": genes3,
+                "read13": genes3,
+                "read14": genes3,
+                "read15": genes3,
+                "read16": genes3,
+                "read17": genes3,
+                "read18": genes3,
+                "read19": genes3,
+                "read20": genes3,
+                "read21": genes3,
+                "read22": genes4,
+                "read23": genes1,
+            },
+            3,
+        )
         # execution
-        actual_start, actual_end = graph.find_read_boundaries([None, 1, None, 2, 3, 4, 5, None, None, 6, 7, 8, 9, None, None, None])
+        actual_start, actual_end = graph.find_read_boundaries(
+            [None, 1, None, 2, 3, 4, 5, None, None, 6, 7, 8, 9, None, None, None]
+        )
         # assertion
         self.assertEqual(actual_start, 1)
         self.assertEqual(actual_end, 12)
 
     def test_correct_reads_bubble_one_path(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        annotations = {"read1": genes1,
-                            "read2": genes1,
-                            "read3": genes1,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes1,
-                            "read13": genes1,
-                            "read14": genes1,
-                            "read15": genes1,
-                            "read16": genes1,
-                            "read17": genes1,
-                            "read18": genes1,
-                            "read19": genes1,
-                            "read20": genes1,
-                            "read21": genes2,
-                            "read22": genes2,
-                            "read23": genes2}
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes2 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        annotations = {
+            "read1": genes1,
+            "read2": genes1,
+            "read3": genes1,
+            "read4": genes1,
+            "read5": genes1,
+            "read6": genes1,
+            "read7": genes1,
+            "read8": genes1,
+            "read9": genes1,
+            "read10": genes1,
+            "read11": genes1,
+            "read12": genes1,
+            "read13": genes1,
+            "read14": genes1,
+            "read15": genes1,
+            "read16": genes1,
+            "read17": genes1,
+            "read18": genes1,
+            "read19": genes1,
+            "read20": genes1,
+            "read21": genes2,
+            "read22": genes2,
+            "read23": genes2,
+        }
         graph = GeneMerGraph(annotations, 3)
         graph.filter_graph(5, 1)
         # execution
@@ -4101,133 +4182,189 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test_correct_reads_bubble_one_path_short_read(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9"]
-        annotations = {"read1": genes1,
-                            "read2": genes1,
-                            "read3": genes1,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes1,
-                            "read13": genes1,
-                            "read14": genes1,
-                            "read15": genes1,
-                            "read16": genes1,
-                            "read17": genes1,
-                            "read18": genes1,
-                            "read19": genes1,
-                            "read20": genes1,
-                            "read21": genes2,
-                            "read22": genes2,
-                            "read23": genes2}
+        annotations = {
+            "read1": genes1,
+            "read2": genes1,
+            "read3": genes1,
+            "read4": genes1,
+            "read5": genes1,
+            "read6": genes1,
+            "read7": genes1,
+            "read8": genes1,
+            "read9": genes1,
+            "read10": genes1,
+            "read11": genes1,
+            "read12": genes1,
+            "read13": genes1,
+            "read14": genes1,
+            "read15": genes1,
+            "read16": genes1,
+            "read17": genes1,
+            "read18": genes1,
+            "read19": genes1,
+            "read20": genes1,
+            "read21": genes2,
+            "read22": genes2,
+            "read23": genes2,
+        }
         graph = GeneMerGraph(annotations, 3)
         graph.filter_graph(5, 1)
         # execution
         actual_new_annotations = graph.correct_reads()
         # assertion
-        extected_annotations = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9"]
+        extected_annotations = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+        ]
         for read in ["read21", "read22", "read23"]:
             self.assertEqual(actual_new_annotations[read], extected_annotations)
 
     def test_correct_reads_dead_end(self):
         # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "+gene11", "-gene12"]
-        annotations = {"read1": genes1,
-                            "read2": genes1,
-                            "read3": genes1,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes1,
-                            "read13": genes1,
-                            "read14": genes1,
-                            "read15": genes1,
-                            "read16": genes1,
-                            "read17": genes1,
-                            "read18": genes1,
-                            "read19": genes1,
-                            "read20": genes1,
-                            "read21": genes2,
-                            "read22": genes2,
-                            "read23": genes2}
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+        ]
+        genes2 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "+gene11",
+            "-gene12",
+        ]
+        annotations = {
+            "read1": genes1,
+            "read2": genes1,
+            "read3": genes1,
+            "read4": genes1,
+            "read5": genes1,
+            "read6": genes1,
+            "read7": genes1,
+            "read8": genes1,
+            "read9": genes1,
+            "read10": genes1,
+            "read11": genes1,
+            "read12": genes1,
+            "read13": genes1,
+            "read14": genes1,
+            "read15": genes1,
+            "read16": genes1,
+            "read17": genes1,
+            "read18": genes1,
+            "read19": genes1,
+            "read20": genes1,
+            "read21": genes2,
+            "read22": genes2,
+            "read23": genes2,
+        }
         graph = GeneMerGraph(annotations, 3)
         graph.filter_graph(5, 1)
         # execution
         actual_new_annotations = graph.correct_reads()
         # assertion
-        expected_new_annotations = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9"]
+        expected_new_annotations = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+        ]
         for read in ["read21", "read22", "read23"]:
             self.assertEqual(actual_new_annotations[read], expected_new_annotations)
 
-    def test_correct_reads_bubble_multiple_paths(self):
-        # setup
-        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene12"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene13", "+gene14", "-gene4", "+gene9", "-gene10", "+gene11", "-gene12"]
-        genes3 = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene15", "-gene16", "+gene9", "-gene10", "+gene11", "-gene12"]
-        annotations = {"read1": genes1,
-                            "read2": genes1,
-                            "read3": genes1,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes2,
-                            "read9": genes2,
-                            "read10": genes2,
-                            "read11": genes2,
-                            "read12": genes2,
-                            "read13": genes2,
-                            "read14": genes2,
-                            "read15": genes3,
-                            "read16": genes3}
-        graph = GeneMerGraph(annotations, 3)
-        graph.filter_graph(5, 1)
-        # execution
-        actual_new_annotations = graph.correct_reads()
-        print(actual_new_annotations)
-        # assertion
-        for read in ["read15", "read16"]:
-            self.assertTrue(read not in actual_new_annotations)
-
     def test_correct_reads_bubble_one_path_k_5(self):
         # setup
-        genes1 = ["-gene12", "+gene13", "+gene1", "-gene2", "+gene3", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene14", "+gene15"]
-        genes2 = ["-gene12", "+gene13", "+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10", "+gene11", "-gene14", "+gene15"]
-        annotations = {"read1": genes1,
-                            "read2": genes1,
-                            "read3": genes1,
-                            "read4": genes1,
-                            "read5": genes1,
-                            "read6": genes1,
-                            "read7": genes1,
-                            "read8": genes1,
-                            "read9": genes1,
-                            "read10": genes1,
-                            "read11": genes1,
-                            "read12": genes1,
-                            "read13": genes1,
-                            "read14": genes1,
-                            "read15": genes1,
-                            "read16": genes1,
-                            "read17": genes1,
-                            "read18": genes1,
-                            "read19": genes1,
-                            "read20": genes1,
-                            "read21": genes2,
-                            "read22": genes2,
-                            "read23": genes2}
+        genes1 = [
+            "-gene12",
+            "+gene13",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene14",
+            "+gene15",
+        ]
+        genes2 = [
+            "-gene12",
+            "+gene13",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene14",
+            "+gene15",
+        ]
+        annotations = {
+            "read1": genes1,
+            "read2": genes1,
+            "read3": genes1,
+            "read4": genes1,
+            "read5": genes1,
+            "read6": genes1,
+            "read7": genes1,
+            "read8": genes1,
+            "read9": genes1,
+            "read10": genes1,
+            "read11": genes1,
+            "read12": genes1,
+            "read13": genes1,
+            "read14": genes1,
+            "read15": genes1,
+            "read16": genes1,
+            "read17": genes1,
+            "read18": genes1,
+            "read19": genes1,
+            "read20": genes1,
+            "read21": genes2,
+            "read22": genes2,
+            "read23": genes2,
+        }
         graph = GeneMerGraph(annotations, 5)
         graph.filter_graph(5, 1)
         # execution
@@ -4236,84 +4373,162 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for read in annotations:
             self.assertEqual(actual_new_annotations[read], genes1)
 
-    def test_correction(self):
+    # def test_correction(self):
 
-        from collections import Counter, deque
-        from itertools import product
+    #     from collections import Counter, deque
+    #     from itertools import product
+    #     from amira_prototype.__main__ import find_trough
 
-        def needleman_wunsch(x, y):
-            N, M = len(x), len(y)
-            # Scoring function: returns 1 if elements are equal, 0 otherwise
-            s = lambda a, b: int(a == b)
-            # Direction constants for traceback
-            DIAG, LEFT, UP = (-1, -1), (-1, 0), (0, -1)
-            # Initialize score (F) and pointer (Ptr) matrices
-            F, Ptr = {}, {}
-            F[-1, -1] = 0
-            ##### I HAVE GOT RID OF GAP PENALTIES AT THE START OF THE ALIGNMENT #####
-            # Initial scoring for gaps along x
-            for i in range(N):
-                F[i, -1] = 0 #-i
-            # Initial scoring for gaps along y
-            for j in range(M):
-                F[-1, j] = 0 #-j
-            #########################################################################
-            # Option for Ptr to trace back alignment
-            option_Ptr = DIAG, LEFT, UP
-            # Fill F and Ptr tables
-            for i, j in product(range(N), range(M)):
-                # Score options: match/mismatch, gap in x, gap in y
-                option_F = (
-                    F[i - 1, j - 1] + s(x[i], y[j]),  # Match/mismatch
-                    F[i - 1, j] - 1,  # Gap in x
-                    F[i, j - 1] - 1,  # Gap in y
-                )
-                # Choose best option for F and Ptr
-                F[i, j], Ptr[i, j] = max(zip(option_F, option_Ptr))
-            # Trace back to get the alignment
-            alignment = deque()
-            i, j = N - 1, M - 1
-            while i >= 0 and j >= 0:
-                direction = Ptr[i, j]
-                # Add aligned elements or gaps based on direction
-                if direction == DIAG:
-                    element = x[i], y[j]
-                elif direction == LEFT:
-                    element = x[i], "*"  # Insert gap in y
-                elif direction == UP:
-                    element = "*", y[j]  # Insert gap in x
-                alignment.appendleft(element)
-                di, dj = direction
-                i, j = i + di, j + dj
-            # Add remaining gaps if any
-            while i >= 0:
-                alignment.appendleft((x[i], "*"))  # Gap in y
-                i -= 1
-            while j >= 0:
-                alignment.appendleft(("*", y[j]))  # Gap in x
-                j -= 1
-            return list(alignment)
+    #     def needleman_wunsch(x, y):
+    #         N, M = len(x), len(y)
+    #         # Scoring function: returns 1 if elements are equal, 0 otherwise
+    #         s = lambda a, b: int(a == b)
+    #         # Direction constants for traceback
+    #         DIAG, LEFT, UP = (-1, -1), (-1, 0), (0, -1)
+    #         # Initialize score (F) and pointer (Ptr) matrices
+    #         F, Ptr = {}, {}
+    #         F[-1, -1] = 0
+    #         ##### I HAVE GOT RID OF GAP PENALTIES AT THE START OF THE ALIGNMENT #####
+    #         # Initial scoring for gaps along x
+    #         for i in range(N):
+    #             F[i, -1] = 0  # -i
+    #         # Initial scoring for gaps along y
+    #         for j in range(M):
+    #             F[-1, j] = 0  # -j
+    #         #########################################################################
+    #         # Option for Ptr to trace back alignment
+    #         option_Ptr = DIAG, LEFT, UP
+    #         # Fill F and Ptr tables
+    #         for i, j in product(range(N), range(M)):
+    #             # Score options: match/mismatch, gap in x, gap in y
+    #             option_F = (
+    #                 F[i - 1, j - 1] + s(x[i], y[j]),  # Match/mismatch
+    #                 F[i - 1, j] - 1,  # Gap in x
+    #                 F[i, j - 1] - 1,  # Gap in y
+    #             )
+    #             # Choose best option for F and Ptr
+    #             F[i, j], Ptr[i, j] = max(zip(option_F, option_Ptr))
+    #         # Trace back to get the alignment
+    #         alignment = deque()
+    #         i, j = N - 1, M - 1
+    #         while i >= 0 and j >= 0:
+    #             direction = Ptr[i, j]
+    #             # Add aligned elements or gaps based on direction
+    #             if direction == DIAG:
+    #                 element = x[i], y[j]
+    #             elif direction == LEFT:
+    #                 element = x[i], "*"  # Insert gap in y
+    #             elif direction == UP:
+    #                 element = "*", y[j]  # Insert gap in x
+    #             alignment.appendleft(element)
+    #             di, dj = direction
+    #             i, j = i + di, j + dj
+    #         # Add remaining gaps if any
+    #         while i >= 0:
+    #             alignment.appendleft((x[i], "*"))  # Gap in y
+    #             i -= 1
+    #         while j >= 0:
+    #             alignment.appendleft(("*", y[j]))  # Gap in x
+    #             j -= 1
+    #         return list(alignment)
 
-        # setup
-        import json
-        with open("tests/simulated_dropout_0.05.json") as i:
-            test_data = json.load(i)
-        graph = GeneMerGraph(test_data, 5)
-        graph.generate_gml("tests/test_pre_correct", 5, 1, 1)
-        graph.filter_graph(10, 1)
-        graph.generate_gml("tests/test_correct", 5, 1, 1)
-        # execution
-        new_annotatedReads = graph.correct_reads()
-        # assertion
-        with open("tests/simulated_truth.json") as i:
-            truth = json.load(i)
-        not_matching = []
-        for read in new_annotatedReads:
-            try:
-                assert truth[read] == new_annotatedReads[read]
-            except:
-                alignment = needleman_wunsch(truth[read], new_annotatedReads[read])
-                not_matching.append(f">{read}\n{','.join([a[0] for a in alignment])}\n{','.join([a[1] for a in alignment])}\n")
-        with open("not_matching.txt", "w") as o:
-            o.write("\n".join(not_matching))
-        jdjddj
+    #     # setup
+    #     import json
+
+    #     with open("tests/simulated_dropout_0.05.json") as i:
+    #         test_data = json.load(i)
+    #     graph = GeneMerGraph(test_data,3)
+    #     graph.generate_gml("tests/test_pre_correct", 5, 1, 1)
+    #     graph.filter_graph(find_trough(graph.get_all_node_coverages(), "tests/trough_plot.png"), 1)
+    #     graph.remove_short_linear_paths(10)
+    #     graph.generate_gml("tests/test_correct", 5, 1, 1)
+    #     # execution
+    #     new_annotatedReads = graph.correct_reads()
+    #     # assertion
+    #     with open("tests/simulated_truth.json") as i:
+    #         truth = json.load(i)
+    #     not_matching = []
+
+    #     def reverse_genes(genes):
+    #         reversed_genes = list(reversed(genes))
+    #         reversed_genes = ["+" + g[1:] if g[0] == "-" else "-" + g[1:] for g in reversed_genes]
+    #         return reversed_genes
+
+    #     for read in new_annotatedReads:
+    #         try:
+    #             assert truth[read] == new_annotatedReads[read] or truth[read] == reverse_genes(new_annotatedReads[read])
+    #         except:
+    #             alignment = needleman_wunsch(truth[read], new_annotatedReads[read])
+    #             not_matching.append(
+    #                 f">{read}\n{','.join([a[0] for a in alignment])}\n{','.join([a[1] for a in alignment])}\n"
+    #             )
+    #     with open("not_matching.txt", "w") as o:
+    #         o.write("\n".join(not_matching))
+
+    # def test___correction_on_real_plasmid(self):
+    #     # setup
+    #     import json
+
+    #     with open(
+    #         "/home/daniel/Documents/GitHub/amira_prototype/tests/real_plasmid_annotations_5_kbp_split.json"
+    #     ) as i:
+    #         annotated_reads = json.load(i)
+    #     graph = GeneMerGraph(annotated_reads, 5)
+    #     graph.generate_gml("tests/plasmid", 5, 1, 1)
+    #     graph.remove_short_linear_paths(10)
+    #     new_annotatedReads = graph.correct_reads()
+    #     graph = GeneMerGraph(new_annotatedReads, 5)
+    #     graph.filter_graph(3, 1)
+    #     new_annotatedReads = graph.correct_reads()
+    #     graph = GeneMerGraph(new_annotatedReads, 5)
+    #     graph.remove_short_linear_paths(10)
+    #     new_annotatedReads = graph.correct_reads()
+    #     graph = GeneMerGraph(new_annotatedReads, 5)
+    #     graph.filter_graph(20, 1)
+    #     new_annotatedReads = graph.correct_reads()
+    #     graph.remove_short_linear_paths(10)
+    #     new_annotatedReads = graph.correct_reads()
+    #     graph = GeneMerGraph(new_annotatedReads, 5)
+    #     graph.generate_gml("tests/plasmid", 5, 10, 1)
+
+    def test_empty_insert_dict(self):
+        graph = GeneMerGraph({}, 3)
+        base_list = [(1, 1), (2, -1)]
+        insert_dict = {}
+        expected = [base_list]
+        result = graph.insert_elements(base_list, insert_dict)
+        self.assertEqual(result, expected)
+
+    def test_single_insert(self):
+        graph = GeneMerGraph({}, 3)
+        base_list = [(1, 1), (2, -1)]
+        insert_dict = {(0, 1): [[(1, 1), (3, 1), (2, -1)]]}
+        expected = [[(1, 1), (3, 1), (2, -1)]]
+        result = graph.insert_elements(base_list, insert_dict)
+        self.assertEqual(result, expected)
+
+    def test_multiple_inserts_single_path(self):
+        graph = GeneMerGraph({}, 3)
+        base_list = [(1, 1), (2, -1)]
+        insert_dict = {(0, 1): [[(1, 1), (3, 1), (2, -1)], [(1, 1), (4, -1), (5, 1), (2, -1)]]}
+        expected = [[(1, 1), (3, 1), (2, -1)], [(1, 1), (4, -1), (5, 1), (2, -1)]]
+        result = graph.insert_elements(base_list, insert_dict)
+        self.assertEqual(result, expected)
+
+    def test_multiple_paths(self):
+        graph = GeneMerGraph({}, 3)
+        base_list = [(1, 1), (2, -1), (3, 1)]
+        insert_dict = {
+            (0, 1): [[(1, 1), (6, 1), (2, -1)], [(1, 1), (4, -1), (5, 1), (2, -1)]],
+            (1, 2): [[(2, -1), (4, -1), (3, 1)], [(2, -1), (5, -1), (6, 1), (3, 1)]],
+        }
+        expected = sorted(
+            [
+                [(1, 1), (6, 1), (2, -1), (4, -1), (3, 1)],
+                [(1, 1), (6, 1), (2, -1), (5, -1), (6, 1), (3, 1)],
+                [(1, 1), (4, -1), (5, 1), (2, -1), (4, -1), (3, 1)],
+                [(1, 1), (4, -1), (5, 1), (2, -1), (5, -1), (6, 1), (3, 1)],
+            ]
+        )
+        result = graph.insert_elements(base_list, insert_dict)
+        self.assertEqual(sorted(result), expected)

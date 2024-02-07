@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v3.0.0
+    rev: v3.1.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
@@ -21,7 +21,7 @@ repos:
         ]
 
 -   repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.1.1
     hooks:
       - id: black
         args: [
@@ -40,7 +40,7 @@ repos:
 #         log_file: mypy.log
 
 -   repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
+    rev: 7.0.0
     hooks:
     -   id: flake8
         args: [

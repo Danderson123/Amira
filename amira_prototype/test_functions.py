@@ -298,7 +298,14 @@ def write_fastq(fastq_file, data):
 
 
 class Unitig:
-    def __init__(self, listOfNodes: list, listOfGenes: list, component_ID: int, unitig_ID: int, mean_edge_coverage: int):
+    def __init__(
+        self,
+        listOfNodes: list,
+        listOfGenes: list,
+        component_ID: int,
+        unitig_ID: int,
+        mean_edge_coverage: int,
+    ):
         self._nodes = listOfNodes
         self._genes = listOfGenes
 

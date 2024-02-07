@@ -1,6 +1,8 @@
 import json
+
 import pysam
 from tqdm import tqdm
+
 
 def process_pandora_json(
     pandoraJSON: str, genesOfInterest: list[str]
@@ -18,7 +20,7 @@ def process_pandora_json(
                 subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
         if not containsAMRgene:
             to_delete.append(read)
-    #for read in to_delete:
+    # for read in to_delete:
     #    del annotatedReads[read]
     genesOfInterest = list(subsettedGenesOfInterest)
     return annotatedReads, genesOfInterest
@@ -70,30 +72,49 @@ def convert_pandora_output(
     readLengthDict: dict[str, list[tuple[int, int]]] = {}
     geneCounts: dict[str, int] = {}
     # iterate through the read regions
+    read_tracking = {}
+    distances = []
     for read in pandora_sam_content.fetch():
         # convert the cigarsting to a Cigar object
         cigar = read.cigartuples
         # check if the read has mapped to any regions
         if read.is_mapped:
+            if not read.query_name in read_tracking:
+                read_tracking[read.query_name] = {"end": 0, "index": 0}
             # get the start base that the region maps to on the read
             regionStart = get_read_start(cigar)
             # get the end base that the region maps to on the read
             regionEnd, regionLength = get_read_end(cigar, regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
+            if regionStart - read_tracking[read.query_name]["end"] > 5000:
+                read_tracking[read.query_name]["index"] += 1
+            distances.append(regionStart - read_tracking[read.query_name]["end"])
             # exclude genes that do not have a pandora consensus
             if strandlessGene in pandora_consensus:
-                if read.query_name not in annotatedReads:
-                    annotatedReads[read.query_name] = []
-                    readLengthDict[read.query_name] = []
+                if (
+                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    not in annotatedReads
+                ):
+                    annotatedReads[
+                        read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    ] = []
+                    readLengthDict[
+                        read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    ] = []
                 # count how many times we see each gene
                 if strandlessGene not in geneCounts:
                     geneCounts[strandlessGene] = 0
                 geneCounts[strandlessGene] += 1
                 # store the per read gene names, gene starts and gene ends
-                readLengthDict[read.query_name].append((regionStart, regionEnd))
+                readLengthDict[
+                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                ].append((regionStart, regionEnd))
                 # store the per read gene names
-                annotatedReads[read.query_name].append(gene_name)
+                annotatedReads[
+                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                ].append(gene_name)
+                read_tracking[read.query_name]["end"] = regionEnd
     to_delete = []
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
@@ -112,7 +133,7 @@ def convert_pandora_output(
                 subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
         if not containsAMRgene:
             to_delete.append(r)
-    #for t in to_delete:
+    # for t in to_delete:
     #    del annotatedReads[t]
     assert not len(annotatedReads) == 0
-    return annotatedReads, subsettedGenesOfInterest
+    return annotatedReads, subsettedGenesOfInterest, distances

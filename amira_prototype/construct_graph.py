@@ -1,10 +1,10 @@
-from collections import Counter, deque
-from itertools import product
-import numpy as np
 import os
 import statistics
 import sys
+from collections import Counter, deque
+from itertools import product
 
+import numpy as np
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
@@ -114,7 +114,7 @@ class GeneMerGraph:
         return self._minNodeCoverage
 
     def get_reads_to_correct(self) -> set:
-        """ return a set of reads that need to be corrected"""
+        """return a set of reads that need to be corrected"""
         return self._readsToCorrect
 
     def all_nodes(self) -> list[Node]:
@@ -170,7 +170,7 @@ class GeneMerGraph:
             self.add_node_to_nodes(node, nodeHash)
         else:
             node = self.get_node_by_hash(nodeHash)
-            #assert geneMer.get_geneMerDirection() == node.get_geneMer().get_geneMerDirection()
+            # assert geneMer.get_geneMerDirection() == node.get_geneMer().get_geneMerDirection()
         # add the reads for this node to the dictionary of reads
         for r in reads:
             node.add_read(r.get_readId())
@@ -208,7 +208,13 @@ class GeneMerGraph:
                 selectedNodes.append(node)
         return selectedNodes
 
-    def create_edges(self, sourceNode: Node, targetNode: Node, sourceGeneMerDirection: int, targetGeneMerDirection: int):
+    def create_edges(
+        self,
+        sourceNode: Node,
+        targetNode: Node,
+        sourceGeneMerDirection: int,
+        targetGeneMerDirection: int,
+    ):
         """Create and return the forward and reverse edges."""
         # the edge that will go from the source to target
         sourceToTargetEdge = Edge(
@@ -368,7 +374,7 @@ class GeneMerGraph:
     def remove_edge(self, edgeHash: int) -> None:
         """remove an edge from all graph edges and the node edges"""
         # check that the edge exists in the graph
-        #assert edgeHash in self.get_edges(), "This edge is not in the graph"
+        # assert edgeHash in self.get_edges(), "This edge is not in the graph"
         if not edgeHash in self.get_edges():
             return
         # get the edge object from all graph edges by hash
@@ -449,7 +455,7 @@ class GeneMerGraph:
         return self.get_minEdgeCoverage()
 
     def list_nodes_to_remove(self, minNodeCoverage: int) -> list:
-        """ returns a list of node objects to be filtered from the graph """
+        """returns a list of node objects to be filtered from the graph"""
         nodesToRemove = set()
         for nodeHash in self.get_nodes():
             # mark a node for removal if the coverage is less than the specified coverage
@@ -458,7 +464,7 @@ class GeneMerGraph:
         return nodesToRemove
 
     def list_edges_to_remove(self, minEdgeCoverage: int, nodesToRemove: list) -> list:
-        """ returns a list of edge hashes to be filtered from the graph """
+        """returns a list of edge hashes to be filtered from the graph"""
         edgesToRemove = set()
         for edgeHash in self.get_edges():
             # mark an edge for removal if the coverage is less than the specified coverage
@@ -474,6 +480,7 @@ class GeneMerGraph:
             ):
                 edgesToRemove.add(edgeHash)
         return edgesToRemove
+
     def filter_graph(self, minNodeCoverage: int, minEdgeCoverage: int):
         """filters the nodes and edges in the graph and then returns the filtered graph"""
         # set the new node coverage
@@ -652,7 +659,7 @@ class GeneMerGraph:
                 newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
         return newAnnotations
 
-    def follow_path_to_get_annotations(self, listOfNodes, read_ID, read_node_directions=None):
+    def old_follow_path_to_get_annotations(self, listOfNodes, read_ID, read_node_directions=None):
         # get the read node directions
         if not read_node_directions:
             read_node_directions = self.get_readNodeDirections()[read_ID]
@@ -690,24 +697,33 @@ class GeneMerGraph:
         for i in range(len(newAnnotations)):
             if newAnnotations[i] is None:
                 # Adjust the node_index calculation to avoid negative indices
-                node_index = i - (self.get_kmerSize()-1)
+                node_index = i - (self.get_kmerSize() - 1)
                 # Ensure node_index is within bounds of listOfNodes
                 node = self.get_node_by_hash(listOfNodes[node_index])
-                last_k_minus_one_genes = newAnnotations[i - (self.get_kmerSize()-1):i]
+                last_k_minus_one_genes = newAnnotations[i - (self.get_kmerSize() - 1) : i]
 
                 forward_gene_mer = self.get_gene_mer_genes(node)
                 reverse_gene_mer = self.get_reverse_gene_mer_genes(node)
 
-                if last_k_minus_one_genes == forward_gene_mer[:len(last_k_minus_one_genes)]:
+                if last_k_minus_one_genes == forward_gene_mer[: len(last_k_minus_one_genes)]:
                     newAnnotations[i] = forward_gene_mer[len(last_k_minus_one_genes)]
-                elif last_k_minus_one_genes == reverse_gene_mer[:len(last_k_minus_one_genes)]:
+                elif last_k_minus_one_genes == reverse_gene_mer[: len(last_k_minus_one_genes)]:
                     newAnnotations[i] = reverse_gene_mer[len(last_k_minus_one_genes)]
                 else:
                     # Consider handling this situation differently if it's not necessarily an error
-                    print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in listOfNodes], len(newAnnotations))
-                    print(f"Annotations: {newAnnotations}\nIndex: {i}\nLast k-1 Genes: {last_k_minus_one_genes}")
-                    print(f"Forward Gene Mer: {forward_gene_mer}\nReverse Gene Mer: {reverse_gene_mer}")
-                    raise ValueError("Neither the forward nor reverse gene-mer overlaps with the existing gene calls.")
+                    print(
+                        [self.get_gene_mer_label(self.get_node_by_hash(n)) for n in listOfNodes],
+                        len(newAnnotations),
+                    )
+                    print(
+                        f"Annotations: {newAnnotations}\nIndex: {i}\nLast k-1 Genes: {last_k_minus_one_genes}"
+                    )
+                    print(
+                        f"Forward Gene Mer: {forward_gene_mer}\nReverse Gene Mer: {reverse_gene_mer}"
+                    )
+                    raise ValueError(
+                        "Neither the forward nor reverse gene-mer overlaps with the existing gene calls."
+                    )
         return newAnnotations
 
     def remove_short_linear_paths(self, min_length):
@@ -987,8 +1003,8 @@ class GeneMerGraph:
             if forwardNodeDirection == 1:
                 if not forward_nodes_from_node[0] == forwardNode.__hash__():
                     forward_nodes_from_node.append(forwardNode.__hash__())
-                    forwardExtend, forwardNode, forwardNodeDirection = self.get_forward_node_from_node(
-                        forwardNode
+                    forwardExtend, forwardNode, forwardNodeDirection = (
+                        self.get_forward_node_from_node(forwardNode)
                     )
                 else:
                     forwardExtend = False
@@ -996,8 +1012,8 @@ class GeneMerGraph:
             else:
                 if not forward_nodes_from_node[0] == forwardNode.__hash__():
                     forward_nodes_from_node.append(forwardNode.__hash__())
-                    forwardExtend, forwardNode, forwardNodeDirection = self.get_backward_node_from_node(
-                        forwardNode
+                    forwardExtend, forwardNode, forwardNodeDirection = (
+                        self.get_backward_node_from_node(forwardNode)
                     )
                 else:
                     forwardExtend = False
@@ -1078,12 +1094,12 @@ class GeneMerGraph:
         """return a list of nodes in the linear path that contains the specified node. \
             Does not include the terminal nodes with a degree of more than 2"""
         backward_path = self.get_backward_path_from_node(
-                node, -1 * node.get_geneMer().get_geneMerDirection(), wantBranchedNode
-            )
+            node, -1 * node.get_geneMer().get_geneMerDirection(), wantBranchedNode
+        )
         assert backward_path[-1] == node.__hash__()
         forward_path = self.get_forward_path_from_node(
-                node, node.get_geneMer().get_geneMerDirection(), wantBranchedNode
-            )
+            node, node.get_geneMer().get_geneMerDirection(), wantBranchedNode
+        )
         assert forward_path[0] == node.__hash__()
         linear_path = backward_path[:-1] + [node.__hash__()] + forward_path[1:]
         return linear_path
@@ -1279,6 +1295,7 @@ class GeneMerGraph:
     def make_distance_matrix(self, correct, incorrect):
         # get the forward and reverse list of genes for each correct node
         from collections import Counter
+
         correct_genes = []
         for node in correct:
             fw = self.get_gene_mer_label(node).split("~~~")
@@ -1305,9 +1322,8 @@ class GeneMerGraph:
                 assert not distances.count(max_value) > 1, distances
                 print(max_value)
 
-    def replace_low_coverage_nodes(self,
-                                node_min_coverage):
-        """ separates nodes into correct and incorrect nodes based on coverage and corrects all incorrect nodes to the closest correct node """
+    def replace_low_coverage_nodes(self, node_min_coverage):
+        """separates nodes into correct and incorrect nodes based on coverage and corrects all incorrect nodes to the closest correct node"""
         self.set_minNodeCoverage(node_min_coverage)
         correct = []
         incorrect = []
@@ -1320,9 +1336,8 @@ class GeneMerGraph:
         self.make_distance_matrix(correct, incorrect)
         return self
 
-    def get_high_coverage_junction_nodes_in_component(self,
-                                                    component):
-        """ return a list of nodes with >2 high coverage neighbors """
+    def get_high_coverage_junction_nodes_in_component(self, component):
+        """return a list of nodes with >2 high coverage neighbors"""
         # get all the nodes in the component
         nodes_in_component = self.get_nodes_in_component(component)
         # get a set of the high coverage nodes in this component
@@ -1343,9 +1358,8 @@ class GeneMerGraph:
                 high_coverage_junctions.append(node)
         return high_coverage_junctions
 
-    def check_if_component_is_resolved(self,
-                                    component):
-        """ returns a bool of whether a component is resolved or not """
+    def check_if_component_is_resolved(self, component):
+        """returns a bool of whether a component is resolved or not"""
         # get all the nodes in the component
         high_coverage_junctions = self.get_high_coverage_junction_nodes_in_component(component)
         if not len(high_coverage_junctions) == 0:
@@ -1353,14 +1367,13 @@ class GeneMerGraph:
         else:
             return True, high_coverage_junctions
 
-    def traverse_graph_from_high_coverage_junctions(self,
-                                            high_coverage_junctions):
+    def traverse_graph_from_high_coverage_junctions(self, high_coverage_junctions):
         high_coverage_junction_hashes = set([n.__hash__() for n in high_coverage_junctions])
         segments_to_correct_to = set()
         fw_segments = set()
         bw_segments = set()
         for node in high_coverage_junctions:
-            #segments_to_correct_to[node.__hash__()] = set()
+            # segments_to_correct_to[node.__hash__()] = set()
             # get the high coverage neighbors
             fw_nodes = [n for n in self.get_forward_neighbors(node) if n.get_node_coverage() >= 10]
             bw_nodes = [n for n in self.get_backward_neighbors(node) if n.get_node_coverage() >= 10]
@@ -1368,8 +1381,8 @@ class GeneMerGraph:
             for neighbor in tqdm(fw_nodes):
                 # get the start direction
                 sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                        node, neighbor
-                    )
+                    node, neighbor
+                )
                 start_direction = sourceToTargetEdge.get_targetNodeDirection()
                 # get the heaviest path in the start direction
                 heaviest_path, heaviest_coverages = self.follow_path_by_coverage(
@@ -1378,20 +1391,22 @@ class GeneMerGraph:
                 # slice the path if there are any other junction nodes
                 for index, item in enumerate(heaviest_path[1:]):
                     if item in high_coverage_junction_hashes:
-                        heaviest_path = heaviest_path[:index + 2]
+                        heaviest_path = heaviest_path[: index + 2]
                         assert heaviest_path[-1] in high_coverage_junction_hashes
                         break
                 heaviest_path = [node.__hash__()] + heaviest_path
                 assert heaviest_path[0] == node.__hash__()
                 assert heaviest_path[1] == neighbor.__hash__()
-                segments_to_correct_to.add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
+                segments_to_correct_to.add(
+                    tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0])
+                )
                 fw_segments.add(tuple(heaviest_path))
-                #segments_to_correct_to[node.__hash__()].add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
+                # segments_to_correct_to[node.__hash__()].add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
             for neighbor in tqdm(bw_nodes):
                 # get the start direction
                 sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                        node, neighbor
-                    )
+                    node, neighbor
+                )
                 start_direction = sourceToTargetEdge.get_targetNodeDirection()
                 # get the heaviest path in the start direction
                 heaviest_path, heaviest_coverages = self.follow_path_by_coverage(
@@ -1400,15 +1415,17 @@ class GeneMerGraph:
                 # slice the path if there are any other junction nodes
                 for index, item in enumerate(heaviest_path[1:]):
                     if item in high_coverage_junction_hashes:
-                        heaviest_path = heaviest_path[:index + 2]
+                        heaviest_path = heaviest_path[: index + 2]
                         assert heaviest_path[-1] in high_coverage_junction_hashes
                         break
                 heaviest_path = [node.__hash__()] + heaviest_path
                 assert heaviest_path[0] == node.__hash__()
                 assert heaviest_path[1] == neighbor.__hash__()
-                segments_to_correct_to.add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
+                segments_to_correct_to.add(
+                    tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0])
+                )
                 bw_segments.add(tuple(list(reversed(heaviest_path))))
-#                segments_to_correct_to[node.__hash__()].add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
+        #                segments_to_correct_to[node.__hash__()].add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
         return segments_to_correct_to, list(fw_segments), list(bw_segments)
 
     def enumerate_paths(self, graph):
@@ -1439,9 +1456,7 @@ class GeneMerGraph:
                     new_segments[b].add(f)
         return
 
-    def get_all_reads_not_containing_nodes(self,
-                                        setOfNodeHashes: set,
-                                        component: int) -> set:
+    def get_all_reads_not_containing_nodes(self, setOfNodeHashes: set, component: int) -> set:
         reads_to_correct = set()
         for node in self.get_nodes_in_component(component):
             node_hash = node.__hash__()
@@ -1450,8 +1465,7 @@ class GeneMerGraph:
                     reads_to_correct.add(readId)
         return reads_to_correct
 
-    def get_AMR_nodes(self,
-                            listOfGenes):
+    def get_AMR_nodes(self, listOfGenes):
         AMR_nodes = {}
         # iterate through the list of specified genes
         for geneOfInterest in tqdm(listOfGenes):
@@ -1462,8 +1476,7 @@ class GeneMerGraph:
                 AMR_nodes[node.__hash__()] = node
         return AMR_nodes
 
-    def get_AMR_anchors_and_junctions(self,
-                                    AMRNodes):
+    def get_AMR_anchors_and_junctions(self, AMRNodes):
         # initialise the node anchor and junction sets
         nodeAnchors = set()
         nodeJunctions = set()
@@ -1515,13 +1528,27 @@ class GeneMerGraph:
         for i in range(len(nodeHashesOfInterest)):
             for j in range(len(nodeHashesOfInterest)):
                 sorted_indices = tuple(sorted([i, j]))
-                sorted_pairs = (nodeHashesOfInterest[sorted_indices[0]], nodeHashesOfInterest[sorted_indices[1]])
-                if i != j and sorted_pairs not in paths and (nodeHashesOfInterest[i] in anchor_nodes and nodeHashesOfInterest[j] in anchor_nodes):
-                    paths[sorted_pairs] = [[nodeHashesOfInterest[x] for x in p] for p in self.find_paths(matrix, sorted_indices[0], sorted_indices[1], nodeHashesOfInterest)]
+                sorted_pairs = (
+                    nodeHashesOfInterest[sorted_indices[0]],
+                    nodeHashesOfInterest[sorted_indices[1]],
+                )
+                if (
+                    i != j
+                    and sorted_pairs not in paths
+                    and (
+                        nodeHashesOfInterest[i] in anchor_nodes
+                        and nodeHashesOfInterest[j] in anchor_nodes
+                    )
+                ):
+                    paths[sorted_pairs] = [
+                        [nodeHashesOfInterest[x] for x in p]
+                        for p in self.find_paths(
+                            matrix, sorted_indices[0], sorted_indices[1], nodeHashesOfInterest
+                        )
+                    ]
         return paths
 
-    def get_anchors_of_interest(self,
-                            nodeHashesOfInterest):
+    def get_anchors_of_interest(self, nodeHashesOfInterest):
         # initialise the node anchor and junction sets
         nodeAnchors = set()
         nodeJunctions = set()
@@ -1530,9 +1557,17 @@ class GeneMerGraph:
             node = self.get_node_by_hash(node_hash)
             if not self.get_degree(node) > 2:
                 # get the forward neighbors that contain an AMR gene
-                forwardAMRNodes = [n for n in self.get_forward_neighbors(node) if n.__hash__() in nodeHashesOfInterest]
+                forwardAMRNodes = [
+                    n
+                    for n in self.get_forward_neighbors(node)
+                    if n.__hash__() in nodeHashesOfInterest
+                ]
                 # get the backward neighbors that contain an AMR gene
-                backwardAMRNodes = [n for n in self.get_backward_neighbors(node) if n.__hash__() in nodeHashesOfInterest]
+                backwardAMRNodes = [
+                    n
+                    for n in self.get_backward_neighbors(node)
+                    if n.__hash__() in nodeHashesOfInterest
+                ]
                 if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
                     nodeAnchors.add(node_hash)
             else:
@@ -1542,10 +1577,11 @@ class GeneMerGraph:
     def is_sublist(self, long_list, sub_list):
         """Check if list is a sublist of long_list."""
         len_sub = len(sub_list)
-        return any(sub_list == long_list[i:i + len_sub] for i in range(len(long_list) - len_sub + 1))
+        return any(
+            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
+        )
 
-    def assign_reads_to_genes(self,
-                    listOfGenes):
+    def assign_reads_to_genes(self, listOfGenes):
         # initialise a dictionary to store the paths
         clusters_of_interest = {}
         # iterate through the genes we are interested in
@@ -1581,7 +1617,9 @@ class GeneMerGraph:
                                     node_indices_for_each_gene_index[g].append(i)
                         new_paths = []
                         for i in node_indices_for_each_gene_index:
-                            nodes_containing_this_gene = [nodes[j] for j in node_indices_for_each_gene_index[i]]
+                            nodes_containing_this_gene = [
+                                nodes[j] for j in node_indices_for_each_gene_index[i]
+                            ]
                             new_paths.append(nodes_containing_this_gene)
                         # remove the old path
                         del paths[pair][p]
@@ -1598,7 +1636,9 @@ class GeneMerGraph:
                 for pair in paths:
                     for p in paths[pair]:
                         if any(n in junction_nodes for n in p):
-                            if self.is_sublist(nodes_on_read, p) or self.is_sublist(reversed_node_on_read, p):
+                            if self.is_sublist(nodes_on_read, p) or self.is_sublist(
+                                reversed_node_on_read, p
+                            ):
                                 path_tuple = tuple(p)
                                 if not path_tuple in clustered_reads:
                                     clustered_reads[path_tuple] = set()
@@ -1612,7 +1652,9 @@ class GeneMerGraph:
             # store the paths
             copy_count = 0
             for path in clustered_reads:
-                clusters_of_interest[f"{geneOfInterest}_{copy_count}_{len(clustered_reads[path])}"] = list(clustered_reads[path])
+                clusters_of_interest[
+                    f"{geneOfInterest}_{copy_count}_{len(clustered_reads[path])}"
+                ] = list(clustered_reads[path])
                 copy_count += 1
         return clusters_of_interest
 
@@ -1625,33 +1667,53 @@ class GeneMerGraph:
                 result.append(lst[i])
         return result
 
-    def find_paths_between_nodes(self, start_hash, end_hash, k, current_direction, path=[]):
-        path = path + [start_hash]
+    def find_paths_between_nodes(
+        self, start_hash, end_hash, distance, current_direction, path=None, seen_nodes=None
+    ):
+        if path is None:
+            path = []
+        if seen_nodes is None:
+            seen_nodes = set()
+
+        path = path + [(start_hash, current_direction)]
+        seen_nodes.add(start_hash)  # Add the current node to the seen nodes to avoid revisiting
+
         if end_hash:
-            if start_hash == end_hash and len(path)-1 <= k:
+            if start_hash == end_hash and len(path) - 1 <= distance:
                 return [path]
         else:
-            if len(path)-1 == k:
+            if len(path) - 1 == distance:
                 return [path]
-        if len(path) > k:
+
+        if len(path) > distance:
             return []
+
         paths = []
+        next_nodes = []
         if current_direction == 1:
-            for edge_hash in self.get_node_by_hash(start_hash).get_forward_edge_hashes():
+            next_nodes = self.get_node_by_hash(start_hash).get_forward_edge_hashes()
+        elif current_direction == -1:
+            next_nodes = self.get_node_by_hash(start_hash).get_backward_edge_hashes()
+
+        if not all(
+            self.get_edge_by_hash(edge_hash).get_targetNode().__hash__() in seen_nodes
+            for edge_hash in next_nodes
+        ):
+            for edge_hash in next_nodes:
                 edge = self.get_edge_by_hash(edge_hash)
                 node_hash = edge.get_targetNode().__hash__()
-                if node_hash not in path:
-                    newpaths = self.find_paths_between_nodes(node_hash, end_hash, k, edge.get_targetNodeDirection(), path)
+                if node_hash not in seen_nodes:
+                    newpaths = self.find_paths_between_nodes(
+                        node_hash,
+                        end_hash,
+                        distance,
+                        edge.get_targetNodeDirection(),
+                        path,
+                        seen_nodes.copy(),  # Pass a copy of seen_nodes
+                    )
                     for newpath in newpaths:
                         paths.append(newpath)
-        if current_direction == -1:
-            for edge_hash in self.get_node_by_hash(start_hash).get_backward_edge_hashes():
-                edge = self.get_edge_by_hash(edge_hash)
-                node_hash = edge.get_targetNode().__hash__()
-                if node_hash not in path:
-                    newpaths = self.find_paths_between_nodes(node_hash, end_hash, k, edge.get_targetNodeDirection(), path)
-                    for newpath in newpaths:
-                        paths.append(newpath)
+
         return paths
 
     def insert_valid_paths(self, replacements, node_list, node_directions):
@@ -1666,7 +1728,9 @@ class GeneMerGraph:
             length_difference = len(values) - (adjusted_end - adjusted_start)
             # Replace the elements from 'adjusted_start' to 'adjusted_end' with 'values'
             node_list[adjusted_start:adjusted_end] = values
-            modified_node_directions[adjusted_start+1:adjusted_end-1] = [None] * (len(values) - 2)
+            modified_node_directions[adjusted_start + 1 : adjusted_end - 1] = [None] * (
+                len(values) - 2
+            )
             # Update the offset for the next replacement
             offset += length_difference
         assert len(node_list) == len(modified_node_directions)
@@ -1678,7 +1742,7 @@ class GeneMerGraph:
         corrected_genes = {}
         for read_id in tqdm(readNodes):
             list_of_genes = self.correct_single_read(read_id, readNodes)
-            if not len(list_of_genes) == 0:
+            if len(list_of_genes) > 0:
                 corrected_genes[read_id] = list_of_genes
         return corrected_genes
 
@@ -1690,9 +1754,8 @@ class GeneMerGraph:
         if not all(n is None for n in readNodes[read_id]):
             start, end = self.find_read_boundaries(readNodes[read_id])
             return self.process_read_correction(read_id, readNodes, start, end)
-
         return []
-        #return self.get_reads()[read_id]
+        # return self.get_reads()[read_id]
 
     def find_read_boundaries(self, readNode):
         """Find the first and last non-None positions in a read."""
@@ -1707,38 +1770,308 @@ class GeneMerGraph:
                 break
         return start, end
 
+    def needleman_wunsch(self, x, y):
+        N, M = len(x), len(y)
+        # Scoring function: returns 1 if elements are equal, 0 otherwise
+        s = lambda a, b: int(a == b)
+        # Direction constants for traceback
+        DIAG, LEFT, UP = (-1, -1), (-1, 0), (0, -1)
+        # Initialize score (F) and pointer (Ptr) matrices
+        F, Ptr = {}, {}
+        F[-1, -1] = 0
+        ##### I HAVE GOT RID OF GAP PENALTIES AT THE START OF THE ALIGNMENT #####
+        # Initial scoring for gaps along x
+        for i in range(N):
+            F[i, -1] = -i
+        # Initial scoring for gaps along y
+        for j in range(M):
+            F[-1, j] = -j
+        #########################################################################
+        # Option for Ptr to trace back alignment
+        option_Ptr = DIAG, LEFT, UP
+        # Fill F and Ptr tables
+        for i, j in product(range(N), range(M)):
+            # Score options: match/mismatch, gap in x, gap in y
+            option_F = (
+                F[i - 1, j - 1] + s(x[i], y[j]),  # Match/mismatch
+                F[i - 1, j] - 1,  # Gap in x
+                F[i, j - 1] - 1,  # Gap in y
+            )
+            # Choose best option for F and Ptr
+            F[i, j], Ptr[i, j] = max(zip(option_F, option_Ptr))
+        # Trace back to get the alignment
+        alignment = deque()
+        i, j = N - 1, M - 1
+        while i >= 0 and j >= 0:
+            direction = Ptr[i, j]
+            # Add aligned elements or gaps based on direction
+            if direction == DIAG:
+                element = x[i], y[j]
+            elif direction == LEFT:
+                element = x[i], "*"  # Insert gap in y
+            elif direction == UP:
+                element = "*", y[j]  # Insert gap in x
+            alignment.appendleft(element)
+            di, dj = direction
+            i, j = i + di, j + dj
+        # Add remaining gaps if any
+        while i >= 0:
+            alignment.appendleft((x[i], "*"))  # Gap in y
+            i -= 1
+        while j >= 0:
+            alignment.appendleft(("*", y[j]))  # Gap in x
+            j -= 1
+        return list(alignment)
+
+    def insert_elements(self, base_list, insert_dict):
+        from itertools import product
+
+        if len(insert_dict) == 0:
+            return [base_list]
+
+        def get_all_combinations(dict_of_lists):
+            # Transform each list into a list of (key, element) tuples
+            lists_with_keys = [
+                [(key, element) for element in lst] for key, lst in dict_of_lists.items()
+            ]
+
+            # Generate all combinations using the transformed lists
+            return list(product(*lists_with_keys))
+
+        # Create a list of all combinations of insertions
+        all_combinations = get_all_combinations(insert_dict)
+
+        # Function to insert a single combination of elements
+        def insert_single_combination(base_list, combination):
+            inserted_list = base_list[:]
+            offset = 0
+            for (start, end), path in list(combination):
+                insertion_point = start + offset
+                # Remove the elements that will be replaced by the new path
+                del inserted_list[insertion_point : end + offset + 1]
+                # Insert the new path
+                inserted_list[insertion_point:insertion_point] = path
+                insertion_point += len(path)
+                offset += len(path) - (end - start + 1)
+            return inserted_list
+
+        # Generate all possible lists with inserted elements
+        result_lists = []
+        for combination in all_combinations:
+            result_lists.append(insert_single_combination(base_list, combination))
+
+        return result_lists
+
+    def get_possible_paths(self, nodes_on_read, replacementDict, start, end):
+        # get all the possible middle paths we could correct to
+        possible_middle_paths = self.insert_elements(nodes_on_read, replacementDict)
+        # Initialize lists for upstream and downstream paths
+        upstream_paths, downstream_paths = [], []
+        # get all the possible upstream paths
+        if start != 0:
+            upstream_paths = self.find_paths_between_nodes(
+                nodes_on_read[start][0], None, start * 2, -nodes_on_read[start][1]
+            )
+        # get all the possible downstream paths
+        if end != len(nodes_on_read) - 1:
+            downstream_paths = self.find_paths_between_nodes(
+                nodes_on_read[end][0],
+                None,
+                (len(nodes_on_read) - end - 1) * 2,
+                nodes_on_read[end][1],
+            )
+        possible_paths = []
+        # for now we are not going to add the upstream and downstream paths
+        # upstream_paths, downstream_paths = [], []
+        # Iterate over each possible middle path
+        for corrected in possible_middle_paths:
+            # Extract nodes and directions from the middle path, ignoring entries without a node
+            corrected_path = [n[0] for n in corrected if n[0]]
+            corrected_directions = [n[1] for n in corrected if n[0]]
+
+            # Ensure there's at least an empty list to iterate over if upstream_paths is empty
+            upstream_paths = upstream_paths or [[]]
+            # Ensure there's at least an empty list to iterate over if downstream_paths is empty
+            downstream_paths = downstream_paths or [[]]
+            # Iterate over each upstream path
+            for u_path in upstream_paths:
+                # Reverse and negate directions for upstream path, ignore if u_path is empty
+                u_nodes = [n[0] for n in reversed(u_path)] if u_path else []
+                u_directions = [-n[1] for n in reversed(u_path)] if u_path else []
+
+                # Iterate over each downstream path
+                for d_path in downstream_paths:
+                    # Extract nodes and directions from downstream path, ignore if d_path is empty
+                    d_nodes = [n[0] for n in d_path] if d_path else []
+                    d_directions = [n[1] for n in d_path] if d_path else []
+
+                    # Combine the paths, excluding the last node of the upstream and the first node of the downstream
+                    combined_path = (
+                        (u_nodes[:-1] if u_nodes else [])
+                        + corrected_path
+                        + (d_nodes[1:] if d_nodes else [])
+                    )
+                    combined_directions = (
+                        (u_directions[:-1] if u_directions else [])
+                        + corrected_directions
+                        + (d_directions[1:] if d_directions else [])
+                    )
+
+                    # Add the combined path and its directions to the list of possible paths
+                    possible_paths.append((combined_path, combined_directions))
+        return possible_paths
+
+    def get_coverage_of_path(self, path):
+        coverages = [self.get_node_by_hash(n).get_node_coverage() for n in path]
+        return statistics.mean(coverages)
+
     def process_read_correction(self, read_id, readNodes, start, end):
-        """Process the correction of a read, identifying invalid nodes and replacing them."""
-        corrected = readNodes[read_id][:]
-        path_terminals = self.identify_path_terminals(corrected, start, end)
-        node_directions = self.get_readNodeDirections()[read_id]
+        nodes_on_read = [
+            (readNodes[read_id][i], self.get_readNodeDirections()[read_id][i])
+            for i in range(len(readNodes[read_id]))
+        ]
+        # correct filtered nodes in the middle of a read
+        path_terminals = self.identify_path_terminals(readNodes[read_id], start, end)
+        # find alternative paths where nodes have been deleted
         replacementDict = {}
         for pair in path_terminals:
-            replacementDict.update(self.generate_replacement_dict(corrected, pair, node_directions))
-        corrected, corrected_directions, offset = self.insert_valid_paths(replacementDict, corrected, node_directions)
-        corrected = corrected[start: end + offset + 1]
-        corrected_directions = corrected_directions[start: end + offset + 1]
-        # if nodes have been chopped from the ends
-        if not start == 0:
-            upstream_paths = self.find_paths_between_nodes(corrected[0], None, start, corrected_directions[0]*-1)
-        if not end == len(readNodes[read_id]) - 1:
-            downstream_paths = self.find_paths_between_nodes(corrected[-1], None, len(readNodes[read_id]) - end, corrected_directions[-1])
-            if len(downstream_paths) == 1:
-                corrected += downstream_paths[0][1:]
-                corrected_directions += [None] * (len(downstream_paths[0])-1)
-        if all(n for n in corrected):
-            #try:
-            return self.follow_path_to_get_annotations(corrected, read_id, corrected_directions)
-            #except:
-            #    print("\n", read_id)
-            #    print(readNodes[read_id])
-            #    print(corrected)
-            #    print(replacementDict)
-        else:
-            return []
-            #for i in range(len(corrected)):
-            #    if not corrected[i]:
-            #        return self.generate_annotations(corrected[:i])
+            replacementDict.update(self.generate_replacement_dict(nodes_on_read, pair))
+        # if any of the replacement dict options are an empty list, then we need to split the read because there are no viable options we can correct to
+        # if any(replacementDict[p] == [] for p in replacementDict):
+        #     splits = []
+        #     print(replacementDict)
+        #     print(self.get_readNodes()[read_id])
+        #     djjdj
+
+        # # recursively get all possible corrected path options
+        possible_paths = self.get_possible_paths(nodes_on_read, replacementDict, start, end)
+        # if read_id == "SRR23044210.36983_0":
+        #     print(path_terminals)
+        #     print(self.get_reads()[read_id])
+        #     print(self.get_readNodes()[read_id])
+        #     print(len(possible_paths))
+        #     print(replacementDict)
+        if possible_paths == []:
+            return []  # self.get_reads()[read_id]
+        # get the genes for each potential path
+        distance = 0
+        coverage = 0
+        for path in possible_paths:
+            path_mean_coverage = self.get_coverage_of_path(path[0])
+            genes = self.get_annotation_for_read(path[0], path[1], read_id)
+            this_distance = len(set(genes).intersection(self.get_reads()[read_id]))
+            if this_distance > distance:
+                closest = genes
+                distance = this_distance
+                coverage = path_mean_coverage
+            elif this_distance == distance and path_mean_coverage > coverage:
+                closest = genes
+                distance = this_distance
+                coverage = path_mean_coverage
+            else:
+                pass
+        # align the original list of genes and the new list of genes
+        alignment = self.needleman_wunsch(self.get_reads()[read_id], closest)
+        first, last = None, None
+        for i, col in enumerate(alignment):
+            if col[0] == col[1]:
+                last = i  # Update last for every non-"*" element
+                if first is None:  # Update first only once
+                    first = i
+        # if read_id == "SRR23044210.46918_0":
+        #     print(self.get_reads()[read_id])
+        #     print([c[1] for c in alignment[first: last+1] if not c[1] == "*"])
+        #     print(self.get_readNodes()[read_id])
+        #     print(len(possible_paths))
+        return [c[1] for c in alignment[first : last + 1] if not c[1] == "*"]
+
+    def previous_process_read_correction(self, read_id, readNodes, start, end):
+        # get a list of tuples of the nodes on the read and their directions
+        nodes_on_read = [
+            (readNodes[read_id][i], self.get_readNodeDirections()[read_id][i])
+            for i in range(len(readNodes[read_id]))
+        ]
+        # get all possible graphs that traverse from the first non-None node to the last
+        possible_paths = self.find_paths_between_nodes(
+            nodes_on_read[start][0],
+            nodes_on_read[end][0],
+            len(nodes_on_read) * 2,
+            nodes_on_read[start][1],
+        )
+        if read_id == "SRR23044210.46918_0":
+            print(self.get_reads()[read_id])
+            print(self.get_readNodes()[read_id])
+            print(possible_paths)
+        if len(possible_paths) == 0:
+            return self.get_reads()[read_id]
+        # get the genes for each potential path
+        distance = 0
+        directions = []
+        for path in possible_paths:
+            path_nodes = [p[0] for p in path]
+            path_directions = [p[1] for p in path]
+            genes = self.get_annotation_for_read(path_nodes, path_directions, read_id)
+            this_distance = len(set(genes).intersection(self.get_reads()[read_id]))
+            if this_distance > distance:
+                closest = genes
+                distance = this_distance
+                directions = path_directions
+        # align the original list of genes and the new list of genes
+        alignment = self.needleman_wunsch(self.get_reads()[read_id], closest)
+        first, last = None, None
+        for i, col in enumerate(alignment):
+            if col[0] == col[1]:
+                last = i  # Update last for every non-"*" element
+                if first is None:  # Update first only once
+                    first = i
+        if read_id == "SRR23044210.46918_0":
+            print(self.get_reads()[read_id])
+            print([c[1] if not c[1] == "*" else c[0] for c in alignment[first : last + 1]], "\n")
+        return [c[1] if not c[1] == "*" else c[0] for c in alignment[first : last + 1]]
+
+    def get_annotation_for_read(self, listOfNodes, listOfNodeDirections, read_id):
+        # check that the length of the nodes and node directions is equal
+        assert len(listOfNodes) == len(
+            listOfNodeDirections
+        ), f"The number of nodes and node directions for read {read_id} are not the same"
+        # get the read node directions
+        if not listOfNodeDirections:
+            listOfNodeDirections = self.get_readNodeDirections()[read_id]
+        # return the gene-mer or rc gene-mer if there is one node
+        if len(listOfNodes) == 1:
+            geneMer_direction = listOfNodeDirections[0]
+            if geneMer_direction == 1:
+                return self.get_gene_mer_genes(self.get_node_by_hash(listOfNodes[0]))
+            elif geneMer_direction == -1:
+                return self.get_reverse_gene_mer_genes(self.get_node_by_hash(listOfNodes[0]))
+            else:
+                raise ValueError(
+                    f"Gene-mer direction for a node with 1 read cannot be {geneMer_direction}"
+                )
+        # initialise a list to get the new annotations
+        new_annotations = []
+        for n in range(len(listOfNodes)):
+            # get the node we are adding
+            node = self.get_node_by_hash(listOfNodes[n])
+            # get the node direction
+            node_direction = listOfNodeDirections[n]
+            # add all the gene-mer genes if this is the first node
+            if n == 0:
+                if node_direction == 1:
+                    new_annotations += self.get_gene_mer_genes(node)[:-1]
+                else:
+                    new_annotations += self.get_reverse_gene_mer_genes(node)[:-1]
+            # if the node direction is not None
+            if node_direction:
+                if node_direction:
+                    if node_direction == 1:
+                        new_annotations.append(self.get_gene_mer_genes(node)[-1])
+                    else:
+                        new_annotations.append(self.get_reverse_gene_mer_genes(node)[-1])
+                else:
+                    new_annotations.append(None)
+        assert None not in new_annotations
+        return new_annotations
 
     def identify_path_terminals(self, corrected, start, end):
         """Identify terminals for paths that need correction within a read."""
@@ -1753,9 +2086,60 @@ class GeneMerGraph:
                         path_terminals.append((path_start, path_end))
         return path_terminals
 
-    def generate_replacement_dict(self, corrected, pair, node_directions):
+    def new_identify_path_terminals(self, corrected, start, end):
+        """Identify terminals for paths that need correction within a read."""
+        path_terminals = []
+        print(corrected)
+        for i in range(len(corrected)):
+            if i >= start and i <= end:
+                if corrected[i]:
+                    node = self.get_node_by_hash(corrected[i])
+                    other_neighbors = [
+                        neighbor_hash
+                        for neighbor_hash in self.get_all_neighbor_hashes(node)
+                        if not (
+                            neighbor_hash == corrected[i - 1] or neighbor_hash == corrected[i + 1]
+                        )
+                    ]
+                    if len(other_neighbors) > 1:
+                        if corrected[i - 1]:
+                            path_start = i - 1
+                        if corrected[i + 1]:
+                            path_end = i + 1
+                            path_terminals.append((path_start, path_end))
+        return path_terminals
+
+    def generate_replacement_dict(self, corrected, pair):
         """Generate a dictionary with replacements for invalid nodes."""
-        paths = self.find_paths_between_nodes(corrected[pair[0]], corrected[pair[1]], self.get_kmerSize() * 2, node_directions[pair[0]])
-        if len(paths) == 1:
-            return {pair: paths[0]}
-        return {}
+        paths = self.find_paths_between_nodes(
+            corrected[pair[0]][0],
+            corrected[pair[1]][0],
+            self.get_kmerSize() * 5,
+            corrected[pair[0]][1],
+        )
+        if paths == []:
+            try:
+                paths = self.find_paths_between_nodes(
+                    corrected[pair[0] - 1][0],
+                    corrected[pair[1]][0],
+                    self.get_kmerSize() * 5,
+                    corrected[pair[0] - 1][1],
+                )
+                return {(pair[0] - 1, pair[1]): paths}
+            except:
+                paths = []
+        if paths == []:
+            try:
+                paths = self.find_paths_between_nodes(
+                    corrected[pair[0] - 1][0],
+                    corrected[pair[1] + 1][0],
+                    self.get_kmerSize() * 5,
+                    corrected[pair[0] - 1][1],
+                )
+                return {(pair[0] - 1, pair[1] + 1): paths}
+            except:
+                paths = []
+        return {pair: paths}
+        # if len(paths) == 1:
+        #    return {pair: paths[0]}
+        # return {}
