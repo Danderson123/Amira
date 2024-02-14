@@ -4470,11 +4470,31 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     #     import json
 
     #     with open(
-    #         "/home/daniel/Documents/GitHub/amira_prototype/tests/real_plasmid_annotations_5_kbp_split.json"
+    #         "/home/daniel/Documents/GitHub/amira_prototype/tests/real_plasmid_annotations.json"
     #     ) as i:
     #         annotated_reads = json.load(i)
-    #     graph = GeneMerGraph(annotated_reads, 5)
-    #     graph.generate_gml("tests/plasmid", 5, 1, 1)
+    #     graph = GeneMerGraph(annotated_reads, 3)
+    #     graph.generate_gml("tests/plasmid_with_junk", 3, 1, 1)
+    #     graph.filter_graph(2, 1)
+    #     new_reads = graph.remove_junk_reads(0.9)
+    #     graph = GeneMerGraph(new_reads, 4)
+    #     graph.filter_graph(20, 1)
+    #     new_reads = graph.correct_reads()
+    #     graph = GeneMerGraph(new_reads, 4)
+    #     graph.generate_gml("tests/plasmid_without_junk", 3, 1, 1)
+        # write out the sim
+        # with open(
+        #     "/home/daniel/Documents/GitHub/amira_prototype/tests/simulated_truth.json"
+        # ) as i:
+        #     sim_reads = json.load(i)
+        # plasmid = {}
+        # for read in sim_reads:
+        #     name = read.split("_")[0]
+        #     if name in annotated_reads:
+        #         plasmid[read] = sim_reads[read]
+        # graph = GeneMerGraph(plasmid, 5)
+        # graph.generate_gml("tests/plasmid_truth", 5, 1, 1)
+      #  djjdjd
     #     graph.remove_short_linear_paths(10)
     #     new_annotatedReads = graph.correct_reads()
     #     graph = GeneMerGraph(new_annotatedReads, 5)
