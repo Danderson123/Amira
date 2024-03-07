@@ -7,7 +7,6 @@ def convert_genes(annotatedGenes):
     geneMerGenes = [Gene(g) for g in annotatedGenes]
     return geneMerGenes
 
-
 class Read:
     def __init__(self, readId: str, annotatedGenes):
         self.readId = readId

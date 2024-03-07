@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
-from amira_prototype.construct_gene import convert_int_strand_to_string
+from amira_prototype.construct_gene import convert_int_strand_to_string, Gene
 from amira_prototype.construct_gene_mer import GeneMer
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
@@ -2517,74 +2517,74 @@ class GeneMerGraph:
                 continue
         return corrected_read
 
-    def correct_bubble_paths(self, sorted_filtered_paths):
-        corrected_reads = set()
-        corrected_paths = set()
-        for pair in sorted_filtered_paths:
-            pair_paths = sorted_filtered_paths[pair]
-            for i, (higher_coverage_path, higher_coverage) in enumerate(pair_paths):
-                higher_path_tuple = tuple(higher_coverage_path)
-                if higher_path_tuple in corrected_paths or not all(n[0] in self.get_nodes() for n in higher_coverage_path):
-                    continue
-                higher_coverage_genes = self.get_genes_in_unitig([n[0] for n in higher_coverage_path])
-                high_coverage_nodes = {n[0] for n in higher_coverage_path}
-                corrected_paths.add(higher_path_tuple)
-                for lower_coverage_path, lower_coverage in pair_paths[i + 1:]:
-                    lower_path_tuple = tuple(lower_coverage_path)
-                    if lower_path_tuple in corrected_paths:
-                        continue
-                    lower_coverage_genes = self.get_genes_in_unitig([n[0] for n in lower_coverage_path])
-                    # align the lists
-                    alignment = self.needleman_wunsch(higher_coverage_genes, lower_coverage_genes)
-                    SNP_count = len([col for col in alignment if col[0] != col[1] and col[0] != "*" and col[1] != "*"])
-                    INDEL_count = len([col for col in alignment if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
-                    if SNP_count <= 3 and INDEL_count <= 3:
-                        replacement_dict = {}
-                        reversed_replacement_dict = {}
-                        # get the indices mapping the original lists of genes to alignment columns
-                        false_path_alignment_to_gene, true_path_alignment_to_gene = self.get_position_of_genes_in_alignment(alignment)
-                        # get the sublists we are going to replace
-                        for i in range(len(lower_coverage_genes) - self.get_kmerSize() + 1):
-                            alignment_indices = [false_path_alignment_to_gene[j] for j in range(i, i+self.get_kmerSize())]
-                            alignment_columns = alignment[min(alignment_indices): max(alignment_indices) + 1]
-                            replacement = [col[0] for col in alignment_columns if not col[0] == "*"]
-                            to_replace = lower_coverage_genes[i: i + self.get_kmerSize()]
-                            replacement_dict["~~~".join(to_replace)] = "~~~".join(replacement)
-                            reversed_replacement_dict["~~~".join(self.reverse_list_of_genes(to_replace))] = "~~~".join(self.reverse_list_of_genes(replacement))
-                        # Collect reads in the path
-                        nodes_to_correct = [n[0] for n in lower_coverage_path if n[0] not in high_coverage_nodes]
-                        reads_in_path = self.collect_reads_in_path(nodes_to_correct)
-                        for read_id in reads_in_path:
-                            genes_on_read = self.get_reads()[read_id][:]
-                            # convert the list of genes to a string
-                            genes_on_read = "~~~".join(genes_on_read)
-                            fw_count = 0
-                            rv_count = 0
-                            # count the number of keys in the list of genes
-                            for k in replacement_dict:
-                                if k in genes_on_read:
-                                    fw_count += genes_on_read.count(k)
-                            for k in reversed_replacement_dict:
-                                if k in genes_on_read:
-                                    rv_count += genes_on_read.count(k)
-                            # Determine which replacement dict to use based on shared counts
-                            replacement = replacement_dict if fw_count > rv_count else reversed_replacement_dict
-                            # replace the genes on the read
-                            for to_replace in replacement:
-                                genes_on_read = genes_on_read.replace(to_replace, replacement[to_replace])
-                            if read_id == "SRR23044226.11290_0":
-                                print(alignment, "\n")
-                                print(higher_coverage_genes)
-                                print(higher_coverage, lower_coverage)
-                                print(self.get_reads()[read_id][:])
-                                print(genes_on_read.split("~~~"), "\n")
-                            # Correct the read using the appropriate replacement dictionary
-                            self.get_reads()[read_id] = genes_on_read.split("~~~")
-                            corrected_reads.add(read_id)
-                            corrected_paths.add(tuple(lower_coverage_path))
-                    #else:
-                    #    print(alignment)
-                    #    print(SNP_count, INDEL_count)
+    def get_node_for_genes(self, listOfGenes):
+        gene_objects = [Gene(g) for g in listOfGenes]
+        return Node(GeneMer(gene_objects)).__hash__()
+
+    def new_correct_bubble_paths(self, bubbles):
+        for pair in bubbles:
+            if len(bubbles[pair]) > 1:
+                # sort the paths from highest to lower coverage
+                paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
+                # split the paths into valid and invalid paths
+                valid_paths, invalid_paths = self.split_paths_by_coverage(paths, 10)
+                if valid_paths == []:
+                    valid_paths = [invalid_paths[0]]
+                    invalid_paths = invalid_paths[1:]
+                # store the corrected paths
+                corrected_paths = set()
+                # iterate through the valid paths
+                for path, path_coverage in valid_paths:
+                    path = [n[0] for n in path]
+                    # get the genes in the path
+                    genes_in_path = self.get_genes_in_unitig(list(path))
+                    # make a counter for the genes in the path
+                    gene_counts = Counter(genes_in_path)
+                    # iterate through the invalid paths
+                    for other_path, other_path_coverage in invalid_paths:
+                        other_path = tuple([n[0] for n in other_path])
+                        if not other_path in corrected_paths:
+                            # get the genes in the path
+                            fw_genes_in_path = self.get_genes_in_unitig(list(other_path))
+                            # reverse the genes in the path
+                            bw_genes_in_path = self.reverse_list_of_genes(fw_genes_in_path)
+                            # decide whether the forward or backward path is closest and align the genes in the paths
+                            if len(gene_counts & Counter(fw_genes_in_path)) > len(gene_counts & Counter(bw_genes_in_path)):
+                                alignment = self.needleman_wunsch(genes_in_path, fw_genes_in_path)
+                                other_genes_in_path = fw_genes_in_path
+                            else:
+                                alignment = self.needleman_wunsch(genes_in_path, bw_genes_in_path)
+                                other_genes_in_path = bw_genes_in_path
+                            # get the SNP differences
+                            SNP_count = len([col for col in alignment if col[0] != col[1] and col[0] != "*" and col[1] != "*"])
+                            # get the INDEL differences
+                            INDEL_count = len([col for col in alignment if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
+                            if SNP_count <= 1 and INDEL_count <= 2:
+                                # get the indices mapping the original lists of genes to alignment columns
+                                false_path_alignment_to_gene, true_path_alignment_to_gene = self.get_position_of_genes_in_alignment(alignment)
+                                # get the sublists we are going to replace
+                                replacement_dict = {}
+                                for i in range(len(other_genes_in_path) - self.get_kmerSize() + 1):
+                                    alignment_indices = [false_path_alignment_to_gene[j] for j in range(i, i+self.get_kmerSize())]
+                                    alignment_columns = alignment[min(alignment_indices): max(alignment_indices) + 1]
+                                    replacement = [col[0] for col in alignment_columns if not col[0] == "*"]
+                                    to_replace = other_genes_in_path[i: i + self.get_kmerSize()]
+                                    replacement_dict[self.get_node_for_genes(to_replace)] = self.get_node_for_genes(replacement)
+                                print(replacement_dict)
+                                # get the reads in the path
+                                nodes_to_correct = [n for n in list(other_path)[1:-1]]
+                                reads_in_path = self.collect_reads_in_path(nodes_to_correct)
+                                for read_id in reads_in_path:
+                                    genes_on_read = self.get_reads()[read_id][:]
+                                    # convert the list of genes to a string
+                                    genes_on_read = "~~~".join(genes_on_read)
+                                    # Determine which replacement dict to use based on shared counts
+                                    # replace the genes on the read
+                                    for to_replace in replacement:
+                                        genes_on_read = genes_on_read.replace(to_replace, replacement_dict[to_replace])
+                                    # Correct the read using the appropriate replacement dictionary
+                                    self.get_reads()[read_id] = genes_on_read.split("~~~")
+                                    corrected_paths.add(other_path)
 
     def identify_potential_bubble_starts(self):
         potential_bubble_starts = {}
