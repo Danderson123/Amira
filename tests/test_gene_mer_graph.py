@@ -4552,3 +4552,163 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         result = graph.insert_elements(base_list, insert_dict)
         self.assertEqual(sorted(result), expected)
+
+    def test___pop_bubbles(self):
+        # setup
+        genes1 = [
+            "-gene12",
+            "+gene13",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene14",
+            "+gene15",
+        ]
+        genes2 = [
+            "-gene12",
+            "+gene13",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene16",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene14",
+            "+gene15",
+        ]
+        genes3 = [
+            "-gene12",
+            "+gene13",
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene14",
+            "+gene15",
+        ]
+        annotations = {
+            "read1": genes1,
+            "read2": genes1,
+            "read3": genes1,
+            "read4": genes1,
+            "read5": genes1,
+            "read6": genes1,
+            "read7": genes1,
+            "read8": genes1,
+            "read9": genes1,
+            "read10": genes1,
+            "read11": genes1,
+            "read12": genes1,
+            "read13": genes1,
+            "read14": genes1,
+            "read15": genes1,
+            "read16": genes1,
+            "read17": genes1,
+            "read18": genes1,
+            "read19": genes1,
+            "read20": genes1,
+            "read21": genes3,
+            "read22": genes3,
+            "read23": genes3,
+            "read24": genes2,
+            "read25": genes2,
+            "read26": genes2,
+            "read27": genes2,
+            "read28": genes2,
+            "read29": genes2,
+            "read30": genes2,
+            "read31": genes2,
+            "read32": genes2,
+            "read33": genes2,
+            "read34": genes2,
+        }
+        graph = GeneMerGraph(annotations, 3)
+        graph.pop_bubbles()
+        corrected = graph.correct_reads()
+        graph = GeneMerGraph(corrected, 3)
+
+    def test_correct_bubbles(self):
+        import json
+        import os
+        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/GCA_027944575.1_ASM2794457v1_genomic.subset.json") as i:
+            annotations = json.load(i)
+        k = 5
+        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/AMR_gene_headers_unified.txt") as i:
+            sample_genesOfInterest = set(i.read().split("\n"))
+        graph = GeneMerGraph(annotations, k)
+        for node in graph.all_nodes():
+            node.color_node(sample_genesOfInterest)
+        graph = GeneMerGraph(annotations, k)
+        graph.generate_gml("tests/subset_1", k, 1, 1)
+        graph.remove_short_linear_paths(10)
+        annotations = graph.correct_reads()
+        graph = GeneMerGraph(annotations, k)
+        graph.generate_gml("tests/subset_2", k, 1, 1)
+        annotations = graph.correct_bubbles({}, 1)
+        graph = GeneMerGraph(annotations, k)
+        graph.remove_short_linear_paths(10)
+        annotations = graph.correct_reads()
+        graph = GeneMerGraph(annotations, k)
+        graph.generate_gml("tests/subset_3", k, 1, 1)
+        annotations = graph.correct_bubbles({}, 1)
+        graph = GeneMerGraph(annotations, k)
+        graph.generate_gml("tests/subset_4", k, 1, 1)
+        djjdjd
+
+    # def test___full_genome(self):
+    #     # setup
+    #     import json
+    #     import os
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/tests/GCA_027944575.1_ASM2794457v1_genomic.annotations.json") as i:
+    #         annotations = json.load(i)
+    #     k = 5
+    #     graph = GeneMerGraph(annotations, k)
+    #     # filter junk reads
+    #     graph.filter_graph(2, 1)
+    #     annotations = graph.remove_junk_reads(0.50)
+    #     graph = GeneMerGraph(annotations, k)
+    #     graph.generate_gml("tests/1", k, 1, 1)
+    #     graph.remove_low_coverage_components(5)
+    #     #graph.generate_gml("tests/0", 3, 1, 1)
+    #     #
+    #     # node_min_coverage = find_trough(
+    #     #         graph.get_all_node_coverages(),
+    #     #         os.path.join("tests", f"node_coverages.png"),
+    #     #     )
+    #     # graph.filter_graph(node_min_coverage, 1)
+    #     annotations = graph.correct_reads()
+    #     graph = GeneMerGraph(annotations, k)
+    #     subsetted = {}
+    #     for component in graph.components():
+    #         if not component == 1:
+    #             nodes = graph.get_nodes_in_component(component)
+    #             for node in nodes:
+    #                 for read in node.get_reads():
+    #                     subsetted[read] = graph.get_reads()[read]
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/tests/GCA_027944575.1_ASM2794457v1_genomic.subsetted_annotations.json", "w") as i:
+    #         i.write(json.dumps(subsetted))
+    #     jiopdjdjdj
+    #     graph.generate_gml("tests/2", k, 1, 1)
+    #     graph.remove_short_linear_paths(10)
+    #     annotations = graph.correct_reads()
+    #     graph = GeneMerGraph(annotations, k)
+    #     graph.generate_gml("tests/3", k, 1, 1)
+    #     annotations = graph.correct_bubbles({}, 1)
+    #     graph = GeneMerGraph(annotations, k)
+    #     graph.generate_gml("tests/4", k, 1, 1)
