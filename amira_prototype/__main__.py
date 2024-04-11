@@ -1,14 +1,16 @@
 import argparse
 import json
 import os
+import shutil
 import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks, savgol_filter
+from tqdm import tqdm
 
 from amira_prototype.construct_graph import GeneMerGraph
-from amira_prototype.construct_unitig import parse_fastq
+from amira_prototype.construct_unitig import parse_fastq, write_fastq
 from amira_prototype.pre_process import convert_pandora_output, process_pandora_json
 
 # from test_functions import TestUnitigTools, Unitig
@@ -23,55 +25,93 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--pandoraConsensus",
         dest="pandoraConsensus",
-        help="path to Pandora consensus fastq",
+        help="Path to Pandora consensus fastq.",
         required=False,
     )
     parser.add_argument(
-        "--readfile", dest="readfile", help="path of gzipped long read fastq", required=True
+        "--readfile", dest="readfile", help="path of gzipped long read fastq.", required=True
     )
     parser.add_argument(
         "--output",
         dest="output_dir",
         type=str,
         default="gene_de_Bruijn_graph",
-        help="directory for Amira outputs",
+        help="Directory for Amira outputs.",
     )
     parser.add_argument(
         "-k",
         dest="geneMer_size",
         type=int,
         default=3,
-        help="kmer length for the gene de Bruijn graph",
+        help="k-mer length for the gene de Bruijn graph.",
     )
     parser.add_argument(
         "-n",
         dest="node_min_coverage",
         type=int,
         default=None,
-        help="minimum threshold for gene-mer coverage",
+        help="Minimum threshold for gene-mer coverage.",
     )
     parser.add_argument(
         "-e",
         dest="edge_min_coverage",
         type=int,
         default=1,
-        help="minimum threshold for edge coverage between gene-mers",
+        help="Minimum threshold for edge coverage between gene-mers.",
     )
     parser.add_argument(
         "-g",
         dest="gene_min_coverage",
         type=int,
         default=1,
-        help="minimum threshold for gene filtering",
+        help="Minimum threshold for gene filtering.",
+    )
+    parser.add_argument(
+        "--minimum-length-proportion",
+        dest="lower_gene_length_threshold",
+        type=float,
+        default=0.5,
+        help="Minimum length threshold for gene filtering.",
+    )
+    parser.add_argument(
+        "--maximum-length-proportion",
+        dest="upper_gene_length_threshold",
+        type=float,
+        default=1.5,
+        help="Maximum length threshold for gene filtering.",
     )
     parser.add_argument(
         "--gene-path",
         dest="path_to_interesting_genes",
-        help="path to a newline delimited file of genes of interest",
+        help="Path to a newline delimited file of genes of interest.",
         required=True,
     )
     parser.add_argument(
-        "--debug", dest="debug", action="store_true", default=False, help="Amira debugging"
+        "--racon-path",
+        dest="racon_path",
+        help="Path to racon installation.",
+        default="racon",
+    )
+    parser.add_argument(
+        "--sample-reads",
+        dest="sample_reads",
+        action="store_true",
+        default=False,
+        help="Randomly sample to a maximum of 100,000 input reads.",
+    )
+    parser.add_argument(
+        "--quiet",
+        dest="quiet",
+        action="store_true",
+        default=False,
+        help="Supress progress updates.",
+    )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        default=False,
+        help="Output Amira debugging files.",
     )
     args = parser.parse_args()
     return args
@@ -178,6 +218,7 @@ def write_debug_files(
     genesOfInterest: list[str],
     output_dir: str,
 ) -> GeneMerGraph:
+    sys.stderr.write("\nAmira: building pre-correction gene-mer graph...\n")
     raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
@@ -186,11 +227,11 @@ def write_debug_files(
 
     with open(os.path.join(output_dir, "genesAnnotatedOnReads.json"), "w") as o:
         o.write(json.dumps(annotatedReads))
-    sys.stderr.write("\nAmira: writing pre-correction gene-mer graph\n")
     raw_graph.generate_gml(
         os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
     )
     return raw_graph
+
 
 def main() -> None:
     # get command line options
@@ -203,25 +244,64 @@ def main() -> None:
         genesOfInterest = i.read().splitlines()
     # import a JSON of genes on reads
     if args.pandoraJSON:
-        annotatedReads, sample_genesOfInterest = process_pandora_json(args.pandoraJSON, genesOfInterest)
+        # output sample information
+        sys.stderr.write(
+            f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\nJSON file: {os.path.basename(args.pandoraJSON)}\nFASTQ path: {os.path.basename(args.readfile)}\nSubsample reads: {args.sample_reads}\n"
+        )
+        annotatedReads, sample_genesOfInterest = process_pandora_json(
+            args.pandoraJSON, genesOfInterest
+        )
     # load the pandora consensus and convert to a dictionary
     if args.pandoraSam:
-        pandora_consensus = parse_fastq(args.pandoraConsensus)
-        annotatedReads, sample_genesOfInterest, distances = convert_pandora_output(
-            args.pandoraSam, pandora_consensus, genesOfInterest, args.gene_min_coverage
+        # output sample information
+        sys.stderr.write(
+            f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\nSAM file: {os.path.basename(args.pandoraSam)}\nFASTQ path: {os.path.basename(args.readfile)}\nSubsample reads: {args.sample_reads}\n"
         )
+        sys.stderr.write("\nAmira: loading Pandora SAM file...\n")
+        pandora_consensus = parse_fastq(args.pandoraConsensus)
+        try:
+            annotatedReads, sample_genesOfInterest, gene_position_dict = convert_pandora_output(
+                args.pandoraSam,
+                pandora_consensus,
+                genesOfInterest,
+                args.gene_min_coverage,
+                args.lower_gene_length_threshold,
+                args.upper_gene_length_threshold,
+            )
+        except:
+            os.remove(args.pandoraConsensus)
+            os.remove(args.pandoraSam)
+            sys.exit(0)
+        # randomly sample 150,000 reads
+        if args.sample_reads:
+            import random
+
+            annotatedReads = dict(
+                random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
+            )
         # plot_log_histogram(distances, os.path.join(args.output_dir, "distance_between_genes.png"))
     print(list(sorted(list(sample_genesOfInterest))))
+    # with open(os.path.join(args.output_dir, "gene_gap_sizes.json"), "w") as o:
+    #    o.write(json.dumps(distances))
+    # plot_log_histogram(proportion_gene_length, os.path.join(args.output_dir, "proportion_genes_covered.png"))
     # write out debug files if specified
     if args.debug:
-        write_debug_files(annotatedReads, args.geneMer_size, sample_genesOfInterest, args.output_dir)
+        write_debug_files(
+            annotatedReads, args.geneMer_size, sample_genesOfInterest, args.output_dir
+        )
+    # load the fastq data
+    fastq_content = parse_fastq(args.readfile)
     # build the gene-mer graph
-    graph = GeneMerGraph(annotatedReads, args.geneMer_size)
+    sys.stderr.write("\nAmira: building intitial gene-mer graph...\n")
+    graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
     # filter junk reads
     graph.filter_graph(2, 1)
-    new_annotatedReads = graph.remove_junk_reads(0.50)
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
+    new_annotatedReads, new_gene_position_dict = graph.remove_junk_reads(0.80)
     # dynamically determine the node threshold for filtering
+    sys.stderr.write("\nAmira: removing low coverage components...\n")
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph.remove_low_coverage_components(5)
+    new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
     if not args.node_min_coverage:
         try:
             node_min_coverage = find_trough(
@@ -232,21 +312,48 @@ def main() -> None:
             node_min_coverage = 5
     else:
         node_min_coverage = args.node_min_coverage
+    # remove nodes with coverage 1
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    node_trough_value = find_trough(
+        graph.get_all_node_coverages(),
+        os.path.join(args.output_dir, f"pre_correction_node_coverages.png"),
+    )
     graph.filter_graph(node_min_coverage, 1)
-    new_annotatedReads = graph.correct_reads()
-    with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
-        o.write(json.dumps(new_annotatedReads))
-    sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
+    new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size)
+    # parse the original fastq file
+    cleaning_iterations = 1
+    for this_iteration in range(cleaning_iterations):
+        sys.stderr.write(
+            f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}...\n"
+        )
+        sys.stderr.write(f"\n\tAmira: removing dead ends...\n")
+        graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+        graph.remove_short_linear_paths(args.geneMer_size)
+        new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+        sys.stderr.write(f"\n\tAmira: popping bubbles...\n")
+        graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+        new_annotatedReads, new_gene_position_dict = graph.correct_bubbles(1, fastq_content)
+    # build the corrected gene-mer graph
+    sys.stderr.write("\nAmira: building corrected gene-mer graph...\n")
+    with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
+        o.write(json.dumps(new_annotatedReads))
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    try:
+        find_trough(
+            graph.get_all_node_coverages(),
+            os.path.join(args.output_dir, f"post_correction_node_coverages.png"),
+        )
+    except:
+        pass
     # color nodes in the graph if --debug is used
     if args.debug:
         for node in graph.all_nodes():
             node.color_node(sample_genesOfInterest)
     # write out the graph as a GML
-    sys.stderr.write("\nAmira: writing gene-mer graph\n")
+    sys.stderr.write("\nAmira: writing gene-mer graph...\n")
     graph.generate_gml(
         os.path.join(args.output_dir, "gene_mer_graph"),
         args.geneMer_size,
@@ -254,11 +361,55 @@ def main() -> None:
         args.edge_min_coverage,
     )
     # assign reads to AMR genes by path
-    sys.stderr.write("\nAmira: clustering reads\n")
-    clusters = graph.assign_reads_to_genes(sample_genesOfInterest)
+    sys.stderr.write("\nAmira: clustering reads...\n")
+    clusters_of_interest = graph.assign_reads_to_genes(sample_genesOfInterest, fastq_content)
+    # write out the fastq files
+    if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
+        os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
+    # subset the fastq data based on the cluster assignments
+    files_to_assemble = []
+    sys.stderr.write("\nAmira: writing fastqs...\n")
+    for allele in tqdm(clusters_of_interest):
+        read_subset = {}
+        for r in clusters_of_interest[allele]:
+            underscore_split = r.split("_")
+            fastq_data = fastq_content[underscore_split[0]]
+            read_subset[underscore_split[0]] = fastq_data
+            # print(len(read_subset[underscore_split[0]]["sequence"]), int(underscore_split[-2]), int(underscore_split[-1]))
+            # read_subset[underscore_split[0]]["sequence"] = read_subset[underscore_split[0]]["sequence"][int(underscore_split[-2]): int(underscore_split[-1]) + 1]
+            assert not read_subset[underscore_split[0]]["sequence"] == ""
+        write_fastq(
+            os.path.join(args.output_dir, "AMR_allele_fastqs", allele + ".fastq.gz"), read_subset
+        )
+        files_to_assemble.append(
+            os.path.join(args.output_dir, "AMR_allele_fastqs", allele + ".fastq.gz")
+        )
+    # run racon to polish the pandora consensus
+    sys.stderr.write("\nAmira: obtaining nucleotide sequences...\n")
+    genes_to_remove = graph.polish_pandora_consensus(
+        files_to_assemble,
+        args.racon_path,
+        pandora_consensus,
+        1,
+        os.path.join(args.output_dir, "AMR_allele_fastqs"),
+    )
+    # remove genes that do not have sufficient mapping coverage
+    for g in genes_to_remove:
+        if g is not None:
+            sys.stderr.write(
+                f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
+            )
+            del clusters_of_interest[g[0]]
+            shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
     # write out the clustered reads
+    for allele in clusters_of_interest:
+        new_reads = set()
+        for r in clusters_of_interest[allele]:
+            new_reads.add(r.split("_")[0])
+        clusters_of_interest[allele] = list(new_reads)
     with open(os.path.join(args.output_dir, "reads_per_amr_gene.json"), "w") as o:
-        o.write(json.dumps(clusters))
+        o.write(json.dumps(clusters_of_interest))
     sys.exit(0)
 
 

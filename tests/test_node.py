@@ -9,7 +9,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        geneMer = [x for x in read1.get_geneMers(3)][0]
+        geneMer = [x for x in read1.get_geneMers(3)[0]][0]
         # execution
         actual_node = Node(geneMer)
         actual_canonicalGeneMer = actual_node.get_canonical_geneMer()
@@ -36,7 +36,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
         read1 = Read("read1", genes)
-        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers = [x for x in read1.get_geneMers(3)[0]]
         # execution
         for g in geneMers:
             node = Node(g)
@@ -54,7 +54,7 @@ class TestNodeConstructor(unittest.TestCase):
         read1 = Read("read1", genes)
         read2 = Read("read2", genes)
         read3 = Read("read3", genes)
-        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers = [x for x in read1.get_geneMers(3)[0]]
         for g in geneMers:
             node = Node(g)
             readList = [read1, read1, read2, read3, read3]
@@ -71,7 +71,7 @@ class TestNodeConstructor(unittest.TestCase):
         read1 = Read("read1", genes)
         read2 = Read("read2", genes)
         read3 = Read("read3", genes)
-        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers = [x for x in read1.get_geneMers(3)[0]]
         for g in geneMers:
             node = Node(g)
             readList = [read1, read2, read3]
@@ -90,7 +90,7 @@ class TestNodeConstructor(unittest.TestCase):
         read2 = Read("read2", genes)
         read3 = Read("read3", genes)
         read4 = Read("read4", genes)
-        geneMers = [x for x in read1.get_geneMers(3)]
+        geneMers = [x for x in read1.get_geneMers(3)[0]]
         readList = [read1, read1, read2, read3, read3]
         for g in geneMers:
             node = Node(g)
@@ -105,7 +105,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        node = [Node(x) for x in read1.get_geneMers(3)[0]][0]
         # execution
         actual_updated_node = node.add_forward_edge_hash(12345)
         actual_list_of_forward_hashes = actual_updated_node.get_forward_edge_hashes()
@@ -118,7 +118,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        node = [Node(x) for x in read1.get_geneMers(3)[0]][0]
         node.add_forward_edge_hash(12345)
         # execution
         actual_updated_node = node.add_forward_edge_hash(56789)
@@ -132,7 +132,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        node = [Node(x) for x in read1.get_geneMers(3)[0]][0]
         node.add_forward_edge_hash(12345)
         # executionforward_edge_hashes
         actual_updated_node = node.add_forward_edge_hash(12345)
@@ -146,7 +146,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        node = [Node(x) for x in read1.get_geneMers(3)[0]][0]
         # execution
         actual_updated_node = node.add_backward_edge_hash(12345)
         actual_list_of_backward_hashes = actual_updated_node.get_backward_edge_hashes()
@@ -159,7 +159,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        node = [Node(x) for x in read1.get_geneMers(3)[0]][0]
         node.add_backward_edge_hash(12345)
         # execution
         actual_updated_node = node.add_backward_edge_hash(56789)
@@ -173,7 +173,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3"]
         read1 = Read("read1", genes)
-        node = [Node(x) for x in read1.get_geneMers(3)][0]
+        node = [Node(x) for x in read1.get_geneMers(3)[0]][0]
         node.add_backward_edge_hash(12345)
         # execution
         actual_updated_node = node.add_backward_edge_hash(12345)
@@ -187,7 +187,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
         read1 = Read("read1", genes)
-        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        nodes = [Node(x) for x in read1.get_geneMers(3)[0]]
         mockHashes = [12345, 56789, 28423]
         for e in range(len(mockHashes)):
             nodes[e].add_forward_edge_hash(mockHashes[e])
@@ -203,7 +203,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
         read1 = Read("read1", genes)
-        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        nodes = [Node(x) for x in read1.get_geneMers(3)[0]]
         mockHashes = [12345, 56789, 28423]
         for e in range(len(mockHashes)):
             nodes[e].add_forward_edge_hash(mockHashes[e])
@@ -218,7 +218,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
         read1 = Read("read1", genes)
-        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        nodes = [Node(x) for x in read1.get_geneMers(3)[0]]
         mockHashes = [12345, 56789, 28423]
         for e in range(len(mockHashes)):
             nodes[e].add_backward_edge_hash(mockHashes[e])
@@ -234,7 +234,7 @@ class TestNodeConstructor(unittest.TestCase):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
         read1 = Read("read1", genes)
-        nodes = [Node(x) for x in read1.get_geneMers(3)]
+        nodes = [Node(x) for x in read1.get_geneMers(3)[0]]
         mockHashes = [12345, 56789, 28423]
         for e in range(len(mockHashes)):
             nodes[e].add_backward_edge_hash(mockHashes[e])

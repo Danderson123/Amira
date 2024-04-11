@@ -1,7 +1,15 @@
 import json
+import math
 
+import numpy as np
 import pysam
 from tqdm import tqdm
+
+
+def clean_gene(g):
+    chars_to_remove = set(["|", "(", ")", "-", "*", "+", "#", ":", "=", "/", ",", "'"])
+    cleaned_gene = "".join(char for char in g if char not in chars_to_remove)
+    return cleaned_gene
 
 
 def process_pandora_json(
@@ -9,19 +17,25 @@ def process_pandora_json(
 ) -> tuple[dict[str, list[str]], list[str]]:
     with open(pandoraJSON) as i:
         annotatedReads = json.loads(i.read())
+    ###################
+    # just needed for running on simulated data
+    newAnnotatedReads = {}
+    for r in annotatedReads:
+        newAnnotatedReads[r] = ["_".join(g.split("_")[:-1]) for g in annotatedReads[r]]
+    annotatedReads = newAnnotatedReads
+    ###################
     to_delete = []
     subsettedGenesOfInterest = set()
     for read in tqdm(annotatedReads):
         containsAMRgene = False
         for g in range(len(annotatedReads[read])):
-            split_names = annotatedReads[read][g][1:].split(".")
-            if any(subgene in genesOfInterest for subgene in split_names):
+            if annotatedReads[read][g][1:] in genesOfInterest:
                 containsAMRgene = True
                 subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
         if not containsAMRgene:
             to_delete.append(read)
-    # for read in to_delete:
-    #    del annotatedReads[read]
+    for read in to_delete:
+        del annotatedReads[read]
     genesOfInterest = list(subsettedGenesOfInterest)
     return annotatedReads, genesOfInterest
 
@@ -60,20 +74,45 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
     return gene_name, strandlessGene
 
 
+def calculate_core_gene_proportion(pandoraSam, pandora_consensus):
+    import numpy as np
+
+    # load the list of core genes
+    with open(
+        "/hps/nobackup/iqbal/dander/amira_panRG_pipeline/Escherichia_coli_all_24_test_samples/panaroo_integrated_AMR_alleles/core_genes.txt"
+    ) as i:
+        all_core_genes = set(i.read().split("\n"))
+    pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
+    # see what proportion of core genes have been identified in this sample
+    found_core_genes = set()
+    for read in pandora_sam_content.fetch():
+        if read.is_mapped:
+            gene_name, strandlessGene = determine_gene_strand(read)
+            if strandlessGene in pandora_consensus:
+                if strandlessGene in all_core_genes:
+                    found_core_genes.add(strandlessGene)
+    pandora_sam_content.close()
+    core_gene_proportion = len(found_core_genes) / len(all_core_genes)
+    return None  # core_gene_proportion
+
+
 def convert_pandora_output(
     pandoraSam: str,
     pandora_consensus: dict[str, list[str]],
     genesOfInterest: set[str],
     geneMinCoverage: int,
+    gene_length_lower_threshold,
+    gene_length_upper_threshold,
 ) -> tuple[dict[str, list[str]], list[str]]:
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
     annotatedReads: dict[str, list[str]] = {}
-    readLengthDict: dict[str, list[tuple[int, int]]] = {}
+    gene_position_dict: dict[str, list[tuple[int, int]]] = {}
     geneCounts: dict[str, int] = {}
     # iterate through the read regions
     read_tracking = {}
-    distances = []
+    distances = {}
+    proportion_gene_length = []
     for read in pandora_sam_content.fetch():
         # convert the cigarsting to a Cigar object
         cigar = read.cigartuples
@@ -87,11 +126,12 @@ def convert_pandora_output(
             regionEnd, regionLength = get_read_end(cigar, regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
-            if regionStart - read_tracking[read.query_name]["end"] > 5000:
-                read_tracking[read.query_name]["index"] += 1
-            distances.append(regionStart - read_tracking[read.query_name]["end"])
             # exclude genes that do not have a pandora consensus
-            if strandlessGene in pandora_consensus:
+            if strandlessGene in pandora_consensus and gene_length_lower_threshold * len(
+                pandora_consensus[strandlessGene]["sequence"]
+            ) <= regionLength <= gene_length_upper_threshold * len(
+                pandora_consensus[strandlessGene]["sequence"]
+            ):
                 if (
                     read.query_name + "_" + str(read_tracking[read.query_name]["index"])
                     not in annotatedReads
@@ -99,7 +139,7 @@ def convert_pandora_output(
                     annotatedReads[
                         read.query_name + "_" + str(read_tracking[read.query_name]["index"])
                     ] = []
-                    readLengthDict[
+                    gene_position_dict[
                         read.query_name + "_" + str(read_tracking[read.query_name]["index"])
                     ] = []
                 # count how many times we see each gene
@@ -107,14 +147,28 @@ def convert_pandora_output(
                     geneCounts[strandlessGene] = 0
                 geneCounts[strandlessGene] += 1
                 # store the per read gene names, gene starts and gene ends
-                readLengthDict[
+                gene_position_dict[
                     read.query_name + "_" + str(read_tracking[read.query_name]["index"])
                 ].append((regionStart, regionEnd))
                 # store the per read gene names
                 annotatedReads[
                     read.query_name + "_" + str(read_tracking[read.query_name]["index"])
                 ].append(gene_name)
+                if (
+                    not read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    in distances
+                ):
+                    distances[
+                        read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    ] = []
+                distances[
+                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                ].append(regionStart - read_tracking[read.query_name]["end"])
                 read_tracking[read.query_name]["end"] = regionEnd
+                # if strandlessGene not in fp_genes and read.query_name not in fp_reads:
+                proportion_gene_length.append(
+                    regionLength / len(pandora_consensus[strandlessGene]["sequence"])
+                )
     to_delete = []
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
@@ -123,17 +177,16 @@ def convert_pandora_output(
         ]
         containsAMRgene = False
         for g in range(len(annotatedReads[r])):
-            split_names = annotatedReads[r][g][1:].split(".")
-            if any(subgene in genesOfInterest for subgene in split_names):
+            if annotatedReads[r][g][1:] in genesOfInterest:
                 containsAMRgene = True
-                for subgene in split_names:
-                    if subgene in genesOfInterest:
-                        annotatedReads[r][g] = annotatedReads[r][g][0] + subgene
-                        break
                 subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
+            # split_names = annotatedReads[r][g][1:].split(".")
+            # if any(subgene in genesOfInterest for subgene in split_names):
+            #     containsAMRgene = True
+            #     subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
         if not containsAMRgene:
             to_delete.append(r)
     # for t in to_delete:
     #    del annotatedReads[t]
     assert not len(annotatedReads) == 0
-    return annotatedReads, subsettedGenesOfInterest, distances
+    return annotatedReads, subsettedGenesOfInterest, gene_position_dict

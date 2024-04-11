@@ -35,8 +35,8 @@ class TestEdgeConstructor(unittest.TestCase):
         # setup
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4"]
         read1 = Read("read1", genes1)
-        nodes = [Node(g) for g in read1.get_geneMers(3)]
-        directions = [g.get_geneMerDirection() for g in read1.get_geneMers(3)]
+        nodes = [Node(g) for g in read1.get_geneMers(3)[0]]
+        directions = [g.get_geneMerDirection() for g in read1.get_geneMers(3)[0]]
         for n in range(len(nodes) - 1):
             edge = Edge(nodes[n], nodes[n + 1], directions[n], directions[n + 1])
             for i in range(5):
@@ -52,10 +52,10 @@ class TestEdgeConstructor(unittest.TestCase):
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene4"]
         read1 = Read("read1", genes1)
         read2 = Read("read2", genes2)
-        nodes1 = [Node(g) for g in read1.get_geneMers(3)]
-        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)]
-        nodes2 = [Node(g) for g in read2.get_geneMers(3)]
-        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)]
+        nodes1 = [Node(g) for g in read1.get_geneMers(3)[0]]
+        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)[0]]
+        nodes2 = [Node(g) for g in read2.get_geneMers(3)[0]]
+        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)[0]]
         edges1 = []
         for n in range(len(nodes1) - 1):
             edge = Edge(nodes1[n], nodes1[n + 1], directions1[n], directions1[n + 1])
@@ -80,12 +80,12 @@ class TestEdgeConstructor(unittest.TestCase):
         read1 = Read("read1", genes1)
         read2 = Read("read2", genes2)
         read3 = Read("read3", genes3)
-        node1 = [Node(g) for g in read1.get_geneMers(2)][0]
-        direction1 = [g.get_geneMerDirection() for g in read1.get_geneMers(2)][0]
-        node2 = [Node(g) for g in read2.get_geneMers(2)][0]
-        direction2 = [g.get_geneMerDirection() for g in read2.get_geneMers(2)][0]
-        node3 = [Node(g) for g in read3.get_geneMers(2)][0]
-        direction3 = [g.get_geneMerDirection() for g in read3.get_geneMers(2)][0]
+        node1 = [Node(g) for g in read1.get_geneMers(2)[0]][0]
+        direction1 = [g.get_geneMerDirection() for g in read1.get_geneMers(2)[0]][0]
+        node2 = [Node(g) for g in read2.get_geneMers(2)[0]][0]
+        direction2 = [g.get_geneMerDirection() for g in read2.get_geneMers(2)[0]][0]
+        node3 = [Node(g) for g in read3.get_geneMers(2)[0]][0]
+        direction3 = [g.get_geneMerDirection() for g in read3.get_geneMers(2)[0]][0]
         edge1 = Edge(node1, node2, direction1, direction2)
         edge2 = Edge(node2, node3, direction2, direction3)
         # assertion
@@ -100,12 +100,12 @@ class TestEdgeConstructor(unittest.TestCase):
         read1 = Read("read1", genes1)
         read2 = Read("read2", genes2)
         read3 = Read("read3", genes3)
-        node1 = [Node(g) for g in read1.get_geneMers(2)][0]
-        direction1 = [g.get_geneMerDirection() for g in read1.get_geneMers(2)][0]
-        node2 = [Node(g) for g in read2.get_geneMers(2)][0]
-        direction2 = [g.get_geneMerDirection() for g in read2.get_geneMers(2)][0]
-        node3 = [Node(g) for g in read3.get_geneMers(2)][0]
-        direction3 = [g.get_geneMerDirection() for g in read3.get_geneMers(2)][0]
+        node1 = [Node(g) for g in read1.get_geneMers(2)[0]][0]
+        direction1 = [g.get_geneMerDirection() for g in read1.get_geneMers(2)[0]][0]
+        node2 = [Node(g) for g in read2.get_geneMers(2)[0]][0]
+        direction2 = [g.get_geneMerDirection() for g in read2.get_geneMers(2)[0]][0]
+        node3 = [Node(g) for g in read3.get_geneMers(2)[0]][0]
+        direction3 = [g.get_geneMerDirection() for g in read3.get_geneMers(2)[0]][0]
         edge1 = Edge(node1, node2, direction1, direction2)
         edge2 = Edge(node2, node3, direction2, direction3)
         # assertion
@@ -118,10 +118,10 @@ class TestEdgeConstructor(unittest.TestCase):
         genes2 = ["+gene1", "-gene2", "+gene3", "-gene4"]
         read1 = Read("read1", genes1)
         read2 = Read("read2", genes2)
-        nodes1 = [Node(g) for g in read1.get_geneMers(3)]
-        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)]
-        nodes2 = [Node(g) for g in read2.get_geneMers(3)]
-        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)]
+        nodes1 = [Node(g) for g in read1.get_geneMers(3)[0]]
+        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)[0]]
+        nodes2 = [Node(g) for g in read2.get_geneMers(3)[0]]
+        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)[0]]
         edgeHashes1 = []
         for n in range(len(nodes1) - 1):
             edge = Edge(nodes1[n], nodes1[n + 1], directions1[n], directions1[n + 1])
@@ -140,10 +140,10 @@ class TestEdgeConstructor(unittest.TestCase):
         genes2 = ["+gene4", "-gene3", "+gene2", "-gene1"]
         read1 = Read("read1", genes1)
         read2 = Read("read2", genes2)
-        nodes1 = [Node(g) for g in read1.get_geneMers(3)]
-        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)]
-        nodes2 = [Node(g) for g in read2.get_geneMers(3)]
-        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)]
+        nodes1 = [Node(g) for g in read1.get_geneMers(3)[0]]
+        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)[0]]
+        nodes2 = [Node(g) for g in read2.get_geneMers(3)[0]]
+        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)[0]]
         edgeHashes1 = []
         for n in range(len(nodes1) - 1):
             edge = Edge(nodes1[n], nodes1[n + 1], directions1[n], directions1[n + 1])
@@ -174,10 +174,10 @@ class TestEdgeConstructor(unittest.TestCase):
         genes2 = ["+gene4", "-gene5", "+gene6", "-gene7"]
         read1 = Read("read1", genes1)
         read2 = Read("read2", genes2)
-        nodes1 = [Node(g) for g in read1.get_geneMers(3)]
-        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)]
-        nodes2 = [Node(g) for g in read2.get_geneMers(3)]
-        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)]
+        nodes1 = [Node(g) for g in read1.get_geneMers(3)[0]]
+        directions1 = [g.get_geneMerDirection() for g in read1.get_geneMers(3)[0]]
+        nodes2 = [Node(g) for g in read2.get_geneMers(3)[0]]
+        directions2 = [g.get_geneMerDirection() for g in read2.get_geneMers(3)[0]]
         edgeHashes1 = []
         for n in range(len(nodes1) - 1):
             edge = Edge(nodes1[n], nodes1[n + 1], directions1[n], directions1[n + 1])

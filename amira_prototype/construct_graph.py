@@ -1,13 +1,18 @@
 import os
 import statistics
+import subprocess
 import sys
 from collections import Counter, deque
 from itertools import product
+
 import numpy as np
+import pysam
+import sourmash
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
-from amira_prototype.construct_gene import convert_int_strand_to_string, Gene
+from amira_prototype.construct_gene import Gene, convert_int_strand_to_string
 from amira_prototype.construct_gene_mer import GeneMer
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
@@ -15,33 +20,28 @@ from amira_prototype.construct_read import Read
 sys.setrecursionlimit(50000)
 
 
-def subsample_to_minimizers(kmers, window_size=5):
-    minimizers = []
-    for i in range(len(kmers) - window_size + 1):
-        window = kmers[i : i + window_size]
-        minimizer = sorted(window, key=hash)[0]
-        if minimizer not in minimizers:
-            minimizers.append(minimizer)
-    return minimizers
-
-
 class GeneMerGraph:
-    def __init__(self, readDict, kmerSize):
+    def __init__(self, readDict, kmerSize, gene_positions=None):
         self._reads = readDict
         self._kmerSize = kmerSize
         self._minNodeCoverage = 1
         self._minEdgeCoverage = 1
+        self._genePositions = gene_positions
         self._nodes = {}
         self._edges = {}
         self._readNodes = {}
         self._readNodeDirections = {}
+        self._readNodePositions = {}
         self._shortReads = {}
         self._readsToCorrect = set()
         # initialise the graph
         for readId in tqdm(self.get_reads()):
-            read = Read(readId, self.get_reads()[readId])
+            if self.get_gene_positions():
+                read = Read(readId, self.get_reads()[readId], self.get_gene_positions()[readId])
+            else:
+                read = Read(readId, self.get_reads()[readId], None)
             # get the gene mers on this read
-            geneMers = [g for g in read.get_geneMers(self.get_kmerSize())]
+            geneMers, geneMerPositions = read.get_geneMers(self.get_kmerSize())
             # if there are no gene mers there is nothing to add to the graph
             if len(geneMers) == 0:
                 self._shortReads[readId] = read.get_annotatedGenes()
@@ -50,15 +50,22 @@ class GeneMerGraph:
                 # iterate through all the gene-mers except the last
                 for g in range(len(geneMers) - 1):
                     # get the read id for this read
-                    readId = read.get_readId()
+                    this_readId = read.get_readId()
                     # add a source node to the graph
-                    sourceNode = self.add_node(geneMers[g], [read])
+                    sourceNode = self.add_node(geneMers[g], [this_readId])
                     # add the sourceNode to the read
-                    self.add_node_to_read(sourceNode, readId, geneMers[g].get_geneMerDirection())
+                    self.add_node_to_read(
+                        sourceNode,
+                        this_readId,
+                        geneMers[g].get_geneMerDirection(),
+                        geneMerPositions[g],
+                    )
                     # increase the source node coverage by 1
                     sourceNode.increment_node_coverage()
+                    # get the target node readId
+                    targetReadId = read.get_readId()
                     # add the target node to the graph
-                    targetNode = self.add_node(geneMers[g + 1], [read])
+                    targetNode = self.add_node(geneMers[g + 1], [targetReadId])
                     # add an edge from source to target and target to source
                     sourceToTargetEdge, reverseTargetToSourceEdge = self.add_edge(
                         geneMers[g], geneMers[g + 1]
@@ -70,12 +77,19 @@ class GeneMerGraph:
                 targetNode = self.get_node_by_hash(targetNodeHash)
                 # increment the coverage of the target if it is the last gene mer in the read
                 targetNode.increment_node_coverage()
-                self.add_node_to_read(targetNode, readId, geneMers[-1].get_geneMerDirection())
+                self.add_node_to_read(
+                    targetNode,
+                    this_readId,
+                    geneMers[-1].get_geneMerDirection(),
+                    geneMerPositions[-1],
+                )
             else:
                 # add a single node to the graph if there is only 1 gene mer
-                readId = read.get_readId()
-                sourceNode = self.add_node(geneMers[0], [read])
-                self.add_node_to_read(sourceNode, readId, geneMers[0].get_geneMerDirection())
+                this_readId = read.get_readId()
+                sourceNode = self.add_node(geneMers[0], [this_readId])
+                self.add_node_to_read(
+                    sourceNode, this_readId, geneMers[0].get_geneMerDirection(), geneMerPositions[0]
+                )
                 sourceNode.increment_node_coverage()
         # assign component Ids to all nodes in the graph
         self.assign_component_ids()
@@ -84,6 +98,9 @@ class GeneMerGraph:
         """return a dictionary of all reads and their genes"""
         return self._reads
 
+    def get_gene_positions(self):
+        return self._genePositions
+
     def get_readNodes(self) -> dict[str, list[str]]:
         """return a dictionary of all reads and their node hashes"""
         return self._readNodes
@@ -91,6 +108,9 @@ class GeneMerGraph:
     def get_readNodeDirections(self) -> dict[str, list[int]]:
         """return a dictionary of all reads and their node directions"""
         return self._readNodeDirections
+
+    def get_readNodePositions(self) -> dict[str, list[tuple[int, int]]]:
+        return self._readNodePositions
 
     def get_kmerSize(self) -> int:
         """return an integer of the gene-mer size"""
@@ -129,14 +149,18 @@ class GeneMerGraph:
             reads.update(node.get_list_of_reads())
         return reads
 
-    def add_node_to_read(self, node: Node, readId: str, node_direction: int) -> list[int]:
+    def add_node_to_read(
+        self, node: Node, readId: str, node_direction: int, node_position=None
+    ) -> list[int]:
         # add the read ID to the read dict if it is not present
         if readId not in self.get_readNodes():
             self.get_readNodes()[readId] = []
             self.get_readNodeDirections()[readId] = []
+            self.get_readNodePositions()[readId] = []
         # add the hash for the node as attributes for this read
         self.get_readNodes()[readId].append(node.__hash__())
         self.get_readNodeDirections()[readId].append(node_direction)
+        self.get_readNodePositions()[readId].append(node_position)
         # each node occurrence will occur in the list (including duplicates)
         return self.get_readNodes()[readId]
 
@@ -172,7 +196,7 @@ class GeneMerGraph:
             # assert geneMer.get_geneMerDirection() == node.get_geneMer().get_geneMerDirection()
         # add the reads for this node to the dictionary of reads
         for r in reads:
-            node.add_read(r.get_readId())
+            node.add_read(r)
         return node
 
     def get_node(self, geneMer: GeneMer) -> Node:
@@ -408,17 +432,21 @@ class GeneMerGraph:
         for readId in node_to_remove.get_reads():
             new_nodes = []
             new_directions = []
+            new_positions = []
             for i in range(len(self.get_readNodes()[readId])):
                 if self.get_readNodes()[readId][i] != node_to_remove.__hash__():
                     new_nodes.append(self.get_readNodes()[readId][i])
                     new_directions.append(self.get_readNodeDirections()[readId][i])
+                    new_positions.append(self.get_readNodePositions()[readId][i])
                 else:
                     new_nodes.append(None)
                     new_directions.append(None)
+                    new_positions.append(None)
             # keep track of all of the reads we have modified
             self.get_reads_to_correct().add(readId)
             self.get_readNodes()[readId] = new_nodes
             self.get_readNodeDirections()[readId] = new_directions
+            self.get_readNodePositions()[readId] = new_positions
 
     def remove_node(self, node: Node):
         """remove a node from the graph and all of its edges"""
@@ -571,67 +599,6 @@ class GeneMerGraph:
                 nodesWithDegree.append(node)
         return nodesWithDegree
 
-    def insert_between_nodes_on_read(self, readNodes, preInsertion, postInsertion, node_to_insert):
-        """returns a modified list with "*" marking site to insert node"""
-        if not len(readNodes) == 1:
-            newReadNodes = []
-            i = 0
-            while i < len(readNodes):
-                newReadNodes.append(readNodes[i])
-                if i + 1 < len(readNodes) and (
-                    (readNodes[i] == preInsertion and readNodes[i + 1] == postInsertion)
-                    or (readNodes[i] == postInsertion and readNodes[i + 1] == preInsertion)
-                ):
-                    newReadNodes.append(node_to_insert)
-                i += 1
-            # check if either of the nodes are at the ends but the node adjacent is missing
-            if (readNodes[0] == preInsertion and not readNodes[1] == postInsertion) or (
-                readNodes[0] == postInsertion and not readNodes[1] == preInsertion
-            ):
-                newReadNodes.insert(0, node_to_insert)
-            if (readNodes[-1] == preInsertion and not readNodes[-2] == postInsertion) or (
-                readNodes[-1] == postInsertion and not readNodes[-2] == preInsertion
-            ):
-                newReadNodes.append(node_to_insert)
-        else:
-            newReadNodes = readNodes
-        return newReadNodes
-
-    def make_replacement_dict(self, old_path, new_path):
-        # insert a star to indicate where the new node will go
-        assert not len(new_path) % 2 == 0, "The gene-mer size must be an odd number"
-        if len(old_path) == 0:
-            old_path.append("*")
-        else:
-            assert old_path[0] == new_path[0] and old_path[-1] == new_path[-1], [
-                old_path[0],
-                new_path[0],
-                old_path[-1],
-                new_path[-1],
-            ]
-        # If the list length is even, insert a star at the midpoint
-        if len(old_path) % 2 == 0:
-            midpoint = len(old_path) // 2
-            old_path.insert(midpoint, "*")
-        # make a dictionary that will be used to replace nodes later
-        replacementDict = {}
-        for n in range(len(old_path)):
-            replacementDict[old_path[n]] = new_path[n]
-        return replacementDict
-
-    def modify_readNode_list(self, readNodes, replacementDict):
-        modifiedReadNodes = readNodes[:]
-        to_replace = list(replacementDict.keys())
-        for i in range(len(to_replace)):
-            if to_replace[i] == "*":
-                preInsertion = to_replace[i - 1]
-                postInsertion = to_replace[i + 1]
-                # get the indices of node hashes immediately adjacent to the insertion site
-                modifiedReadNodes = self.insert_between_nodes_on_read(
-                    modifiedReadNodes, preInsertion, postInsertion, "*"
-                )
-        return modifiedReadNodes
-
     def get_genes_in_unitig(self, listOfNodes):
         if len(listOfNodes) == 1:
             return self.get_gene_mer_genes(self.get_node_by_hash(listOfNodes[0]))
@@ -656,73 +623,6 @@ class GeneMerGraph:
                 newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
         return newAnnotations
 
-    def old_follow_path_to_get_annotations(self, listOfNodes, read_ID, read_node_directions=None):
-        # get the read node directions
-        if not read_node_directions:
-            read_node_directions = self.get_readNodeDirections()[read_ID]
-        # return the gene-mer or rc gene-mer if there is one node
-        if len(listOfNodes) == 1:
-            geneMer_direction = read_node_directions[0]
-            if geneMer_direction == 1:
-                return self.get_gene_mer_genes(self.get_node_by_hash(listOfNodes[0]))
-            else:
-                return self.get_reverse_gene_mer_genes(self.get_node_by_hash(listOfNodes[0]))
-        # store the new annotations in a list
-        newAnnotations = []
-        # iterate through the new readNodes
-        assert listOfNodes[0], f"The first node in the list of nodes for read {read_ID} is None."
-        assert len(listOfNodes) == len(read_node_directions)
-        for n in range(len(listOfNodes)):
-            # get the node we are adding
-            node = self.get_node_by_hash(listOfNodes[n])
-            # get the node direction
-            node_direction = read_node_directions[n]
-            # add all the gene-mer genes if this is the first node
-            if n == 0:
-                if node_direction == 1:
-                    newAnnotations += self.get_gene_mer_genes(node)
-                else:
-                    newAnnotations += self.get_reverse_gene_mer_genes(node)
-            else:
-                if node_direction:
-                    if node_direction == 1:
-                        newAnnotations.append(self.get_gene_mer_genes(node)[-1])
-                    else:
-                        newAnnotations.append(self.get_reverse_gene_mer_genes(node)[-1])
-                else:
-                    newAnnotations.append(None)
-        for i in range(len(newAnnotations)):
-            if newAnnotations[i] is None:
-                # Adjust the node_index calculation to avoid negative indices
-                node_index = i - (self.get_kmerSize() - 1)
-                # Ensure node_index is within bounds of listOfNodes
-                node = self.get_node_by_hash(listOfNodes[node_index])
-                last_k_minus_one_genes = newAnnotations[i - (self.get_kmerSize() - 1) : i]
-
-                forward_gene_mer = self.get_gene_mer_genes(node)
-                reverse_gene_mer = self.get_reverse_gene_mer_genes(node)
-
-                if last_k_minus_one_genes == forward_gene_mer[: len(last_k_minus_one_genes)]:
-                    newAnnotations[i] = forward_gene_mer[len(last_k_minus_one_genes)]
-                elif last_k_minus_one_genes == reverse_gene_mer[: len(last_k_minus_one_genes)]:
-                    newAnnotations[i] = reverse_gene_mer[len(last_k_minus_one_genes)]
-                else:
-                    # Consider handling this situation differently if it's not necessarily an error
-                    print(
-                        [self.get_gene_mer_label(self.get_node_by_hash(n)) for n in listOfNodes],
-                        len(newAnnotations),
-                    )
-                    print(
-                        f"Annotations: {newAnnotations}\nIndex: {i}\nLast k-1 Genes: {last_k_minus_one_genes}"
-                    )
-                    print(
-                        f"Forward Gene Mer: {forward_gene_mer}\nReverse Gene Mer: {reverse_gene_mer}"
-                    )
-                    raise ValueError(
-                        "Neither the forward nor reverse gene-mer overlaps with the existing gene calls."
-                    )
-        return newAnnotations
-
     def remove_short_linear_paths(self, min_length):
         """remove nodeHashes on reads if on a linear path of length < min_length. \
             Returns a list of nodeHashes that have bene removed"""
@@ -741,224 +641,6 @@ class GeneMerGraph:
                     self.remove_node(self.get_node_by_hash(nodeHash))
                     removed.add(nodeHash)
         return list(removed)
-
-    def get_forward_converging_paths(self, startNode):
-        pair_paths = []
-        # get the forward neighbors
-        fowardNodes = self.get_forward_neighbors(startNode)
-        # if there are 2 forward neighbors
-        if len(fowardNodes) == 2:
-            paths = []
-            for fwNode in fowardNodes:
-                if not self.get_degree(fwNode) > 2:
-                    # get the edge between the forward neighbour and the start node
-                    sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                        startNode, fwNode
-                    )
-                    # get the linear path for this forward node
-                    path = [startNode.__hash__()] + self.get_forward_path_from_node(
-                        fwNode, sourceToTargetEdge.get_targetNodeDirection(), True
-                    )
-                else:
-                    path = [startNode.__hash__(), fwNode.__hash__()]
-                # if the path does not start with the start node we need to reverse it
-                if not path[0] == startNode.__hash__():
-                    path = list(reversed(path))
-                assert path[0] == startNode.__hash__()
-                # add the path and its mean coverage to a list
-                path_edge_coverages = [
-                    self.get_edges_between_nodes(
-                        self.get_node_by_hash(path[i]), self.get_node_by_hash(path[i + 1])
-                    )[0].get_edge_coverage()
-                    for i in range(len(path) - 1)
-                ]
-                paths.append((path, statistics.mean(path_edge_coverages)))
-            # sort the paths based on their mean coverage
-            paths.sort(key=lambda x: x[1], reverse=False)
-            # see if the paths converge to the same node, if so this is a bubble
-            if len(paths) > 1:
-                first_elements = [sublist[0][0] for sublist in paths]
-                last_elements = [sublist[0][-1] for sublist in paths]
-                if len(set(first_elements)) == 1 and len(set(last_elements)) == 1:
-                    pair_paths.append(paths)
-        return pair_paths
-
-    def get_backward_converging_paths(self, startNode):
-        pair_paths = []
-        # get the backward neighbors
-        backwardNodes = self.get_backward_neighbors(startNode)
-        # if there are 2 backward neighbors
-        if len(backwardNodes) == 2:
-            paths = []
-            for bwNode in backwardNodes:
-                if not self.get_degree(bwNode) > 2:
-                    # get the edge between the forward neighbour and the start node
-                    sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                        startNode, bwNode
-                    )
-                    # get the linear path for this forward node
-                    path = self.get_backward_path_from_node(
-                        bwNode, sourceToTargetEdge.get_targetNodeDirection(), True
-                    ) + [startNode.__hash__()]
-                else:
-                    path = [bwNode.__hash__(), startNode.__hash__()]
-                # if the path does not end with the end node we need to reverse it
-                if not path[-1] == startNode.__hash__():
-                    path = list(reversed(path))
-                assert path[-1] == startNode.__hash__()
-                # add the path and its mean coverage to a list
-                path_edge_coverages = [
-                    self.get_edges_between_nodes(
-                        self.get_node_by_hash(path[i]), self.get_node_by_hash(path[i + 1])
-                    )[0].get_edge_coverage()
-                    for i in range(len(path) - 1)
-                ]
-                paths.append((path, statistics.mean(path_edge_coverages)))
-            # sort the paths based on their mean coverage
-            paths.sort(key=lambda x: x[1], reverse=False)
-            # see if the paths converge to the same node, if so this is a bubble
-            if len(paths) > 1:
-                first_elements = [sublist[0][0] for sublist in paths]
-                last_elements = [sublist[0][-1] for sublist in paths]
-                if len(set(first_elements)) == 1 and len(set(last_elements)) == 1:
-                    pair_paths.append(paths)
-        return pair_paths
-
-    def replace_nodes_on_read(self, modifiedReadNodes, replacementDict):
-        corrected_list = []
-        for nodeHash in modifiedReadNodes:
-            if nodeHash not in replacementDict:
-                corrected_list.append(nodeHash)
-            else:
-                corrected_list.append(replacementDict[nodeHash])
-        return corrected_list
-
-    def correct_incorrectly_found_gene(self, lowest_coverage_path, highest_coverage_path):
-        assert not len(lowest_coverage_path) % 2 == 0, "The gene-mer size must be an odd number"
-        # we have to remove the middle node from the lowest coverage path
-        modified_lowest_coverage_path = lowest_coverage_path[:]
-        node_index_to_delete = int((len(lowest_coverage_path) + 1) / 2) - 1
-        del modified_lowest_coverage_path[node_index_to_delete]
-        removed_node = lowest_coverage_path[node_index_to_delete]
-        # make the replacement dictionary
-        replacementDict = {}
-        for i in range(len(modified_lowest_coverage_path)):
-            replacementDict[modified_lowest_coverage_path[i]] = highest_coverage_path[i]
-        # get the reads we are going to correct
-        pathReads = set()
-        for nodeHash in lowest_coverage_path:
-            for readId in self.get_node_by_hash(nodeHash).get_reads():
-                pathReads.add(readId)
-        # correct the reads
-        for readId in list(pathReads):
-            modified_readNodes = [n for n in self.get_readNodes()[readId] if not n == removed_node]
-            # replace the nodes on the read
-            corrected_list = self.replace_nodes_on_read(modified_readNodes, replacementDict)
-
-    def get_converging_paths(self, startNode):
-        # get the forward neighbors
-        fowardNodes = self.get_forward_neighbors(startNode)
-        # get the backward neighbors
-        backwardNodes = self.get_backward_neighbors(startNode)
-        # if there are 2 forward neighbors
-        paths = []
-        for node in fowardNodes + backwardNodes:
-            # get the linear path for this forward node
-            path = self.get_linear_path_for_node(node, True)
-            # if the path does not start with the start node we need to reverse it
-            if not path[0] == startNode.__hash__():
-                path = list(reversed(path))
-            if path[0] == startNode.__hash__():
-                # add the path and its mean coverage to a list
-                paths.append(
-                    (
-                        path,
-                        statistics.mean(
-                            [self.get_node_by_hash(h).get_node_coverage() for h in path]
-                        ),
-                    )
-                )
-        # group the paths if they share a start and end node
-        groups = {}
-        for lst in paths:
-            key = (lst[0][0], lst[0][-1])
-            if key not in groups:
-                groups[key] = []  # Initialize a new group
-            groups[key].append(lst)
-        to_delete = []
-        for terminals in groups:
-            # sort the paths by coverage if there are more than 1 of them
-            if len(groups[terminals]) > 1:
-                groups[terminals].sort(key=lambda x: x[1], reverse=False)
-            # remove the paths if there is only one of them
-            else:
-                to_delete.append(terminals)
-        for t in to_delete:
-            del groups[t]
-        return groups
-
-    def get_triangles(self):
-        more_than_two_neighbors = [
-            n for n in self.get_nodes() if self.get_degree(self.get_node_by_hash(n)) > 2
-        ]
-        triangles = []
-        seen_triangles = set()
-        for node_hash in more_than_two_neighbors:
-            start_node = self.get_node_by_hash(node_hash)
-            for start_direction, get_edges in [
-                (1, self.get_forward_edges),
-                (-1, self.get_backward_edges),
-            ]:
-                for start_edge in get_edges(start_node):
-                    next_node = start_edge.get_targetNode()
-                    target_node_direction = start_edge.get_targetNodeDirection()
-                    if target_node_direction == start_direction:
-                        next_edges = get_edges(next_node)
-                    else:
-                        if get_edges == self.get_forward_edges:
-                            next_edges = self.get_backward_edges(next_node)
-                        else:
-                            next_edges = self.get_forward_edges(next_node)
-                    for next_edge in next_edges:
-                        final_node_hash = next_edge.get_targetNode().__hash__()
-                        node_hashes = set(
-                            e.get_targetNode().__hash__() for e in get_edges(start_node)
-                        )
-                        if final_node_hash in node_hashes:
-                            self.process_triangle(
-                                start_node, next_node, final_node_hash, triangles, seen_triangles
-                            )
-        return triangles
-
-    def process_triangle(self, start_node, next_node, final_node_hash, triangles, seen_triangles):
-        longest_path = [start_node.__hash__(), next_node.__hash__(), final_node_hash]
-        longest_path_edges = [
-            self.get_edges_between_nodes(
-                self.get_node_by_hash(longest_path[i]), self.get_node_by_hash(longest_path[i + 1])
-            )[0]
-            for i in range(len(longest_path) - 1)
-        ]
-        shortest_path = [start_node.__hash__(), final_node_hash]
-        shortest_path_edges = [
-            self.get_edges_between_nodes(
-                self.get_node_by_hash(shortest_path[i]), self.get_node_by_hash(shortest_path[i + 1])
-            )[0]
-            for i in range(len(shortest_path) - 1)
-        ]
-        # try:
-        longest_path_coverage = [e.get_edge_coverage() for e in longest_path_edges]
-        shortest_path_coverage = [e.get_edge_coverage() for e in shortest_path_edges]
-        # except:
-        #     [print(e.get_targetNode().__hash__()) for e in longest_path_edges]
-        this_triangle = tuple(sorted(longest_path))
-        if this_triangle not in seen_triangles:
-            triangles.append(
-                (
-                    (longest_path, statistics.mean(longest_path_coverage)),
-                    (shortest_path, shortest_path_coverage[0]),
-                )
-            )
-            seen_triangles.add(this_triangle)
 
     def get_forward_node_from_node(self, sourceNode) -> list:
         # get the list of forward edge hashes for this node
@@ -1188,70 +870,6 @@ class GeneMerGraph:
         """return an integer of the number of connected components in the graph"""
         return len(self.components())
 
-    def get_highest_coverage_node_at_end_of_component(self, component_ID) -> Node:
-        """return the node that has the highest coverage in the specified component"""
-        # a place holder for the highest coverage node
-        highest_coverage = 0
-        # iterate through the nodes in this component
-        for node in self.get_nodes_in_component(component_ID):
-            if (
-                len(self.get_forward_neighbors(node)) == 0
-                or len(self.get_backward_neighbors(node)) == 0
-            ):
-                # get the coverage of the node
-                coverage = node.get_node_coverage()
-                # see if the coverage of this node is greater than the previous highest
-                if coverage > highest_coverage:
-                    highest_coverage = coverage
-                    start_node = node
-        return start_node
-
-    def follow_path_by_coverage(self, startNode, traversal_direction, coverage):
-        # ensure that the variables are in the correct form
-        assert traversal_direction == 1 or traversal_direction == -1
-        assert coverage == "highest" or coverage == "lowest"
-        # use the coverage variable to decide how we are sorting the nodes
-        if coverage == "highest":
-            reverse_sort = True
-        else:
-            reverse_sort = False
-        # start the chain at the start node
-        path = [startNode.__hash__()]
-        seen_nodes = {startNode.__hash__(): 1}
-        current_node = startNode
-        path_coverages = [startNode.get_node_coverage()]
-        # use the direction to decide if we get the forward or reverse neighbors
-        if traversal_direction == 1:
-            next_neighbors = self.get_forward_neighbors(startNode)
-        else:
-            next_neighbors = self.get_backward_neighbors(startNode)
-        # continue the chain until we reach the end of the component
-        while len(next_neighbors) > 0:
-            next_nodes = sorted(
-                next_neighbors, key=lambda x: x.get_node_coverage(), reverse=reverse_sort
-            )
-            if not all(n.__hash__() in seen_nodes for n in next_nodes):
-                for next_node in next_nodes:
-                    next_node_hash = next_node.__hash__()
-                    if next_node_hash not in seen_nodes:
-                        path.append(next_node_hash)
-                        if next_node_hash not in seen_nodes:
-                            seen_nodes[next_node_hash] = 0
-                        seen_nodes[next_node_hash] += 1
-                        path_coverages.append(next_node.get_node_coverage())
-                        sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                            current_node, next_node
-                        )
-                        current_node = next_node
-                        if sourceToTargetEdge.get_targetNodeDirection() == 1:
-                            next_neighbors = self.get_forward_neighbors(current_node)
-                        else:
-                            next_neighbors = self.get_backward_neighbors(current_node)
-                        break
-            else:
-                break
-        return path, path_coverages
-
     def remove_low_coverage_components(self, min_component_coverage):
         # remove components that have a coverage less than min_component_coverage
         for component_ID in self.components():
@@ -1262,205 +880,8 @@ class GeneMerGraph:
                 for node in nodes_in_component:
                     self.remove_node(node)
 
-    def new_get_heaviest_path_through_component(self, component_ID) -> list:
-        """return the heaviest path through a component"""
-        # get the highest coverage node in this component
-        start_nodes = []
-        for node in self.get_nodes_in_component(component_ID):
-            if len(self.get_forward_neighbors(node)) == 0:
-                start_nodes.append((node, -1))
-            elif len(self.get_backward_neighbors(node)) == 0:
-                start_nodes.append((node, 1))
-            else:
-                pass
-        # start_node = self.get_highest_coverage_node_at_end_of_component(component_ID)
-        paths = []
-        for start_node in start_nodes:
-            # get the heaviest path in the forward direction
-            heaviest_path, heaviest_coverages = self.follow_path_by_coverage(
-                start_node[0], start_node[1], "highest"
-            )
-            paths.append(heaviest_path)
-        sorted_paths = sorted(paths, key=len, reverse=True)
-        heaviest_path = sorted_paths[0]
-        # combine the foward and backward paths to get the heaviest path through the component
-        return heaviest_path
-
     def reverse_list_of_genes(self, list_of_genes: list[str]) -> list[str]:
         return [("-" if g[0] == "+" else "+") + g[1:] for g in reversed(list_of_genes)]
-
-    def make_distance_matrix(self, correct, incorrect):
-        # get the forward and reverse list of genes for each correct node
-        from collections import Counter
-
-        correct_genes = []
-        for node in correct:
-            fw = self.get_gene_mer_label(node).split("~~~")
-            rv = self.reverse_list_of_genes(fw)
-            correct_genes.append((fw, rv))
-        replacement = {}
-        for node in tqdm(incorrect):
-            list_of_genes = self.get_gene_mer_label(node).split("~~~")
-            counter1 = Counter(list_of_genes)
-            distances = []
-            for i in range(len(correct_genes)):
-                closest = sorted(
-                    [correct_genes[i][0][:], correct_genes[i][1][:]],
-                    key=lambda x: len(set(list_of_genes).intersection(set(x))),
-                    reverse=True,
-                )[0]
-                counter2 = Counter(closest)
-                shared_count = len(list((counter1 & counter2).elements()))
-                if not shared_count == 0:
-                    union_count = len(list((counter1 | counter2).elements()))
-                    distances.append(shared_count / len(list_of_genes))
-            if not distances == []:
-                max_index, max_value = max(enumerate(distances), key=lambda x: x[1])
-                assert not distances.count(max_value) > 1, distances
-                print(max_value)
-
-    def replace_low_coverage_nodes(self, node_min_coverage):
-        """separates nodes into correct and incorrect nodes based on coverage and corrects all incorrect nodes to the closest correct node"""
-        self.set_minNodeCoverage(node_min_coverage)
-        correct = []
-        incorrect = []
-        for node_hash in self.get_nodes():
-            node = self.get_node_by_hash(node_hash)
-            if node.get_node_coverage() >= self.get_minNodeCoverage():
-                correct.append(node)
-            else:
-                incorrect.append(node)
-        self.make_distance_matrix(correct, incorrect)
-        return self
-
-    def get_high_coverage_junction_nodes_in_component(self, component):
-        """return a list of nodes with >2 high coverage neighbors"""
-        # get all the nodes in the component
-        nodes_in_component = self.get_nodes_in_component(component)
-        # get a set of the high coverage nodes in this component
-        high_coverage_nodes = set()
-        for node in nodes_in_component:
-            if node.get_node_coverage() >= 10:
-                high_coverage_nodes.add(node.__hash__())
-        # get a list of the high coverage nodes with more than 2 high coverage neighbors
-        high_coverage_junctions = []
-        for node_hash in high_coverage_nodes:
-            node = self.get_node_by_hash(node_hash)
-            neighbor_hashes = self.get_all_neighbor_hashes(node)
-            high_coverage_count = 0
-            for nh in neighbor_hashes:
-                if nh in high_coverage_nodes:
-                    high_coverage_count += 1
-            if high_coverage_count > 2:
-                high_coverage_junctions.append(node)
-        return high_coverage_junctions
-
-    def check_if_component_is_resolved(self, component):
-        """returns a bool of whether a component is resolved or not"""
-        # get all the nodes in the component
-        high_coverage_junctions = self.get_high_coverage_junction_nodes_in_component(component)
-        if not len(high_coverage_junctions) == 0:
-            return False, high_coverage_junctions
-        else:
-            return True, high_coverage_junctions
-
-    def traverse_graph_from_high_coverage_junctions(self, high_coverage_junctions):
-        high_coverage_junction_hashes = set([n.__hash__() for n in high_coverage_junctions])
-        segments_to_correct_to = set()
-        fw_segments = set()
-        bw_segments = set()
-        for node in high_coverage_junctions:
-            # segments_to_correct_to[node.__hash__()] = set()
-            # get the high coverage neighbors
-            fw_nodes = [n for n in self.get_forward_neighbors(node) if n.get_node_coverage() >= 10]
-            bw_nodes = [n for n in self.get_backward_neighbors(node) if n.get_node_coverage() >= 10]
-            # get the heaviest path from each neighbor to the end of the component or another high coverage neighbor
-            for neighbor in tqdm(fw_nodes):
-                # get the start direction
-                sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                    node, neighbor
-                )
-                start_direction = sourceToTargetEdge.get_targetNodeDirection()
-                # get the heaviest path in the start direction
-                heaviest_path, heaviest_coverages = self.follow_path_by_coverage(
-                    neighbor, start_direction, "highest"
-                )
-                # slice the path if there are any other junction nodes
-                for index, item in enumerate(heaviest_path[1:]):
-                    if item in high_coverage_junction_hashes:
-                        heaviest_path = heaviest_path[: index + 2]
-                        assert heaviest_path[-1] in high_coverage_junction_hashes
-                        break
-                heaviest_path = [node.__hash__()] + heaviest_path
-                assert heaviest_path[0] == node.__hash__()
-                assert heaviest_path[1] == neighbor.__hash__()
-                segments_to_correct_to.add(
-                    tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0])
-                )
-                fw_segments.add(tuple(heaviest_path))
-                # segments_to_correct_to[node.__hash__()].add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
-            for neighbor in tqdm(bw_nodes):
-                # get the start direction
-                sourceToTargetEdge, targetToSourceEdge = self.get_edges_between_nodes(
-                    node, neighbor
-                )
-                start_direction = sourceToTargetEdge.get_targetNodeDirection()
-                # get the heaviest path in the start direction
-                heaviest_path, heaviest_coverages = self.follow_path_by_coverage(
-                    neighbor, start_direction, "highest"
-                )
-                # slice the path if there are any other junction nodes
-                for index, item in enumerate(heaviest_path[1:]):
-                    if item in high_coverage_junction_hashes:
-                        heaviest_path = heaviest_path[: index + 2]
-                        assert heaviest_path[-1] in high_coverage_junction_hashes
-                        break
-                heaviest_path = [node.__hash__()] + heaviest_path
-                assert heaviest_path[0] == node.__hash__()
-                assert heaviest_path[1] == neighbor.__hash__()
-                segments_to_correct_to.add(
-                    tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0])
-                )
-                bw_segments.add(tuple(list(reversed(heaviest_path))))
-        #                segments_to_correct_to[node.__hash__()].add(tuple(sorted([heaviest_path, list(reversed(heaviest_path))])[0]))
-        return segments_to_correct_to, list(fw_segments), list(bw_segments)
-
-    def enumerate_paths(self, graph):
-
-        def find_paths_local(node, path):
-            path.append(node)
-            # If the node has no adjacent nodes or all paths from it are explored, add the current path to the set of paths
-            if node not in graph or all(neighbor in path for neighbor in graph[node]):
-                node_path = list(path[0]) + [p[-1] for p in path[1:]]
-                all_paths.add(tuple(node_path))
-                return
-            # Explore adjacent nodes
-            for neighbor in graph[node]:
-                if neighbor not in path:  # Avoid loops
-                    find_paths_local(neighbor, path.copy())
-
-        all_paths = set()
-        for start_node in graph:
-            find_paths_local(start_node, [])
-        return all_paths
-
-    def join_segments(self, fw_segments, bw_segments):
-        new_segments = {}
-        for b in bw_segments:
-            new_segments[b] = set()
-            for f in fw_segments:
-                if b[-1] == f[0]:
-                    new_segments[b].add(f)
-        return
-
-    def get_all_reads_not_containing_nodes(self, setOfNodeHashes: set, component: int) -> set:
-        reads_to_correct = set()
-        for node in self.get_nodes_in_component(component):
-            node_hash = node.__hash__()
-            if not node_hash in setOfNodeHashes:
-                for readId in node.get_reads():
-                    reads_to_correct.add(readId)
-        return reads_to_correct
 
     def get_AMR_nodes(self, listOfGenes):
         AMR_nodes = {}
@@ -1539,8 +960,7 @@ class GeneMerGraph:
                 ):
                     returned_paths = [
                         [nodeHashesOfInterest[x] for x in p]
-                        for p in self.find_paths(
-                            matrix, sorted_indices[0], sorted_indices[1])
+                        for p in self.find_paths(matrix, sorted_indices[0], sorted_indices[1])
                     ]
                     if not returned_paths == []:
                         paths[sorted_pairs] = returned_paths
@@ -1554,15 +974,11 @@ class GeneMerGraph:
         for node_hash in nodeHashesOfInterest:
             node = self.get_node_by_hash(node_hash)
             forwardAMRNodes = [
-                    n
-                    for n in self.get_forward_neighbors(node)
-                    if n.__hash__() in nodeHashesOfInterest
-                ]
+                n for n in self.get_forward_neighbors(node) if n.__hash__() in nodeHashesOfInterest
+            ]
             backwardAMRNodes = [
-                    n
-                    for n in self.get_backward_neighbors(node)
-                    if n.__hash__() in nodeHashesOfInterest
-                ]
+                n for n in self.get_backward_neighbors(node) if n.__hash__() in nodeHashesOfInterest
+            ]
             if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
                 nodeAnchors.add(node_hash)
             if len(backwardAMRNodes) > 1 or len(forwardAMRNodes) > 1:
@@ -1575,83 +991,6 @@ class GeneMerGraph:
         return any(
             sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
         )
-
-    def assign_reads_to_genes(self, listOfGenes):
-        # initialise a dictionary to store the paths
-        clusters_of_interest = {}
-        # iterate through the genes we are interested in
-        for geneOfInterest in tqdm(listOfGenes):
-            # get the graph nodes containing this gene
-            nodeOfInterest = self.get_nodes_containing(geneOfInterest)
-            # get the node hashes containing this gene
-            nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
-            # get the nodes that contain this gene but are at the end of a path
-            anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
-            # get all of the possible paths for these nodes
-            paths = self.all_paths_for_subgraph(nodeHashesOfInterest, anchor_nodes)
-            # get the reads covering the node hashes of interest
-            reads_of_interest = set()
-            for node in nodeOfInterest:
-                for read_id in node.get_reads():
-                    reads_of_interest.add(read_id)
-            # check if any of the paths are longer than k, this means there are duplicates
-            for pair in paths:
-                for p in range(len(paths[pair])):
-                    path = paths[pair][p]
-                    if len(path) > self.get_kmerSize():
-                        # get the list of genes for this unitig
-                        genes = self.get_genes_in_unitig(path)
-                        nodes = list(path)
-                        node_indices_for_each_gene_index = {}
-                        for i in range(len(nodes)):
-                            gene_indices = [j for j in range(i, i + self.get_kmerSize())]
-                            for g in gene_indices:
-                                if genes[g][1:] == geneOfInterest:
-                                    if g not in node_indices_for_each_gene_index:
-                                        node_indices_for_each_gene_index[g] = []
-                                    node_indices_for_each_gene_index[g].append(i)
-                        new_paths = []
-                        for i in node_indices_for_each_gene_index:
-                            nodes_containing_this_gene = [
-                                nodes[j] for j in node_indices_for_each_gene_index[i]
-                            ]
-                            new_paths.append(nodes_containing_this_gene)
-                        # remove the old path
-                        del paths[pair][p]
-                        # add the new paths
-                        paths[pair] += new_paths
-            # assign reads to paths if the path or reversed path is in the list of nodes
-            clustered_reads = {}
-            for read_id in reads_of_interest:
-                # get the nodes on the read
-                nodes_on_read = self.get_readNodes()[read_id]
-                # reversed the nodes on the read
-                reversed_node_on_read = list(reversed(nodes_on_read))
-                # iterate through the paths
-                for pair in paths:
-                    for p in paths[pair]:
-                        if any(n in junction_nodes for n in p):
-                            if self.is_sublist(nodes_on_read, p) or self.is_sublist(
-                                reversed_node_on_read, p
-                            ):
-                                path_tuple = tuple(p)
-                                if not path_tuple in clustered_reads:
-                                    clustered_reads[path_tuple] = set()
-                                clustered_reads[path_tuple].add(read_id)
-                        else:
-                            if len(set(p).intersection(set(nodes_on_read))) > 0:
-                                path_tuple = tuple(p)
-                                if not path_tuple in clustered_reads:
-                                    clustered_reads[path_tuple] = set()
-                                clustered_reads[path_tuple].add(read_id)
-            # store the paths
-            copy_count = 0
-            for path in clustered_reads:
-                clusters_of_interest[
-                    f"{geneOfInterest}_{copy_count}_{len(clustered_reads[path])}"
-                ] = list(clustered_reads[path])
-                copy_count += 1
-        return clusters_of_interest
 
     def extract_elements(self, lst):
         result = []
@@ -1731,24 +1070,33 @@ class GeneMerGraph:
         assert len(node_list) == len(modified_node_directions)
         return node_list, modified_node_directions, offset
 
-    def correct_reads(self):
+    def correct_reads(self, fastq_data):
         """Main function to correct reads in the dataset."""
         readNodes = self.get_readNodes()  # Retrieve read nodes
         corrected_genes = {}
+        corrected_gene_positions = {}
         for read_id in tqdm(readNodes):
-            list_of_genes = self.correct_single_read(read_id, readNodes)
+            list_of_genes = self.correct_single_read(read_id, readNodes, fastq_data)
             if len(list_of_genes) > 0:
                 corrected_genes[read_id] = list_of_genes
-        return corrected_genes
+                if self.get_gene_positions():
+                    corrected_gene_positions[read_id] = self.get_gene_positions()[read_id]
+        return corrected_genes, corrected_gene_positions
 
-    def correct_single_read(self, read_id, readNodes):
+    def correct_single_read(self, read_id, readNodes, fastq_data):
         """Correct a single read based on its ID and the readNodes data."""
         if read_id not in self.get_reads_to_correct():
             return self.get_reads()[read_id]
 
         if not all(n is None for n in readNodes[read_id]):
             start, end = self.find_read_boundaries(readNodes[read_id])
-            return self.process_read_correction(read_id, readNodes, start, end)
+            # get the new list of genes on each read
+            new_genes_on_read = self.process_read_correction(
+                read_id, readNodes, start, end, fastq_data
+            )
+            if self.get_gene_positions():
+                assert len(new_genes_on_read) == len(self.get_gene_positions()[read_id])
+            return new_genes_on_read
         return []
         # return self.get_reads()[read_id]
 
@@ -1824,7 +1172,7 @@ class GeneMerGraph:
             )
         possible_paths = []
         # for now we are not going to add the upstream and downstream paths
-        #upstream_paths, downstream_paths = [], []
+        # upstream_paths, downstream_paths = [], []
         # Iterate over each possible middle path
         for corrected in possible_middle_paths:
             # Extract nodes and directions from the middle path, ignoring entries without a node
@@ -1867,7 +1215,7 @@ class GeneMerGraph:
         coverages = [self.get_node_by_hash(n).get_node_coverage() for n in path]
         return statistics.mean(coverages)
 
-    def process_read_correction(self, read_id, readNodes, start, end):
+    def process_read_correction(self, read_id, readNodes, start, end, fastq_data):
         nodes_on_read = [
             (readNodes[read_id][i], self.get_readNodeDirections()[read_id][i])
             for i in range(len(readNodes[read_id]))
@@ -1876,8 +1224,13 @@ class GeneMerGraph:
         path_terminals = self.identify_path_terminals(readNodes[read_id], start, end)
         # chop the list of genes if the ends have been cut off
         if len(path_terminals) == 0:
-            new_nodes = [n[0] for n in nodes_on_read[start: end + 1]]
-            new_directions = [n[1] for n in nodes_on_read[start: end + 1]]
+            new_nodes = [n[0] for n in nodes_on_read[start : end + 1]]
+            new_directions = [n[1] for n in nodes_on_read[start : end + 1]]
+            if self.get_gene_positions():
+                # modify the gene positions dictionary to account for removed nodes
+                self.get_gene_positions()[read_id] = self.get_gene_positions()[read_id][
+                    start : end + self.get_kmerSize()
+                ]
             return self.get_annotation_for_read(new_nodes, new_directions, read_id)
         # find alternative paths where nodes have been deleted
         replacementDict = {}
@@ -1904,6 +1257,44 @@ class GeneMerGraph:
                 coverage = path_mean_coverage
             else:
                 pass
+        # align the new and old lists of genes
+        alignment = self.needleman_wunsch(closest, self.get_reads()[read_id])
+        # modify the gene positions
+        current_index = 0
+        new_positions = []
+        for i in range(len(alignment)):
+            col = alignment[i]
+            if col[0] != "*":
+                if col[1] != col[0]:
+                    new_positions.append((None, None))
+                else:
+                    new_positions.append(self.get_gene_positions()[read_id][current_index])
+                    current_index += 1
+            else:
+                current_index += 1
+        # infer the missing gene positions
+        prev_end = 0
+        for i, (start, end) in enumerate(new_positions):
+            if end is not None:
+                prev_end = end
+            if start is None and end is None:
+                next_start = None
+                for j in range(i + 1, len(new_positions)):
+                    if new_positions[j][0] is not None:
+                        next_start = new_positions[j][0]
+                        break
+                if prev_end != None and next_start != None:
+                    new_positions[i] = (prev_end, next_start)
+                elif next_start == None and prev_end != None:
+                    new_positions[i] = (
+                        prev_end,
+                        len(fastq_data["_".join(read_id.split("_")[:-1])]) - 1,
+                    )
+                else:
+                    print(new_positions)
+                    raise AttributeError("Could not find a valid gene start or end position.")
+                assert None not in list(new_positions[i]), new_positions
+        self.get_gene_positions()[read_id] = new_positions
         return closest
 
     def get_annotation_for_read(self, listOfNodes, listOfNodeDirections, read_id):
@@ -1975,13 +1366,15 @@ class GeneMerGraph:
 
     def remove_junk_reads(self, error_rate):
         new_reads = {}
+        new_positions = {}
         for read_id in self.get_readNodes():
             number_of_nodes = len(self.get_readNodes()[read_id])
             expected_filtered_nodes = round(number_of_nodes * (1 - error_rate))
             number_of_filtered_nodes = self.get_readNodes()[read_id].count(None)
             if not number_of_filtered_nodes > expected_filtered_nodes:
                 new_reads[read_id] = self.get_reads()[read_id]
-        return new_reads
+                new_positions[read_id] = self.get_gene_positions()[read_id]
+        return new_reads, new_positions
 
     def get_valid_reads_only(self):
         valid_reads = {}
@@ -1989,98 +1382,6 @@ class GeneMerGraph:
             if not read_id in self.get_reads_to_correct():
                 valid_reads[read_id] = self.get_reads()[read_id]
         return valid_reads
-
-    def old_pop_bubbles(self):
-        # get nodes with >1 neighbour in the forward or backward direction
-        potential_bubble_starts = []
-        all_bubble_nodes = set()
-        for node in self.all_nodes():
-            # get the forward edges
-            fw_edges = node.get_forward_edge_hashes()
-            # get the backward edges
-            bw_edges = node.get_backward_edge_hashes()
-            if len(fw_edges) > 1:
-                potential_bubble_starts.append((node, 1))
-                all_bubble_nodes.add(node.__hash__())
-            if len(bw_edges) > 1:
-                potential_bubble_starts.append((node, -1))
-                all_bubble_nodes.add(node.__hash__())
-        # define the maximum distance
-        max_distance = self.get_kmerSize() + 2
-        # iterate through the potential bubble starts
-        seen_bubbles = set()
-        for start in potential_bubble_starts:
-            node = start[0]
-            direction = start[1]
-            if direction == 1:
-                next_nodes = [self.get_edge_by_hash(edge_hash).get_targetNode() for edge_hash in node.get_forward_edge_hashes()]
-            if direction == -1:
-                next_nodes = [self.get_edge_by_hash(edge_hash).get_targetNode() for edge_hash in node.get_backward_edge_hashes()]
-            potential_paths = {}
-            for neighbor in next_nodes:
-                path = self.get_linear_path_for_node(neighbor, True)
-                terminal_nodes = tuple(sorted([path[0], path[-1]]))
-                if not terminal_nodes in seen_bubbles:
-                    if 2 < len(path) <= max_distance:
-                        if not terminal_nodes in potential_paths:
-                            potential_paths[terminal_nodes] = []
-                        path_coverage = statistics.mean([self.get_node_by_hash(n).get_node_coverage() for n in path[1:-1]])
-                        potential_paths[terminal_nodes].append((path, path_coverage))
-            for pair in potential_paths:
-                if len(potential_paths[pair]) > 1:
-                    sorted_by_length = sorted(potential_paths[pair], key=lambda x: x[1], reverse=True)
-                    if sorted_by_length[-1][1] < 10:
-                        for node_hash in sorted_by_length[-1][0][1:-1]:
-                            node = self.get_node_by_hash(node_hash)
-                            self.remove_node(node)
-                    seen_bubbles.add(pair)
-
-    def pop_bubbles(self):
-        # get nodes with >1 neighbour in the forward or backward direction
-        potential_bubble_starts = []
-        all_bubble_nodes = set()
-        for node in self.all_nodes():
-            # get the forward edges
-            fw_edges = node.get_forward_edge_hashes()
-            # get the backward edges
-            bw_edges = node.get_backward_edge_hashes()
-            if len(fw_edges) > 1:
-                potential_bubble_starts.append((node, 1))
-                all_bubble_nodes.add(node.__hash__())
-            if len(bw_edges) > 1:
-                potential_bubble_starts.append((node, -1))
-                all_bubble_nodes.add(node.__hash__())
-        # define the maximum distance
-        max_distance = self.get_kmerSize() + 2
-        # iterate through the potential bubble starts
-        seen_bubbles = set()
-        for start in potential_bubble_starts:
-            start_node = start[0]
-            start_node_hash = start_node.__hash__()
-            direction = start[1]
-            potential_paths = {}
-            for end_hash in all_bubble_nodes:
-                bubble_terminals = tuple(sorted([start_node_hash, end_hash]))
-                if not bubble_terminals in seen_bubbles:
-                    paths = self.find_paths_between_nodes(start_node_hash, end_hash, self.get_kmerSize() + 2, direction)
-                    for p in paths:
-                        if 2 < len(p) <= max_distance:
-                            if not bubble_terminals in potential_paths:
-                                potential_paths[bubble_terminals] = set()
-                            path_coverage = statistics.mean([self.get_node_by_hash(n[0]).get_node_coverage() for n in p[1:-1]])
-                            potential_paths[bubble_terminals].add((tuple([n[0] for n in p]), path_coverage))
-            for pair in potential_paths:
-                if len(potential_paths[pair]) > 1:
-                    sorted_by_length = sorted(list(potential_paths[pair]), key=lambda x: x[1], reverse=True)
-                    if sorted_by_length[-1][1] < 10:
-                        for node_hash in list(sorted_by_length[-1][0])[1:-1]:
-                            if not node_hash in all_bubble_nodes:
-                                try:
-                                    node = self.get_node_by_hash(node_hash)
-                                    self.remove_node(node)
-                                except:
-                                    pass
-                    seen_bubbles.add(pair)
 
     def needleman_wunsch(self, x, y):
         N, M = len(x), len(y)
@@ -2091,14 +1392,12 @@ class GeneMerGraph:
         # Initialize score (F) and pointer (Ptr) matrices
         F, Ptr = {}, {}
         F[-1, -1] = 0
-        ##### I HAVE GOT RID OF GAP PENALTIES AT THE START OF THE ALIGNMENT #####
         # Initial scoring for gaps along x
         for i in range(N):
             F[i, -1] = -i
         # Initial scoring for gaps along y
         for j in range(M):
             F[-1, j] = -j
-        #########################################################################
         # Option for Ptr to trace back alignment
         option_Ptr = DIAG, LEFT, UP
         # Fill F and Ptr tables
@@ -2135,77 +1434,11 @@ class GeneMerGraph:
             j -= 1
         return list(alignment)
 
-#     def identify_potential_bubble_starts(self, node_min_coverage):
-#         potential_bubble_starts = []
-#         all_bubble_nodes = set()
-#         for node in self.all_nodes():
-#             #if node.get_node_coverage() >= node_min_coverage:
-# #            if node.get_component() in {2, 3}:
-#             fw_edges = node.get_forward_edge_hashes()  # Forward edges
-#             bw_edges = node.get_backward_edge_hashes()  # Backward edges
-#             if len(fw_edges) > 1 and len(bw_edges) == 1:
-#                 potential_bubble_starts.append((node, 1))
-#                 all_bubble_nodes.add(node.__hash__())
-#             if len(bw_edges) > 1 and len(fw_edges) == 1:
-#                 potential_bubble_starts.append((node, -1))
-#                 all_bubble_nodes.add(node.__hash__())
-#         return potential_bubble_starts, all_bubble_nodes
-
-    def old_find_potential_paths(self, start, all_bubble_nodes, seen_bubbles, max_distance):
-        potential_paths = {}
-        start_node, direction = start
-        start_node_hash = start_node.__hash__()
-        for end_hash in all_bubble_nodes:
-            bubble_terminals = tuple(sorted([start_node_hash, end_hash]))
-            if bubble_terminals not in seen_bubbles:
-                paths = self.find_paths_between_nodes(start_node_hash, end_hash, max_distance, direction)
-                for p in paths:
-                    if 2 < len(p) <= max_distance:
-                        if bubble_terminals not in potential_paths:
-                            potential_paths[bubble_terminals] = set()
-                        path_coverage = self.calculate_path_coverage(p)
-                        potential_paths[bubble_terminals].add((tuple([n[0] for n in p]), path_coverage))
-        return potential_paths
-
     def calculate_path_coverage(self, path):
-        #return statistics.mean([self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]])
-        return statistics.mean([self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]])
-
-    def process_path_pair(self, paths, all_bubble_nodes):
-        sorted_by_coverage = sorted(list(paths), key=lambda x: x[1], reverse=True)
-        highest_coverage_path = sorted_by_coverage[0][0]
-        forward_high_coverage_path_genes = self.get_genes_in_unitig(highest_coverage_path)
-        backward_high_coverage_path_genes = self.reverse_list_of_genes(forward_high_coverage_path_genes)
-        paths_to_correct = self.identify_paths_to_correct(sorted_by_coverage, forward_high_coverage_path_genes, all_bubble_nodes)
-        #self.correct_paths(paths_to_correct, forward_high_coverage_path_genes, backward_high_coverage_path_genes)
-
-    def split_into_chunks(self, path, all_bubble_nodes):
-        chunks = []
-        this_chunk = []
-        for n in path:
-            if n not in all_bubble_nodes:
-                this_chunk.append(n)
-            else:
-                if this_chunk:  # Only add non-empty chunks
-                    chunks.append(this_chunk)
-                    this_chunk = []
-        if this_chunk:  # Add the last chunk if not empty
-            chunks.append(this_chunk)
-        return chunks
-
-    def get_position_of_genes_in_alignment(self, alignment):
-        false_index = 0
-        true_index = 0
-        false_path_alignment_to_gene, true_path_alignment_to_gene = {}, {}
-        for c in range(len(alignment)):
-            col = alignment[c]
-            if not col[1] == "*":
-                false_path_alignment_to_gene[false_index] = c
-                false_index += 1
-            if not col[0] == "*":
-                true_path_alignment_to_gene[true_index] = c
-                true_index += 1
-        return false_path_alignment_to_gene, true_path_alignment_to_gene
+        # return statistics.mean([self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]])
+        return statistics.mean(
+            [self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]]
+        )
 
     def get_gene_to_node_mapping(self, path):
         gene_to_node_mapping = {}
@@ -2216,87 +1449,6 @@ class GeneMerGraph:
                     gene_to_node_mapping[g] = []
                 gene_to_node_mapping[g].append(i)
         return gene_to_node_mapping
-
-    def make_node_alignment(self,
-                        true_path_alignment_to_gene,
-                        false_path_alignment_to_gene,
-                        true_gene_to_node_mapping,
-                        false_gene_to_node_mapping,
-                        true_path,
-                        false_path,
-                        alignment_length):
-        node_alignment = []
-        for i in range(alignment_length-self.get_kmerSize() + 1):
-            if i in true_path_alignment_to_gene and i in false_path_alignment_to_gene:
-                assert len(true_gene_to_node_mapping[true_path_alignment_to_gene[i]]) == len(false_gene_to_node_mapping[false_path_alignment_to_gene[i]])
-                node_alignment.append((true_path[true_gene_to_node_mapping[true_path_alignment_to_gene[i]][-1]], false_path[false_gene_to_node_mapping[false_path_alignment_to_gene[i]][-1]]))
-            if i in true_path_alignment_to_gene and i not in false_path_alignment_to_gene:
-                #for j in range(len(true_gene_to_node_mapping[true_path_alignment_to_gene[i]])):
-                node_alignment.append((true_path[true_gene_to_node_mapping[true_path_alignment_to_gene[i]][-1]], "*"))
-            if i not in true_path_alignment_to_gene and i in false_path_alignment_to_gene:
-                #for j in range(len(false_path_alignment_to_gene[false_path_alignment_to_gene[i]])):
-                node_alignment.append(("*", false_path[false_gene_to_node_mapping[false_path_alignment_to_gene[i]][-1]]))
-        return node_alignment
-
-    def convert_gene_alignment_to_node_alignment(self, alignment, heaviest_path, path_to_correct):
-        # get a mapping of the indices of genes in the path we are correcting to the alignment column
-        false_path_alignment_to_gene, true_path_alignment_to_gene = self.get_position_of_genes_in_alignment(alignment)
-        # get a mapping of the indices of genes in the path we are correction to the nodes containing them
-        false_gene_to_node_mapping = self.get_gene_to_node_mapping(path_to_correct)
-        true_gene_to_node_mapping= self.get_gene_to_node_mapping(heaviest_path)
-        # make the node alignment
-        node_alignment = self.make_node_alignment(true_path_alignment_to_gene,
-                                                false_path_alignment_to_gene,
-                                                true_gene_to_node_mapping,
-                                                false_gene_to_node_mapping,
-                                                heaviest_path,
-                                                path_to_correct,
-                                                len(alignment))
-        return node_alignment
-
-    def identify_paths_to_correct(self, sorted_paths, forward_genes, all_bubble_nodes):
-        reads_to_correct = set()
-        correction_dict = {}
-        for other_path in sorted_paths[1:]:
-            reads = self.collect_reads_in_path(other_path[0])
-            if not all(n in self.get_nodes() for n in other_path[0]):
-                continue
-            genes_in_path = self.get_genes_in_unitig(other_path[0])
-            alignment = self.needleman_wunsch(forward_genes, genes_in_path)
-            difference_count = len([col for col in alignment if col[0] != col[1]])
-            if difference_count <= 2:
-                # convert the alignment into node space
-                node_alignment = self.convert_gene_alignment_to_node_alignment(alignment, sorted_paths[0][0], other_path[0])
-                # replace the nodes on the read in the false path
-                for col in node_alignment:
-                    if col[0] != col[1] and col[1] != "*":
-                        if col[1] in self.get_nodes():
-                            self.remove_node(self.get_node_by_hash(col[1]))
-        return reads_to_correct, correction_dict
-
-    def correct_paths(self, paths_to_correct, forward_genes, backward_genes):
-        fw_counter = Counter(forward_genes)
-        bw_counter = Counter(backward_genes)
-        for path in paths_to_correct:
-            reads_in_path = self.collect_reads_in_path(path)
-            for read_id in reads_in_path:
-                genes_on_read = self.get_reads()[read_id]
-                shared_fw = len(list((fw_counter & Counter(genes_on_read)).elements()))
-                shared_bw = len(list((bw_counter & Counter(genes_on_read)).elements()))
-                assert shared_fw != 0 or shared_bw != 0, forward_genes
-                if shared_fw > shared_bw:
-                    alignment = self.needleman_wunsch(genes_on_read, forward_genes)
-                elif shared_bw > shared_fw:
-                    alignment = self.needleman_wunsch(genes_on_read, backward_genes)
-                else:
-                    print(genes_on_read)
-                    print(forward_genes)
-                    raise ValueError("Forward and backward lists of genes share the same number of common elements with the highest coverage path")
-                if read_id == "SRR23044226.121397_0":
-                    print([self.get_gene_mer_label(self.get_node_by_hash(h)) for h in path])
-                    print(alignment)
-                new_genes = self.get_new_genes_from_alignment(alignment)
-                self.get_reads()[read_id] = new_genes
 
     def collect_reads_in_path(self, path):
         reads_in_path = set()
@@ -2318,273 +1470,403 @@ class GeneMerGraph:
 
     def get_direction_between_two_nodes(self, source_node_hash, target_node_hash):
         # get the edges between the target and the source
-        source_to_target_edge, target_to_source_edge = self.get_edges_between_nodes(self.get_node_by_hash(source_node_hash), self.get_node_by_hash(target_node_hash))
+        source_to_target_edge, target_to_source_edge = self.get_edges_between_nodes(
+            self.get_node_by_hash(source_node_hash), self.get_node_by_hash(target_node_hash)
+        )
         # get the direction from source to target
         source_to_target_direction = source_to_target_edge.get_targetNodeDirection()
         return source_to_target_direction * -1
 
-    def newest_correct_bubbles(self):
-        # get the potential start nodes
-        potential_bubble_starts, all_bubble_nodes = self.identify_potential_bubble_starts()
-        # define a maximum path length
-        for component in self.components():
-            # convert the bubbles nodes to a list
-            potential_bubble_starts_component = potential_bubble_starts[component]
-            # collect the bubbles
-            bubbles = {}
-            # iterate through the bubble nodes
-            for start_hash, start_direction in potential_bubble_starts_component:
-                # get the start node
-                start_node = self.get_node_by_hash(start_hash)
-                # get the neighbour nodes
-                if start_direction == 1:
-                    neighbors = [self.get_edge_by_hash(e).get_targetNode() for e in start_node.get_forward_edge_hashes()]
-                if start_direction == -1:
-                    neighbors = [self.get_edge_by_hash(e).get_targetNode() for e in start_node.get_backward_edge_hashes()]
-                # get the unitigs for the neighbors
-                for neighbor in neighbors:
-                    unitig = self.get_linear_path_for_node(neighbor, True)
-                    if len(unitig) > 2:
-                        terminals = tuple(sorted([unitig[0], unitig[-1]]))
-                        if not terminals in bubbles:
-                            bubbles[terminals] = set()
-                        path_coverage = self.calculate_path_coverage(unitig)
-                        fw_path = (tuple(unitig), path_coverage)
-                        rv_path = (tuple(list(reversed(unitig))), path_coverage)
-                        bubbles[terminals].add(tuple(sorted([fw_path, rv_path])[0]))
-            self.new_correct_bubble_paths(bubbles)
-        return self.get_reads()
+    def reverse_gene(self, gene):
+        if gene[0] == "+":
+            return "-" + gene[1:]
+        if gene[0] == "-":
+            return "+" + gene[1:]
+        if gene[0] == "*":
+            return "*"
 
-    def split_paths_by_coverage(self, paths, node_min_coverage):
-        valid = []
-        invalid = []
-        for p in paths:
-            if p[1] >= node_min_coverage:
-                valid.append(p)
+    def reverse_gene_alignment(self, alignment):
+        # reverse the alignment
+        reversed_alignment = list(reversed(alignment))
+        # reverse the gene directions
+        reversed_alignment = [
+            (self.reverse_gene(col[0]), self.reverse_gene(col[1])) for col in reversed_alignment
+        ]
+        return reversed_alignment
+
+    def get_read_sequence_for_path(self, read_id, path, fastq_data):
+        # check that the number of nodes and number of node positions is the same
+        assert len(self.get_readNodes()[read_id]) == len(self.get_readNodePositions()[read_id])
+        nodes_on_read = self.get_readNodes()[read_id]
+        # Find the range of nodes on the read that are shared with the path
+        shared_node_indices = [i for i, node_hash in enumerate(nodes_on_read) if node_hash in path]
+        if not shared_node_indices:
+            return None
+        # get the sequence of the read
+        entire_read_sequence = fastq_data[read_id.split("_")[0]]["sequence"]
+        first_index, last_index = shared_node_indices[0], shared_node_indices[-1]
+        start_pos = self.get_readNodePositions()[read_id][first_index][0]
+        if start_pos is None:
+            assert first_index == 0, self.get_readNodePositions()[read_id]
+            start_pos = 0
+        end_pos = self.get_readNodePositions()[read_id][last_index][1]
+        if end_pos is None:
+            assert (
+                last_index == len(self.get_readNodePositions()[read_id]) - 1
+            ), self.get_readNodePositions()[read_id]
+            end_pos = len(entire_read_sequence) - 1
+        print(path)
+        print(nodes_on_read)
+        print(self.get_readNodePositions()[read_id])
+        print(len(entire_read_sequence), "\n")
+        assert start_pos >= 0
+        assert end_pos < len(entire_read_sequence)
+        read_sequence = entire_read_sequence[start_pos : end_pos + 1]
+        return read_sequence
+
+    def get_minhash_for_path(self, path, reads_in_path, fastq_data):
+        minhash = sourmash.MinHash(n=0, ksize=13, scaled=1)
+        reads_with_positions = set()
+        for read_id in reads_in_path:
+            read_sequence = self.get_read_sequence_for_path(read_id, path, fastq_data)
+            if read_sequence is not None:
+                minhash.add_sequence(read_sequence, force=True)
+                reads_with_positions.add(f"{read_id}")
+        return minhash, reads_with_positions
+
+    def count_indels_in_alignment(self, aln):
+        return len([col for col in aln if col[0] != col[1] and col[0] != "*" and col[1] != "*"])
+
+    def count_snps_in_alignment(self, aln):
+        return len([col for col in aln if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
+
+    def reorient_alignment(self, genes_on_read, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment):
+        genes_on_read_counter = Counter(genes_on_read)
+        # choose the alignment or rv alignment
+        fw_count = len(genes_on_read_counter & fw_genes_in_path_counter)
+        rv_count = len(genes_on_read_counter & bw_genes_in_path_counter)
+        # Determine which replacement dict to use based on shared counts
+        if fw_count > rv_count:
+            return fw_alignment
+        elif rv_count > fw_count:
+            return rv_alignment
+        else:
+            raise ValueError("Forward and reverse path alignments are equally distant.")
+
+    def correct_genes_on_read(self, genes_on_read, first_shared_read_index, last_shared_read_index, alignment_subset, read_id):
+        prefix = genes_on_read[:first_shared_read_index]
+        suffix = genes_on_read[last_shared_read_index + 1 :]
+        core = [c[0] for c in alignment_subset if c[0] != "*"]
+        self.get_reads()[read_id] = prefix + core + suffix
+
+    def get_gene_position_prefix(self, gene_positions, first_shared_read_index):
+        return gene_positions[:first_shared_read_index]
+
+    def get_gene_position_suffix(self, gene_positions, last_shared_read_index):
+        return gene_positions[last_shared_read_index + 1:]
+
+    def get_gene_position_core(self, gene_positions, first_shared_read_index, last_shared_read_index):
+        return gene_positions[first_shared_read_index : last_shared_read_index + 1]
+
+    def get_new_gene_position_core(self, alignment_subset, core_gene_positions):
+        core_position_index = 0
+        new_core_gene_positions = []
+        for i in range(len(alignment_subset)):
+            col = alignment_subset[i]
+            if col[0] != "*":
+                if col[1] != col[0]:
+                    new_core_gene_positions.append((None, None))
+                else:
+                    new_core_gene_positions.append(
+                        core_gene_positions[core_position_index]
+                    )
+                    core_position_index += 1
             else:
-                invalid.append(p)
-        return valid, invalid
+                core_position_index += 1
+        return new_core_gene_positions
 
-    def new_correct_bubble_paths(self, bubbles):
-        for pair in bubbles:
+    def join_gene_position_ends_with_core(self, position_prefix, position_suffix, new_core_gene_positions):
+        if len(position_prefix) != 0 and len(position_suffix) != 0:
+            new_positions = (
+                position_prefix
+                + new_core_gene_positions
+                + position_suffix
+            )
+        elif (
+            len(position_prefix) != 0 and len(position_suffix) == 0
+        ):
+            new_positions = (
+                position_prefix + new_core_gene_positions
+            )
+        elif (
+            len(position_prefix) == 0 and len(position_suffix) != 0
+        ):
+            new_positions = (
+                new_core_gene_positions + position_suffix
+            )
+        else:
+            new_positions = new_core_gene_positions
+        return new_positions
+
+    def replace_invalid_gene_positions(self, new_positions, fastq_data, read_id):
+        prev_end = 0
+        for i, (start, end) in enumerate(new_positions):
+            if end is not None:
+                prev_end = end
+            if start is None and end is None:
+                next_start = None
+                for j in range(i + 1, len(new_positions)):
+                    if new_positions[j][0] is not None:
+                        next_start = new_positions[j][0]
+                        break
+                if prev_end != None and next_start != None:
+                    new_positions[i] = (prev_end, next_start)
+                elif next_start == None and prev_end != None:
+                    new_positions[i] = (
+                        prev_end,
+                        len(
+                            fastq_data[
+                                "_".join(read_id.split("_")[:-1])
+                            ]
+                        )
+                        - 1,
+                    )
+                else:
+                    print(new_positions)
+                    raise AttributeError(
+                        "Could not find a valid gene start or end position."
+                    )
+                assert None not in list(
+                    new_positions[i]
+                ), new_positions
+        return new_positions
+
+    def correct_gene_positions_on_read(self, first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data):
+        # get the gene positions
+        gene_positions = self.get_gene_positions()[read_id]
+        # get the new gene position prefix
+        position_prefix = self.get_gene_position_prefix(gene_positions, first_shared_read_index)
+        # get the new gene position suffix
+        position_suffix = self.get_gene_position_suffix(gene_positions, last_shared_read_index)
+        # get the existing gene position core
+        core_gene_positions = self.get_gene_position_core(gene_positions, first_shared_read_index, last_shared_read_index)
+        # get the new gene position core
+        new_core_gene_positions = self.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        # join the prefix, core and suffix to get the new gene positions
+        new_positions = self.join_gene_position_ends_with_core(position_prefix, position_suffix, new_core_gene_positions)
+        # genes we have had to add have invalid start and stop positions, this function corrects them
+        corrected_new_positions = self.replace_invalid_gene_positions(new_positions, fastq_data, read_id)
+        # replace the gene positions with the corrected new positions
+        self.get_gene_positions()[read_id] = corrected_new_positions
+        # double check that the number of genes is equal to the number of gene positions
+        assert len(self.get_reads()[read_id]) == len(
+            self.get_gene_positions()[read_id]
+        ), (
+            str(len(self.get_reads()[read_id]))
+            + "/"
+            + str(len(self.get_gene_positions()[read_id]))
+        )
+
+    def correct_low_coverage_path(self, lower_coverage_path, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment, fastq_data):
+        # get the reads in the path
+        nodes_to_correct = lower_coverage_path[1:-1]
+        reads_in_path = self.collect_reads_in_path(nodes_to_correct)
+        for read_id in reads_in_path:
+            # get the list of genes on this read
+            genes_on_read = self.get_reads()[read_id][:]
+            # Determine which replacement dict to use based on shared counts
+            alignment = self.reorient_alignment(genes_on_read, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment)
+            # get the alignment columns for the first and last elements shared with the list of genes
+            (
+                alignment_subset,
+                first_shared_read_index,
+                last_shared_read_index,
+                alignment_start,
+                alignment_end,
+            ) = self.slice_alignment_by_shared_elements(
+                alignment, genes_on_read
+            )
+            subpath = [c[1] for c in alignment_subset if c[1] != "*"]
+            # Correct the read using the alignment subset
+            if self.is_sublist(genes_on_read, subpath):
+                self.correct_genes_on_read(genes_on_read, first_shared_read_index, last_shared_read_index, alignment_subset, read_id)
+                self.correct_gene_positions_on_read(first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data)
+                # check that the number of genes and number of gene positions are equal
+                assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id])
+            else:
+                pass
+            assert None not in self.get_reads()[read_id]
+
+    def compare_paths(self, lower_coverage_path, fw_higher_coverage_genes):
+        # get the genes in the lower coverage path
+        lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
+        fw_alignment = self.needleman_wunsch(
+            fw_higher_coverage_genes, lower_coverage_genes
+        )
+        rv_alignment = self.reverse_gene_alignment(fw_alignment)
+        # get the SNP differences
+        SNP_count = self.count_snps_in_alignment(fw_alignment)
+        # get the INDEL differences
+        INDEL_count = self.count_indels_in_alignment(fw_alignment)
+        return fw_alignment, rv_alignment, SNP_count, INDEL_count
+
+    def correct_bubble_paths(self, bubbles, fastq_data):
+        for pair in tqdm(bubbles):
             if len(bubbles[pair]) > 1:
                 # sort the paths from highest to lower coverage
                 paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
-                # split the paths into valid and invalid paths
-                valid_paths, invalid_paths = self.split_paths_by_coverage(paths, 10)
-                if valid_paths == []:
-                    valid_paths = [invalid_paths[0]]
-                    invalid_paths = invalid_paths[1:]
-                # store the corrected paths
+                # initialise a set to keep track of the paths we have already corrected
                 corrected_paths = set()
-                # iterate through the valid paths
-                for path, path_coverage in valid_paths:
-                    path = [n[0] for n in path]
-                    # get the genes in the path
-                    genes_in_path = self.get_genes_in_unitig(list(path))
-                    # make a counter for the genes in the path
-                    gene_counts = Counter(genes_in_path)
-                    # iterate through the invalid paths
-                    for other_path, other_path_coverage in invalid_paths:
-                        other_path = tuple([n[0] for n in other_path])
-                        if not other_path in corrected_paths:
-                            # get the genes in the path
-                            fw_genes_in_path = self.get_genes_in_unitig(list(other_path))
-                            # reverse the genes in the path
-                            bw_genes_in_path = self.reverse_list_of_genes(fw_genes_in_path)
-                            # decide whether the forward or backward path is closest and align the genes in the paths
-                            if len(gene_counts & Counter(fw_genes_in_path)) > len(gene_counts & Counter(bw_genes_in_path)):
-                                alignment = self.needleman_wunsch(genes_in_path, fw_genes_in_path)
-                                other_genes_in_path = fw_genes_in_path
-                            else:
-                                alignment = self.needleman_wunsch(genes_in_path, bw_genes_in_path)
-                                other_genes_in_path = bw_genes_in_path
-                            # get the SNP differences
-                            SNP_count = len([col for col in alignment if col[0] != col[1] and col[0] != "*" and col[1] != "*"])
-                            # get the INDEL differences
-                            INDEL_count = len([col for col in alignment if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
-                            if SNP_count <= 1 and INDEL_count <= 2:
-                                # get the indices mapping the original lists of genes to alignment columns
-                                false_path_alignment_to_gene, true_path_alignment_to_gene = self.get_position_of_genes_in_alignment(alignment)
-                                # get the sublists we are going to replace
-                                replacement_dict = {}
-                                reversed_replacement_dict = {}
-                                for i in range(len(other_genes_in_path) - self.get_kmerSize() + 1):
-                                    alignment_indices = [false_path_alignment_to_gene[j] for j in range(i, i+self.get_kmerSize())]
-                                    alignment_columns = alignment[min(alignment_indices): max(alignment_indices) + 1]
-                                    replacement = [col[0] for col in alignment_columns if not col[0] == "*"]
-                                    to_replace = other_genes_in_path[i: i + self.get_kmerSize()]
-                                    replacement_dict["~~~".join(to_replace)] = "~~~".join(replacement)
-                                    reversed_replacement_dict["~~~".join(self.reverse_list_of_genes(to_replace))] = "~~~".join(self.reverse_list_of_genes(replacement))
-                                # get the reads in the path
-                                nodes_to_correct = [n for n in list(other_path)[1:-1]]
-                                reads_in_path = self.collect_reads_in_path(nodes_to_correct)
-                                for read_id in reads_in_path:
-                                    genes_on_read = self.get_reads()[read_id][:]
-                                    # convert the list of genes to a string
-                                    genes_on_read = "~~~".join(genes_on_read)
-                                    fw_count = 0
-                                    rv_count = 0
-                                    # count the number of keys in the list of genes
-                                    for k in replacement_dict:
-                                        if k in genes_on_read:
-                                            fw_count += genes_on_read.count(k)
-                                    for k in reversed_replacement_dict:
-                                        if k in genes_on_read:
-                                            rv_count += genes_on_read.count(k)
-                                    # Determine which replacement dict to use based on shared counts
-                                    replacement = replacement_dict if fw_count > rv_count else reversed_replacement_dict
-                                    # replace the genes on the read
-                                    for to_replace in replacement:
-                                        genes_on_read = genes_on_read.replace(to_replace, replacement[to_replace])
-                                    if read_id == "SRR23044210.27420_0":
-                                        print(self.get_reads()[read_id][:])
-                                        print(genes_on_read.split("~~~"))
-                                        print(replacement,"\n")
-                                    #     djddjdjk
-                                    # Correct the read using the appropriate replacement dictionary
-                                    self.get_reads()[read_id] = genes_on_read.split("~~~")
-                                    corrected_paths.add(other_path)
+                # iterate through the paths
+                for i in range(len(paths)):
+                    higher_coverage_path, higher_coverage = paths[i]
+                    higher_coverage_path = [n[0] for n in higher_coverage_path]
+                    # check if the current high coverage path has been corrected
+                    if not tuple(higher_coverage_path) in corrected_paths:
+                        # get the genes in the higher coverage path
+                        fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
+                        # get the genes in the path
+                        fw_genes_in_path_counter = Counter(fw_higher_coverage_genes)
+                        # reverse the genes in the path
+                        bw_higher_coverage_genes = self.reverse_list_of_genes(
+                            fw_higher_coverage_genes
+                        )
+                        bw_genes_in_path_counter = Counter(bw_higher_coverage_genes)
+                        # iterate through the remaining paths
+                        for lower_coverage_path, lower_coverage in paths[i + 1 :]:
+                            if tuple(lower_coverage_path) in corrected_paths:
+                                continue
+                            # if lower_coverage >= 10:
+                            #    continue
+                            lower_coverage_path = [n[0] for n in lower_coverage_path]
+                            # get the genes in the lower coverage path
+                            fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(lower_coverage_path, fw_higher_coverage_genes)
+                            # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
+                            if SNP_count <= 2 and INDEL_count <= 2:
+                                self.correct_low_coverage_path(lower_coverage_path, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment, fastq_data)
 
-    def correct_bubbles(self, gap_distances, node_min_coverage):
+    def slice_alignment_by_shared_elements(self, alignment, genes_on_read):
+        start_index = 0
+        stop_index = 0
+        read_start = 0
+        read_stop = 0
+        start_found = False
+        last_matched_gene_index = 0  # Keep track of the index in genes_on_read after the last match
+        for c in range(len(alignment)):
+            col = alignment[c]
+            for g in range(
+                last_matched_gene_index, len(genes_on_read)
+            ):  # Start from the last matched index
+                gene = genes_on_read[g]
+                if col[1] == gene:
+                    if not start_found:
+                        start_index = c
+                        read_start = g
+                        start_found = True
+                    stop_index = c
+                    read_stop = g
+                    last_matched_gene_index = (
+                        g + 1
+                    )  # Update the index to start from for the next iteration
+                    break  # Break after the first match to avoid updating stop_index for subsequent matches
+        # Ensure to return a slice that includes both start and stop indexes
+        return (
+            alignment[start_index : stop_index + 1],
+            read_start,
+            read_stop,
+            start_index,
+            stop_index,
+        )
+
+    def get_all_paths_between_junction_in_component(
+        self, potential_bubble_starts_component, max_distance
+    ):
+        # store the paths
+        unique_paths = set()
+        seen_pairs = set()
+        # iterate through the bubble nodes
+        for start_hash, start_direction in tqdm(potential_bubble_starts_component):
+            for stop_hash, stop_direction in potential_bubble_starts_component:
+                if start_hash == stop_hash:
+                    continue
+                if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
+                    continue
+                # seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
+                paths_between_nodes = self.new_find_paths_between_nodes(
+                    start_hash, stop_hash, max_distance, start_direction
+                )
+                # remove paths that do not start and stop in the same direction
+                valid_paths_between_nodes = [
+                    p
+                    for p in paths_between_nodes
+                    if p[0] == (start_hash, start_direction)
+                    and (p[-1][0], self.get_direction_between_two_nodes(p[-2][0], p[-1][0]))
+                    == (stop_hash, stop_direction)
+                ]
+                # check if there is more than one option
+                if len(valid_paths_between_nodes) > 1:
+                    for p in valid_paths_between_nodes:
+                        unique_paths.add(
+                            tuple(sorted([p, list(reversed([(t[0], t[1] * -1) for t in p]))])[0])
+                        )
+                seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
+        # convert to list
+        unique_paths = list(unique_paths)
+        # Assuming unique_paths is a list of lists or a similar iterable of iterables.
+        filtered_paths = []
+        for p in unique_paths:
+            p_list = list(p)
+            # Skip self-comparison and check for sublists in both forward and reversed directions
+            if not any(
+                self.is_sublist(list(q), p) or self.is_sublist(list(q), list(reversed(p)))
+                for q in unique_paths
+                if q != p
+            ):
+                if len(p_list) > 2:
+                    filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
+        return filtered_paths
+
+    def separate_paths_by_terminal_nodes(self, sorted_filtered_paths):
+        paired_sorted_filtered_paths = {}
+        for p in sorted_filtered_paths:
+            sorted_terminals = tuple(sorted([p[0][0][0], p[0][-1][0]]))
+            if not sorted_terminals in paired_sorted_filtered_paths:
+                paired_sorted_filtered_paths[sorted_terminals] = []
+            paired_sorted_filtered_paths[sorted_terminals].append(p)
+        sorted_filtered_paths = {
+            key: value
+            for key, value in sorted(
+                paired_sorted_filtered_paths.items(),
+                key=lambda x: max(len(path[0]) for path in x[1]),
+                reverse=True,
+            )
+        }
+        return sorted_filtered_paths
+
+    def correct_bubbles(self, node_min_coverage, fastq_data):
+        # ensure there are gene positions in the input
+        assert self.get_gene_positions()
         # get the potential start nodes
         potential_bubble_starts, all_bubble_nodes = self.identify_potential_bubble_starts()
         # define a maximum distance
         max_distance = self.get_kmerSize() * 3
         # iterate through the components
         for component in self.components():
-            #if not component == 2:
-            #    continue
             # convert the bubbles nodes to a list
             if not component in potential_bubble_starts:
                 continue
             potential_bubble_starts_component = potential_bubble_starts[component]
-            # store the paths
-            unique_paths = set()
-            seen_pairs = set()
-            # iterate through the bubble nodes
-            for start_hash, start_direction in potential_bubble_starts_component:
-                for stop_hash, stop_direction in potential_bubble_starts_component:
-                    if start_hash == stop_hash:
-                        continue
-                    if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
-                        continue
-                    seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
-                    paths_between_nodes = self.new_find_paths_between_nodes(start_hash, stop_hash, max_distance, start_direction)
-                    # remove paths that do not start and stop in the same direction
-                    valid_paths_between_nodes = [p for p in paths_between_nodes if p[0] == (start_hash, start_direction) and (p[-1][0], self.get_direction_between_two_nodes(p[-2][0], p[-1][0])) == (stop_hash, stop_direction)]
-                    # check if there is more than one option
-                    if len(valid_paths_between_nodes) > 1:
-                        for p in valid_paths_between_nodes:
-                            unique_paths.add(tuple(sorted([p, list(reversed([(t[0], t[1]*-1) for t in p]))])[0]))
-            # convert to list
-            unique_paths = list(unique_paths)
-            # Assuming unique_paths is a list of lists or a similar iterable of iterables.
-            filtered_paths = []
-            for p in unique_paths:
-                p_list = list(p)
-                # Skip self-comparison and check for sublists in both forward and reversed directions
-                if not any(self.is_sublist(list(q), p) or self.is_sublist(list(q), list(reversed(p))) for q in unique_paths if q != p):
-                    filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
-            # sort by coverage
-            sorted_filtered_paths = sorted(filtered_paths, key=lambda x:x[1], reverse=True)
-            paired_sorted_filtered_paths = {}
-            junctions_crossed = set()
-            for p in sorted_filtered_paths:
-                sorted_terminals = tuple(sorted([p[0][0][0], p[0][-1][0]]))
-                if not sorted_terminals in paired_sorted_filtered_paths:
-                    paired_sorted_filtered_paths[sorted_terminals] = []
-                paired_sorted_filtered_paths[sorted_terminals].append(p)
-                # see which junctions this path crosses
-                juncs = [n[0] for n in p[0][1:-1] if n[0] in all_bubble_nodes[component]]
-                junctions_crossed.update(juncs)
-            # refine further
-            refined_pairs = {}
-            for pair in paired_sorted_filtered_paths:
-                if pair[0] not in junctions_crossed or pair[1] not in junctions_crossed:
-                    refined_pairs[pair] = paired_sorted_filtered_paths[pair]
+            # get all the paths of length <= max distance between all pairs of junctions in this component
+            filtered_paths = self.get_all_paths_between_junction_in_component(
+                potential_bubble_starts_component, max_distance
+            )
+            # sort by path length
+            sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
+            # bin the paths based on their terminal nodes
+            sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
-            self.new_correct_bubble_paths(refined_pairs)
-        return self.get_reads()
-
-    def correct_read(self, alignment_map, read):
-        corrected_read = []
-        for gene in read:
-            corrected_gene = alignment_map.get(gene)
-            if corrected_gene:
-                corrected_read.append(corrected_gene)
-            else:
-                continue
-        return corrected_read
-
-    def get_node_for_genes(self, listOfGenes):
-        gene_objects = [Gene(g) for g in listOfGenes]
-        return Node(GeneMer(gene_objects)).__hash__()
-
-    def new_correct_bubble_paths(self, bubbles):
-        for pair in bubbles:
-            if len(bubbles[pair]) > 1:
-                # sort the paths from highest to lower coverage
-                paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
-                # split the paths into valid and invalid paths
-                valid_paths, invalid_paths = self.split_paths_by_coverage(paths, 10)
-                if valid_paths == []:
-                    valid_paths = [invalid_paths[0]]
-                    invalid_paths = invalid_paths[1:]
-                # store the corrected paths
-                corrected_paths = set()
-                # iterate through the valid paths
-                for path, path_coverage in valid_paths:
-                    path = [n[0] for n in path]
-                    # get the genes in the path
-                    genes_in_path = self.get_genes_in_unitig(list(path))
-                    # make a counter for the genes in the path
-                    gene_counts = Counter(genes_in_path)
-                    # iterate through the invalid paths
-                    for other_path, other_path_coverage in invalid_paths:
-                        other_path = tuple([n[0] for n in other_path])
-                        if not other_path in corrected_paths:
-                            # get the genes in the path
-                            fw_genes_in_path = self.get_genes_in_unitig(list(other_path))
-                            # reverse the genes in the path
-                            bw_genes_in_path = self.reverse_list_of_genes(fw_genes_in_path)
-                            # decide whether the forward or backward path is closest and align the genes in the paths
-                            if len(gene_counts & Counter(fw_genes_in_path)) > len(gene_counts & Counter(bw_genes_in_path)):
-                                alignment = self.needleman_wunsch(genes_in_path, fw_genes_in_path)
-                                other_genes_in_path = fw_genes_in_path
-                            else:
-                                alignment = self.needleman_wunsch(genes_in_path, bw_genes_in_path)
-                                other_genes_in_path = bw_genes_in_path
-                            # get the SNP differences
-                            SNP_count = len([col for col in alignment if col[0] != col[1] and col[0] != "*" and col[1] != "*"])
-                            # get the INDEL differences
-                            INDEL_count = len([col for col in alignment if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
-                            if SNP_count <= 1 and INDEL_count <= 2:
-                                # get the indices mapping the original lists of genes to alignment columns
-                                false_path_alignment_to_gene, true_path_alignment_to_gene = self.get_position_of_genes_in_alignment(alignment)
-                                # get the sublists we are going to replace
-                                replacement_dict = {}
-                                for i in range(len(other_genes_in_path) - self.get_kmerSize() + 1):
-                                    alignment_indices = [false_path_alignment_to_gene[j] for j in range(i, i+self.get_kmerSize())]
-                                    alignment_columns = alignment[min(alignment_indices): max(alignment_indices) + 1]
-                                    replacement = [col[0] for col in alignment_columns if not col[0] == "*"]
-                                    to_replace = other_genes_in_path[i: i + self.get_kmerSize()]
-                                    replacement_dict[self.get_node_for_genes(to_replace)] = self.get_node_for_genes(replacement)
-                                print(replacement_dict)
-                                # get the reads in the path
-                                nodes_to_correct = [n for n in list(other_path)[1:-1]]
-                                reads_in_path = self.collect_reads_in_path(nodes_to_correct)
-                                for read_id in reads_in_path:
-                                    genes_on_read = self.get_reads()[read_id][:]
-                                    # convert the list of genes to a string
-                                    genes_on_read = "~~~".join(genes_on_read)
-                                    # Determine which replacement dict to use based on shared counts
-                                    # replace the genes on the read
-                                    for to_replace in replacement:
-                                        genes_on_read = genes_on_read.replace(to_replace, replacement_dict[to_replace])
-                                    # Correct the read using the appropriate replacement dictionary
-                                    self.get_reads()[read_id] = genes_on_read.split("~~~")
-                                    corrected_paths.add(other_path)
+            self.correct_bubble_paths(sorted_filtered_paths, fastq_data)
+        return self.get_reads(), self.get_gene_positions()
 
     def identify_potential_bubble_starts(self):
         potential_bubble_starts = {}
@@ -2592,13 +1874,13 @@ class GeneMerGraph:
         for node in self.all_nodes():
             fw_edges = node.get_forward_edge_hashes()  # Forward edges
             bw_edges = node.get_backward_edge_hashes()  # Backward edges
-            if len(fw_edges) > 1 and len(bw_edges) < 2:
+            if len(fw_edges) > 1:  # and len(bw_edges) < 2:
                 if not node.get_component() in potential_bubble_starts:
                     potential_bubble_starts[node.get_component()] = []
                     all_bubble_nodes[node.get_component()] = set()
                 potential_bubble_starts[node.get_component()].append((node.__hash__(), 1))
                 all_bubble_nodes[node.get_component()].add(node.__hash__())
-            if len(bw_edges) > 1 and len(fw_edges) < 2:
+            if len(bw_edges) > 1:  # and len(fw_edges) < 2:
                 if not node.get_component() in potential_bubble_starts:
                     potential_bubble_starts[node.get_component()] = []
                     all_bubble_nodes[node.get_component()] = set()
@@ -2617,7 +1899,7 @@ class GeneMerGraph:
             junction_nodes_in_path = [(i, v) for i, v in enumerate(p) if v[0] in all_bubble_nodes]
             index = max([t[0] for t in junction_nodes_in_path], default=-1)
             assert not index == -1
-            sliced = p[:index + 1]
+            sliced = p[: index + 1]
             if not len(sliced) == 0:
                 valid_paths.add(tuple(sliced))
         paths_from_start = {}
@@ -2631,22 +1913,30 @@ class GeneMerGraph:
                 paths_from_start[terminals].append((([n[0] for n in p]), path_coverage))
         return paths_from_start
 
-    def new_find_paths_between_nodes(self, start_hash, end_hash, distance, current_direction, path=None, seen_nodes=None):
+    def new_find_paths_between_nodes(
+        self, start_hash, end_hash, distance, current_direction, path=None, seen_nodes=None
+    ):
         if path is None:
             path = []
         if seen_nodes is None:
             seen_nodes = set()
 
-        path.append((start_hash, current_direction))  # Append the current node and direction to the path
+        path.append(
+            (start_hash, current_direction)
+        )  # Append the current node and direction to the path
         seen_nodes.add(start_hash)  # Add the current node to the seen nodes to avoid revisiting
 
         # Check if we've reached the end node or if end_hash is None and the path length equals the specified distance
-        if (end_hash and start_hash == end_hash and len(path) - 1 <= distance) or (end_hash is None and len(path) - 1 == distance):
+        if (end_hash and start_hash == end_hash and len(path) - 1 <= distance) or (
+            end_hash is None and len(path) - 1 == distance
+        ):
             path_copy = path.copy()  # Make a copy of the path to return
             path.pop()  # Remove the last element before returning to ensure correct backtracking
             return [path_copy]  # Return the path copy
 
-        if len(path) - 1 > distance:  # Check if the current path length exceeds the allowed distance
+        if (
+            len(path) - 1 > distance
+        ):  # Check if the current path length exceeds the allowed distance
             path.pop()  # Remove the last element added to path before returning
             return []
 
@@ -2675,3 +1965,262 @@ class GeneMerGraph:
 
         path.pop()  # Remove the last element added to path before returning to the caller
         return paths
+
+    def calculate_path_coverage(self, path):
+        return statistics.mean(
+            [self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]]
+        )
+
+    def reverse_complement(self, seq):
+        reversed_seq = list(reversed(list(seq)))
+        replacement = {"A": "T", "T": "A", "C": "G", "G": "C"}
+        return "".join([replacement[b] for b in reversed_seq])
+
+    def get_paths_for_gene(self, geneOfInterest):
+        # get the graph nodes containing this gene
+        nodeOfInterest = self.get_nodes_containing(geneOfInterest)
+        # get the node hashes containing this gene
+        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
+        # get the nodes that contain this gene but are at the end of a path
+        anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
+        # get all of the possible paths for these nodes
+        paths = self.all_paths_for_subgraph(nodeHashesOfInterest, anchor_nodes)
+        return paths, nodeHashesOfInterest, junction_nodes
+
+    def split_into_subpaths(self, paths, geneOfInterest):
+        for pair in paths:
+            for p in range(len(paths[pair])):
+                path = paths[pair][p]
+                if len(path) > self.get_kmerSize():
+                    # get the list of genes for this unitig
+                    genes = self.get_genes_in_unitig(path)
+                    nodes = list(path)
+                    node_indices_for_each_gene_index = {}
+                    for i in range(len(nodes)):
+                        gene_indices = [j for j in range(i, i + self.get_kmerSize())]
+                        for g in gene_indices:
+                            if genes[g][1:] == geneOfInterest:
+                                if g not in node_indices_for_each_gene_index:
+                                    node_indices_for_each_gene_index[g] = []
+                                node_indices_for_each_gene_index[g].append(i)
+                    new_paths = []
+                    for i in node_indices_for_each_gene_index:
+                        nodes_containing_this_gene = [
+                            nodes[j] for j in node_indices_for_each_gene_index[i]
+                        ]
+                        new_paths.append(nodes_containing_this_gene)
+                    # remove the old path
+                    del paths[pair][p]
+                    # add the new paths
+                    paths[pair] += new_paths
+        return paths
+
+    def assign_reads_to_paths(self, reads_of_interest, paths, junction_nodes):
+        clustered_reads = {}
+        for read_id in reads_of_interest:
+            # get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read_id]
+            # reversed the nodes on the read
+            reversed_node_on_read = list(reversed(nodes_on_read))
+            # iterate through the paths
+            for pair in paths:
+                for p in paths[pair]:
+                    if not any(n in junction_nodes for n in p):
+                        if len(set(p).intersection(set(nodes_on_read))) > 0:
+                            path_tuple = tuple(p)
+                            if not path_tuple in clustered_reads:
+                                clustered_reads[path_tuple] = set()
+                            clustered_reads[path_tuple].add(read_id)
+                    else:
+                        if self.is_sublist(nodes_on_read, p) or self.is_sublist(
+                            reversed_node_on_read, p
+                        ):
+                            path_tuple = tuple(p)
+                            if not path_tuple in clustered_reads:
+                                clustered_reads[path_tuple] = set()
+                            clustered_reads[path_tuple].add(read_id)
+        return clustered_reads
+
+    def get_minhashes_for_clusters(self, clustered_reads, fastq_data):
+        minhash_dictionary = {}
+        for path_tuple in clustered_reads:
+            minhash, reads_with_positions = self.get_minhash_for_path(
+                list(path_tuple), clustered_reads[path_tuple], fastq_data
+            )
+            minhash_dictionary[path_tuple] = minhash
+            clustered_reads[path_tuple] = reads_with_positions
+        return minhash_dictionary
+
+    def assign_reads_to_genes(self, listOfGenes, fastq_data):
+        # initialise a dictionary to store the paths
+        resolved_clusters = {}
+        # iterate through the genes we are interested in
+        for geneOfInterest in tqdm(listOfGenes):
+            # get all of the possible paths for this gene
+            paths, nodeHashesOfInterest, junction_nodes = self.get_paths_for_gene(geneOfInterest)
+            # get the reads covering the node hashes of interest
+            reads_of_interest = self.collect_reads_in_path(nodeHashesOfInterest)
+            # check if any of the paths are longer than k, this means there are duplicates
+            paths = self.split_into_subpaths(paths, geneOfInterest)
+            # assign reads to paths if the path or reversed path is in the list of nodes
+            clustered_reads = self.assign_reads_to_paths(reads_of_interest, paths, junction_nodes)
+            # make a minhash object for this path
+            minhash_dictionary = self.get_minhashes_for_clusters(clustered_reads, fastq_data)
+            # merge clusters based on MinHash distance
+            print(geneOfInterest)
+            clustered_reads = self.merge_clusters_by_minhash(clustered_reads, minhash_dictionary)
+            # store the paths
+            copy_counts = {}
+            if not geneOfInterest in copy_counts:
+                copy_counts[geneOfInterest] = 0
+            for path in clustered_reads:
+                if len(clustered_reads[path]) >= 5:
+                    resolved_clusters[
+                        f"{geneOfInterest}_{copy_counts[geneOfInterest]}_{len(clustered_reads[path])}"
+                    ] = list(clustered_reads[path])
+                    copy_counts[geneOfInterest] += 1
+                else:
+                    sys.stderr.write(
+                        f"\nAmira: allele {geneOfInterest}_{copy_counts[geneOfInterest]}_{len(clustered_reads[path])} filtered due to an insufficient number of reads.\n"
+                    )
+            print("\n")
+        return resolved_clusters
+
+    def merge_clusters_by_minhash(self, clustered_reads, minhash_dictionary, threshold=0.85):
+        """Merge clusters with Jaccard distance above the threshold and include unmatched paths."""
+        merged_clusters = {}
+        merged = set()
+
+        # First, include paths not in minhash_dictionary directly into merged_clusters
+        for path in clustered_reads:
+            if path not in minhash_dictionary:
+                merged_clusters[path] = clustered_reads[path]
+                merged.add(path)
+
+        # Then, attempt to merge clusters based on MinHash Jaccard distance
+        for p1 in clustered_reads:
+            if p1 in merged:
+                continue  # Skip already merged or directly added paths
+
+            for p2 in clustered_reads:
+                if p1 != p2 and p2 not in merged:
+                    print(
+                        minhash_dictionary[p1].jaccard(minhash_dictionary[p2]),
+                        len(set(minhash_dictionary[p1].hashes) & set(minhash_dictionary[p2].hashes))
+                        / len(set(minhash_dictionary[p2].hashes)),
+                        len(set(minhash_dictionary[p1].hashes) & set(minhash_dictionary[p2].hashes))
+                        / len(set(minhash_dictionary[p1].hashes)),
+                    )
+                    similarity = max(
+                        [
+                            len(
+                                set(minhash_dictionary[p1].hashes)
+                                & set(minhash_dictionary[p2].hashes)
+                            )
+                            / len(set(minhash_dictionary[p2].hashes)),
+                            len(
+                                set(minhash_dictionary[p1].hashes)
+                                & set(minhash_dictionary[p2].hashes)
+                            )
+                            / len(set(minhash_dictionary[p1].hashes)),
+                        ]
+                    )
+                    if similarity > threshold:
+                        merged.add(p2)
+                        if p1 in merged_clusters:
+                            merged_clusters[p1].update(clustered_reads[p2])
+                        else:
+                            merged_clusters[p1] = set(clustered_reads[p1]).union(
+                                clustered_reads[p2]
+                            )
+
+            # If p1 wasn't merged with anything, add it as is
+            if p1 not in merged_clusters and p1 not in merged:
+                merged_clusters[p1] = clustered_reads[p1]
+        return merged_clusters
+
+    def calculate_coverage_proportion(self, bam_file_path, reference_id=None):
+        # Open the BAM file
+        with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
+            # Determine the reference index
+            if reference_id is not None:
+                ref_index = bam_file.get_tid(reference_id)
+            else:
+                ref_index = 0  # Default to the first reference sequence
+            # Total number of positions in the reference covered by at least one read
+            covered_positions = 0
+            # Total length of the reference sequence
+            reference_length = bam_file.lengths[ref_index]
+            # Iterate through each position in the reference sequence
+            for pileupcolumn in bam_file.pileup(reference=reference_id):
+                if pileupcolumn.n > 0:  # If there's at least one read covering the position
+                    covered_positions += 1
+            # Calculate the proportion of the reference sequence that is covered
+            proportion_covered = covered_positions / reference_length
+        return proportion_covered
+
+    def polish_pandora_consensus(self, readFiles, racon_path, fastqContent, threads, output_dir):
+
+        def run_racon(file, fastqContent):
+            # get the gene name
+            gene_name = os.path.basename(file).replace(".fastq.gz", "")
+            # make the output dir
+            outputDir = os.path.join(output_dir, gene_name)
+            if not os.path.exists(outputDir):
+                os.mkdir(outputDir)
+            # make a temp file for each AMR gene consensus sequence
+            with open(os.path.join(outputDir, "01.pandora.consensus.fasta"), "w") as outFasta:
+                outFasta.write(
+                    ">"
+                    + gene_name
+                    + "\n"
+                    + fastqContent["_".join(gene_name.split("_")[:-2])]["sequence"]
+                    + "\n"
+                )
+            # map the reads to the consensus file
+            map_command = "minimap2 -a --MD -t 1 -x asm20 "
+            map_command += os.path.join(outputDir, "01.pandora.consensus.fasta") + " " + file
+            map_command += " > " + os.path.join(outputDir, "02.read.mapped.sam")
+            subprocess.run(map_command, shell=True, check=True)
+            subprocess.run(
+                f"samtools sort {os.path.join(outputDir, '02.read.mapped.sam')} > {os.path.join(outputDir, '02.read.mapped.bam')} && samtools index {os.path.join(outputDir, '02.read.mapped.bam')}",
+                shell=True,
+                check=True,
+            )
+            # check what proportion of the length of the gene has been mapped to
+            cov_proportion = self.calculate_coverage_proportion(
+                os.path.join(outputDir, "02.read.mapped.bam")
+            )
+            if cov_proportion > 0.8:
+                # polish the pandora consensus
+                racon_command = (
+                    racon_path
+                    + " -t 1 -w "
+                    + str(len(fastqContent["_".join(gene_name.split("_")[:-2])]["sequence"]))
+                    + " "
+                )
+                racon_command += file + " " + os.path.join(outputDir, "02.read.mapped.sam") + " "
+                racon_command += os.path.join(outputDir, "01.pandora.consensus.fasta") + " "
+                racon_command += "> " + os.path.join(outputDir, "03.polished.consensus.fasta")
+                subprocess.run(racon_command, shell=True, check=True)
+                # trim the buffer
+                with open(os.path.join(outputDir, "03.polished.consensus.fasta"), "r") as i:
+                    racon_seq = i.read()
+                header = racon_seq.split("\n")[0]
+                sequence = "\n".join(racon_seq.split("\n")[1:]).replace("N", "")
+                with open(
+                    os.path.join(outputDir, "04.polished.consensus.trimmed.fasta"), "w"
+                ) as outTrimmed:
+                    outTrimmed.write(">" + header + "\n" + sequence + "\n")
+                return None
+            else:
+                return (gene_name, cov_proportion)
+
+        # iterate through the reads for each unitig
+        job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
+        genes_to_remove = []
+        for subset in tqdm(job_list):
+            genes_to_remove += Parallel(n_jobs=threads)(
+                delayed(run_racon)(r, fastqContent) for r in subset
+            )
+        return genes_to_remove
