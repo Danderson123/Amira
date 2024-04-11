@@ -3603,3 +3603,362 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         result = graph.insert_elements(base_list, insert_dict)
         self.assertEqual(sorted(result), expected)
+
+    def test___get_genes_in_unitig_length_one(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene3"]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
+        node = [k for k, v in graph.get_nodes().items()]
+        # execution
+        actual_genes = graph.get_genes_in_unitig(node)
+        # assertion
+        self.assertTrue(actual_genes == ["+gene1", "-gene2", "+gene3"] or actual_genes == ["-gene3", "+gene2", "-gene1"])
+
+    def test___get_genes_in_unitig_length_greater_than_one(self):
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        genes2 = [
+            "+gene11",
+            "-gene12",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene13",
+            "+gene14",
+            "-gene15",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene21",
+            "+gene22",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
+        )
+        nodes = [n.__hash__() for n in graph.get_nodes_containing("gene15")]
+        # execution
+        actual_genes = graph.get_genes_in_unitig(nodes)
+        # assertion
+        self.assertTrue(actual_genes == ["+gene13", "+gene14", "-gene15", "+gene16", "-gene17"] or actual_genes == ["+gene17", "-gene16", "+gene15", "-gene14", "-gene13"])
+
+    def test___get_genes_in_unitig_length_zero(self):
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        genes2 = [
+            "+gene11",
+            "-gene12",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene13",
+            "+gene14",
+            "-gene15",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene21",
+            "+gene22",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
+        )
+        # execution
+        actual_genes = graph.get_genes_in_unitig([])
+        # assertion
+        self.assertEqual(actual_genes, [])
+
+    def test___reverse_list_of_genes(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        list_of_genes = [
+            "-gene6",
+            "+gene13",
+            "+gene14",
+            "-gene15"
+        ]
+        # execution
+        actual_reversed_genes = graph.reverse_list_of_genes(list_of_genes)
+        # assertion
+        self.assertEqual(actual_reversed_genes, ["+gene15", "-gene14", "-gene13", "+gene6"])
+
+    def test___reverse_list_of_genes_empty(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        list_of_genes = []
+        # execution
+        actual_reversed_genes = graph.reverse_list_of_genes(list_of_genes)
+        # assertion
+        self.assertEqual(actual_reversed_genes, [])
+
+    def test___needleman_wunsch_both_empty(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        alignment = graph.needleman_wunsch([], [])
+        # assertion
+        self.assertEqual(alignment, [])
+
+    def test___needleman_wunsch_gap_in_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        first = ["+gene1", "-gene2", "+gene3"]
+        second = ["+gene1", "+gene3"]
+        # execution
+        actual_alignment = graph.needleman_wunsch(first, second)
+        # assertion
+        expected_alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "*"),
+            ("+gene3", "+gene3")
+        ]
+        self.assertEqual(actual_alignment, expected_alignment)
+
+    def test___needleman_wunsch_two_gaps_in_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        first = ["+gene1", "-gene2", "+gene3", "-gene4"]
+        second = ["+gene1", "-gene4"]
+        # execution
+        actual_alignment = graph.needleman_wunsch(first, second)
+        # assertion
+        expected_alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "*"),
+            ("+gene3", "*"),
+            ("-gene4", "-gene4")
+        ]
+        self.assertEqual(actual_alignment, expected_alignment)
+
+    def test___needleman_wunsch_four_gaps_in_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        first = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        second = ["+gene1", "-gene6"]
+        # execution
+        actual_alignment = graph.needleman_wunsch(first, second)
+        # assertion
+        expected_alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "*"),
+            ("+gene3", "*"),
+            ("-gene4", "*"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        self.assertEqual(actual_alignment, expected_alignment)
+
+    def test___needleman_wunsch_four_SNPs_in_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        first = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        second = ["+gene1", "-gene7", "+gene8", "-gene9", "+gene10", "-gene6"]
+        # execution
+        actual_alignment = graph.needleman_wunsch(first, second)
+        # assertion
+        expected_alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "-gene7"),
+            ("+gene3", "+gene8"),
+            ("-gene4", "-gene9"),
+            ("+gene5", "+gene10"),
+            ("-gene6", "-gene6")
+        ]
+        self.assertEqual(actual_alignment, expected_alignment)
+
+    def test___needleman_wunsch_terminals_different(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        first = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
+        second = ["+gene7", "-gene2", "+gene3", "-gene4", "+gene5", "-gene8"]
+        # assertion
+        self.assertRaises(AssertionError, graph.needleman_wunsch, first, second)
+
+    def test___reverse_gene_alignment_no_gaps(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "-gene7"),
+            ("+gene3", "+gene8"),
+            ("-gene4", "-gene9"),
+            ("+gene5", "+gene10"),
+            ("-gene6", "-gene6")
+        ]
+        # execution
+        actual_reversed_alignment = graph.reverse_gene_alignment(alignment)
+        # assertion
+        expected_reversed_alignment = [
+            ("+gene6", "+gene6"),
+            ("-gene5", "-gene10"),
+            ("+gene4", "+gene9"),
+            ("-gene3", "-gene8"),
+            ("+gene2", "+gene7"),
+            ("-gene1", "-gene1")
+        ]
+        self.assertEqual(actual_reversed_alignment, expected_reversed_alignment)
+
+    def test___reverse_gene_alignment_gaps(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "*"),
+            ("+gene3", "+gene8"),
+            ("-gene4", "*"),
+            ("*", "+gene10"),
+            ("-gene6", "-gene6")
+        ]
+        # execution
+        actual_reversed_alignment = graph.reverse_gene_alignment(alignment)
+        # assertion
+        expected_reversed_alignment = [
+            ("+gene6", "+gene6"),
+            ("*", "-gene10"),
+            ("+gene4", "*"),
+            ("-gene3", "-gene8"),
+            ("+gene2", "*"),
+            ("-gene1", "-gene1")
+        ]
+        self.assertEqual(actual_reversed_alignment, expected_reversed_alignment)
+
+    def test___count_snps_in_alignment_snps(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "-gene7"),
+            ("+gene3", "+gene8"),
+            ("-gene4", "-gene9"),
+            ("+gene5", "+gene10"),
+            ("-gene6", "-gene6")
+        ]
+        # execution
+        actual_snps = graph.count_snps_in_alignment(alignment)
+        # assertion
+        self.assertEqual(actual_snps, 4)
+
+    def test___count_snps_in_alignment_no_snps(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "+gene5"),
+            ("-gene6", "-gene6")
+        ]
+        # execution
+        actual_snps = graph.count_snps_in_alignment(alignment)
+        # assertion
+        self.assertEqual(actual_snps, 0)
+
+    def test___count_indels_in_alignment_no_indels(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "+gene5"),
+            ("-gene6", "-gene6")
+        ]
+        # execution
+        actual_snps = graph.count_indels_in_alignment(alignment)
+        # assertion
+        self.assertEqual(actual_snps, 0)
+
+    def test___count_indels_in_alignment_indels(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("*", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        # execution
+        actual_snps = graph.count_indels_in_alignment(alignment)
+        # assertion
+        self.assertEqual(actual_snps, 2)
+
+    def test___collect_reads_in_path(self):
+        assert None
+
+    def test___reorient_alignment(self):
+        assert None
+
+    def test___slice_alignment_by_shared_elements(self):
+        assert None
+
+    def test___correct_genes_on_read(self):
+        assert None
+
+    def test___get_gene_position_prefix(self):
+        assert None
+
+    def test___get_gene_position_suffix(self):
+        assert None
+
+    def test___get_gene_position_core(self):
+        assert None
+
+    def test___get_new_gene_position_core(self):
+        assert None
+
+    def test___join_gene_position_ends_with_core(self):
+        assert None
+
+    def test___replace_invalid_gene_positions(self):
+        assert None
+
+    def test___correct_gene_positions_on_read(self):
+            assert None
+
+    def test___correct_bubble_paths(self):
+        assert None
+
+
+
+
+
+
+    def test___get_all_paths_between_junction_in_component(self):
+        assert None
+
+    def test___assign_reads_to_genes(self):
+        assert None
+
+    def test___correct_reads(self):
+        assert None

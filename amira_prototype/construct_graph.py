@@ -1384,6 +1384,8 @@ class GeneMerGraph:
         return valid_reads
 
     def needleman_wunsch(self, x, y):
+        if len(x) != 0 and len(y) != 0:
+            assert x[0] == y[0] and x[-1] == y[-1]
         N, M = len(x), len(y)
         # Scoring function: returns 1 if elements are equal, 0 otherwise
         s = lambda a, b: int(a == b)
@@ -1534,10 +1536,10 @@ class GeneMerGraph:
                 reads_with_positions.add(f"{read_id}")
         return minhash, reads_with_positions
 
-    def count_indels_in_alignment(self, aln):
+    def count_snps_in_alignment(self, aln):
         return len([col for col in aln if col[0] != col[1] and col[0] != "*" and col[1] != "*"])
 
-    def count_snps_in_alignment(self, aln):
+    def count_indels_in_alignment(self, aln):
         return len([col for col in aln if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
 
     def reorient_alignment(
