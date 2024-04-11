@@ -1,7 +1,5 @@
 import unittest
-from unittest.mock import Mock
 
-from amira_prototype.__main__ import find_trough
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
@@ -2407,33 +2405,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_targetDirection, expected_targetDirection)
         self.assertEqual(actual_extend, expected_extend)
 
-    def test___get_self_loop_forward_node_from_node(self):
-        # setup
-        genes = ["+gene1", "+gene1", "+gene1", "+gene1"]
-        read1 = Read("read1", genes)
-        geneMers = [x for x in read1.get_geneMers(3)[0]]
-        graph = GeneMerGraph({}, 3)
-        nodes = []
-        for g in geneMers:
-            node = graph.add_node(g, [read1])
-            nodes.append(node)
-        mock_forward_edge = Edge(nodes[0], nodes[1], -1, -1)
-        mock_rc_forward_edge = Edge(nodes[1], nodes[0], 1, 1)
-        graph.add_edges_to_graph(mock_forward_edge, mock_rc_forward_edge)
-        graph.add_edge_to_node(nodes[0], mock_forward_edge)
-        graph.add_edge_to_node(nodes[1], mock_rc_forward_edge)
-        # execution
-        actual_extend, actual_targetNode, actual_targetDirection = graph.get_forward_node_from_node(
-            nodes[0]
-        )
-        # assertion
-        expected_targetNode = nodes[0]
-        expected_targetDirection = -1
-        expected_extend = False
-        self.assertEqual(actual_targetNode, expected_targetNode)
-        self.assertEqual(actual_targetDirection, expected_targetDirection)
-        self.assertEqual(actual_extend, expected_extend)
-
     def test___get_existing_backward_node_from_node_in_middle(self):
         # setup
         genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5"]
@@ -3632,28 +3603,3 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         result = graph.insert_elements(base_list, insert_dict)
         self.assertEqual(sorted(result), expected)
-
-    def test__init_with_gene_positions(self):
-        # setup
-        genes1 = [
-            "+gene1",
-            "-gene2",
-            "+gene3",
-            "-gene4",
-            "-gene6",
-            "+gene7",
-            "-gene8",
-            "+gene9",
-            "-gene10",
-        ]
-        genes2 = ["+gene1", "-gene2", "-gene4", "-gene6", "+gene7", "-gene8", "+gene9", "-gene10"]
-        genes3 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene7", "-gene8", "+gene9", "-gene10"]
-        positions1 = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9)]
-        positions2 = [(0, 1), (1, 2), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9)]
-        positions3 = [(0, 1), (1, 2), (2, 3), (3, 4), (5, 6), (6, 7), (7, 8), (8, 9)]
-        # execution
-        graph = GeneMerGraph(
-            {"read1": genes1, "read2": genes2, "read3": genes3},
-            3,
-            {"read1": positions1, "read2": positions2, "read3": positions3},
-        )

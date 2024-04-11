@@ -1540,7 +1540,14 @@ class GeneMerGraph:
     def count_snps_in_alignment(self, aln):
         return len([col for col in aln if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
 
-    def reorient_alignment(self, genes_on_read, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment):
+    def reorient_alignment(
+        self,
+        genes_on_read,
+        fw_genes_in_path_counter,
+        bw_genes_in_path_counter,
+        fw_alignment,
+        rv_alignment,
+    ):
         genes_on_read_counter = Counter(genes_on_read)
         # choose the alignment or rv alignment
         fw_count = len(genes_on_read_counter & fw_genes_in_path_counter)
@@ -1553,7 +1560,14 @@ class GeneMerGraph:
         else:
             raise ValueError("Forward and reverse path alignments are equally distant.")
 
-    def correct_genes_on_read(self, genes_on_read, first_shared_read_index, last_shared_read_index, alignment_subset, read_id):
+    def correct_genes_on_read(
+        self,
+        genes_on_read,
+        first_shared_read_index,
+        last_shared_read_index,
+        alignment_subset,
+        read_id,
+    ):
         prefix = genes_on_read[:first_shared_read_index]
         suffix = genes_on_read[last_shared_read_index + 1 :]
         core = [c[0] for c in alignment_subset if c[0] != "*"]
@@ -1563,9 +1577,11 @@ class GeneMerGraph:
         return gene_positions[:first_shared_read_index]
 
     def get_gene_position_suffix(self, gene_positions, last_shared_read_index):
-        return gene_positions[last_shared_read_index + 1:]
+        return gene_positions[last_shared_read_index + 1 :]
 
-    def get_gene_position_core(self, gene_positions, first_shared_read_index, last_shared_read_index):
+    def get_gene_position_core(
+        self, gene_positions, first_shared_read_index, last_shared_read_index
+    ):
         return gene_positions[first_shared_read_index : last_shared_read_index + 1]
 
     def get_new_gene_position_core(self, alignment_subset, core_gene_positions):
@@ -1577,33 +1593,21 @@ class GeneMerGraph:
                 if col[1] != col[0]:
                     new_core_gene_positions.append((None, None))
                 else:
-                    new_core_gene_positions.append(
-                        core_gene_positions[core_position_index]
-                    )
+                    new_core_gene_positions.append(core_gene_positions[core_position_index])
                     core_position_index += 1
             else:
                 core_position_index += 1
         return new_core_gene_positions
 
-    def join_gene_position_ends_with_core(self, position_prefix, position_suffix, new_core_gene_positions):
+    def join_gene_position_ends_with_core(
+        self, position_prefix, position_suffix, new_core_gene_positions
+    ):
         if len(position_prefix) != 0 and len(position_suffix) != 0:
-            new_positions = (
-                position_prefix
-                + new_core_gene_positions
-                + position_suffix
-            )
-        elif (
-            len(position_prefix) != 0 and len(position_suffix) == 0
-        ):
-            new_positions = (
-                position_prefix + new_core_gene_positions
-            )
-        elif (
-            len(position_prefix) == 0 and len(position_suffix) != 0
-        ):
-            new_positions = (
-                new_core_gene_positions + position_suffix
-            )
+            new_positions = position_prefix + new_core_gene_positions + position_suffix
+        elif len(position_prefix) != 0 and len(position_suffix) == 0:
+            new_positions = position_prefix + new_core_gene_positions
+        elif len(position_prefix) == 0 and len(position_suffix) != 0:
+            new_positions = new_core_gene_positions + position_suffix
         else:
             new_positions = new_core_gene_positions
         return new_positions
@@ -1624,24 +1628,17 @@ class GeneMerGraph:
                 elif next_start == None and prev_end != None:
                     new_positions[i] = (
                         prev_end,
-                        len(
-                            fastq_data[
-                                "_".join(read_id.split("_")[:-1])
-                            ]
-                        )
-                        - 1,
+                        len(fastq_data["_".join(read_id.split("_")[:-1])]) - 1,
                     )
                 else:
                     print(new_positions)
-                    raise AttributeError(
-                        "Could not find a valid gene start or end position."
-                    )
-                assert None not in list(
-                    new_positions[i]
-                ), new_positions
+                    raise AttributeError("Could not find a valid gene start or end position.")
+                assert None not in list(new_positions[i]), new_positions
         return new_positions
 
-    def correct_gene_positions_on_read(self, first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data):
+    def correct_gene_positions_on_read(
+        self, first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data
+    ):
         # get the gene positions
         gene_positions = self.get_gene_positions()[read_id]
         # get the new gene position prefix
@@ -1649,25 +1646,37 @@ class GeneMerGraph:
         # get the new gene position suffix
         position_suffix = self.get_gene_position_suffix(gene_positions, last_shared_read_index)
         # get the existing gene position core
-        core_gene_positions = self.get_gene_position_core(gene_positions, first_shared_read_index, last_shared_read_index)
+        core_gene_positions = self.get_gene_position_core(
+            gene_positions, first_shared_read_index, last_shared_read_index
+        )
         # get the new gene position core
-        new_core_gene_positions = self.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        new_core_gene_positions = self.get_new_gene_position_core(
+            alignment_subset, core_gene_positions
+        )
         # join the prefix, core and suffix to get the new gene positions
-        new_positions = self.join_gene_position_ends_with_core(position_prefix, position_suffix, new_core_gene_positions)
+        new_positions = self.join_gene_position_ends_with_core(
+            position_prefix, position_suffix, new_core_gene_positions
+        )
         # genes we have had to add have invalid start and stop positions, this function corrects them
-        corrected_new_positions = self.replace_invalid_gene_positions(new_positions, fastq_data, read_id)
+        corrected_new_positions = self.replace_invalid_gene_positions(
+            new_positions, fastq_data, read_id
+        )
         # replace the gene positions with the corrected new positions
         self.get_gene_positions()[read_id] = corrected_new_positions
         # double check that the number of genes is equal to the number of gene positions
-        assert len(self.get_reads()[read_id]) == len(
-            self.get_gene_positions()[read_id]
-        ), (
-            str(len(self.get_reads()[read_id]))
-            + "/"
-            + str(len(self.get_gene_positions()[read_id]))
+        assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id]), (
+            str(len(self.get_reads()[read_id])) + "/" + str(len(self.get_gene_positions()[read_id]))
         )
 
-    def correct_low_coverage_path(self, lower_coverage_path, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment, fastq_data):
+    def correct_low_coverage_path(
+        self,
+        lower_coverage_path,
+        fw_genes_in_path_counter,
+        bw_genes_in_path_counter,
+        fw_alignment,
+        rv_alignment,
+        fastq_data,
+    ):
         # get the reads in the path
         nodes_to_correct = lower_coverage_path[1:-1]
         reads_in_path = self.collect_reads_in_path(nodes_to_correct)
@@ -1675,7 +1684,13 @@ class GeneMerGraph:
             # get the list of genes on this read
             genes_on_read = self.get_reads()[read_id][:]
             # Determine which replacement dict to use based on shared counts
-            alignment = self.reorient_alignment(genes_on_read, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment)
+            alignment = self.reorient_alignment(
+                genes_on_read,
+                fw_genes_in_path_counter,
+                bw_genes_in_path_counter,
+                fw_alignment,
+                rv_alignment,
+            )
             # get the alignment columns for the first and last elements shared with the list of genes
             (
                 alignment_subset,
@@ -1683,14 +1698,24 @@ class GeneMerGraph:
                 last_shared_read_index,
                 alignment_start,
                 alignment_end,
-            ) = self.slice_alignment_by_shared_elements(
-                alignment, genes_on_read
-            )
+            ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
             subpath = [c[1] for c in alignment_subset if c[1] != "*"]
             # Correct the read using the alignment subset
             if self.is_sublist(genes_on_read, subpath):
-                self.correct_genes_on_read(genes_on_read, first_shared_read_index, last_shared_read_index, alignment_subset, read_id)
-                self.correct_gene_positions_on_read(first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data)
+                self.correct_genes_on_read(
+                    genes_on_read,
+                    first_shared_read_index,
+                    last_shared_read_index,
+                    alignment_subset,
+                    read_id,
+                )
+                self.correct_gene_positions_on_read(
+                    first_shared_read_index,
+                    last_shared_read_index,
+                    alignment_subset,
+                    read_id,
+                    fastq_data,
+                )
                 # check that the number of genes and number of gene positions are equal
                 assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id])
             else:
@@ -1700,9 +1725,7 @@ class GeneMerGraph:
     def compare_paths(self, lower_coverage_path, fw_higher_coverage_genes):
         # get the genes in the lower coverage path
         lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
-        fw_alignment = self.needleman_wunsch(
-            fw_higher_coverage_genes, lower_coverage_genes
-        )
+        fw_alignment = self.needleman_wunsch(fw_higher_coverage_genes, lower_coverage_genes)
         rv_alignment = self.reverse_gene_alignment(fw_alignment)
         # get the SNP differences
         SNP_count = self.count_snps_in_alignment(fw_alignment)
@@ -1740,10 +1763,19 @@ class GeneMerGraph:
                             #    continue
                             lower_coverage_path = [n[0] for n in lower_coverage_path]
                             # get the genes in the lower coverage path
-                            fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(lower_coverage_path, fw_higher_coverage_genes)
+                            fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(
+                                lower_coverage_path, fw_higher_coverage_genes
+                            )
                             # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
                             if SNP_count <= 2 and INDEL_count <= 2:
-                                self.correct_low_coverage_path(lower_coverage_path, fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment, fastq_data)
+                                self.correct_low_coverage_path(
+                                    lower_coverage_path,
+                                    fw_genes_in_path_counter,
+                                    bw_genes_in_path_counter,
+                                    fw_alignment,
+                                    rv_alignment,
+                                    fastq_data,
+                                )
 
     def slice_alignment_by_shared_elements(self, alignment, genes_on_read):
         start_index = 0

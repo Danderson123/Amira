@@ -1,7 +1,5 @@
 import json
-import math
 
-import numpy as np
 import pysam
 from tqdm import tqdm
 
@@ -74,28 +72,6 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
     return gene_name, strandlessGene
 
 
-def calculate_core_gene_proportion(pandoraSam, pandora_consensus):
-    import numpy as np
-
-    # load the list of core genes
-    with open(
-        "/hps/nobackup/iqbal/dander/amira_panRG_pipeline/Escherichia_coli_all_24_test_samples/panaroo_integrated_AMR_alleles/core_genes.txt"
-    ) as i:
-        all_core_genes = set(i.read().split("\n"))
-    pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
-    # see what proportion of core genes have been identified in this sample
-    found_core_genes = set()
-    for read in pandora_sam_content.fetch():
-        if read.is_mapped:
-            gene_name, strandlessGene = determine_gene_strand(read)
-            if strandlessGene in pandora_consensus:
-                if strandlessGene in all_core_genes:
-                    found_core_genes.add(strandlessGene)
-    pandora_sam_content.close()
-    core_gene_proportion = len(found_core_genes) / len(all_core_genes)
-    return None  # core_gene_proportion
-
-
 def convert_pandora_output(
     pandoraSam: str,
     pandora_consensus: dict[str, list[str]],
@@ -118,7 +94,7 @@ def convert_pandora_output(
         cigar = read.cigartuples
         # check if the read has mapped to any regions
         if read.is_mapped:
-            if not read.query_name in read_tracking:
+            if read.query_name not in read_tracking:
                 read_tracking[read.query_name] = {"end": 0, "index": 0}
             # get the start base that the region maps to on the read
             regionStart = get_read_start(cigar)
