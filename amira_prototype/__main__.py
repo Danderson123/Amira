@@ -324,7 +324,7 @@ def main() -> None:
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
     # parse the original fastq file
-    cleaning_iterations = 1
+    cleaning_iterations = 3
     for this_iteration in range(cleaning_iterations):
         sys.stderr.write(
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}...\n"

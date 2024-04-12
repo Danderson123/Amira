@@ -1,3 +1,4 @@
+from itertools import combinations
 import os
 import statistics
 import subprocess
@@ -1157,22 +1158,22 @@ class GeneMerGraph:
         possible_middle_paths = self.insert_elements(nodes_on_read, replacementDict)
         # Initialize lists for upstream and downstream paths
         upstream_paths, downstream_paths = [], []
-        # get all the possible upstream paths
-        if start != 0:
-            upstream_paths = self.find_paths_between_nodes(
-                nodes_on_read[start][0], None, start * 2, -nodes_on_read[start][1]
-            )
-        # get all the possible downstream paths
-        if end != len(nodes_on_read) - 1:
-            downstream_paths = self.find_paths_between_nodes(
-                nodes_on_read[end][0],
-                None,
-                (len(nodes_on_read) - end - 1) * 2,
-                nodes_on_read[end][1],
-            )
+        # # get all the possible upstream paths
+        # if start != 0:
+        #     upstream_paths = self.find_paths_between_nodes(
+        #         nodes_on_read[start][0], None, start * 2, -nodes_on_read[start][1]
+        #     )
+        # # get all the possible downstream paths
+        # if end != len(nodes_on_read) - 1:
+        #     downstream_paths = self.find_paths_between_nodes(
+        #         nodes_on_read[end][0],
+        #         None,
+        #         (len(nodes_on_read) - end - 1) * 2,
+        #         nodes_on_read[end][1],
+        #     )
         possible_paths = []
         # for now we are not going to add the upstream and downstream paths
-        # upstream_paths, downstream_paths = [], []
+        upstream_paths, downstream_paths = [], []
         # Iterate over each possible middle path
         for corrected in possible_middle_paths:
             # Extract nodes and directions from the middle path, ignoring entries without a node
@@ -1257,6 +1258,8 @@ class GeneMerGraph:
                 coverage = path_mean_coverage
             else:
                 pass
+        #print("\n", nodes_on_read)
+        #print(replacementDict)
         # align the new and old lists of genes
         alignment = self.needleman_wunsch(closest, self.get_reads()[read_id])
         # modify the gene positions
@@ -1273,27 +1276,7 @@ class GeneMerGraph:
             else:
                 current_index += 1
         # infer the missing gene positions
-        prev_end = 0
-        for i, (start, end) in enumerate(new_positions):
-            if end is not None:
-                prev_end = end
-            if start is None and end is None:
-                next_start = None
-                for j in range(i + 1, len(new_positions)):
-                    if new_positions[j][0] is not None:
-                        next_start = new_positions[j][0]
-                        break
-                if prev_end != None and next_start != None:
-                    new_positions[i] = (prev_end, next_start)
-                elif next_start == None and prev_end != None:
-                    new_positions[i] = (
-                        prev_end,
-                        len(fastq_data["_".join(read_id.split("_")[:-1])]) - 1,
-                    )
-                else:
-                    print(new_positions)
-                    raise AttributeError("Could not find a valid gene start or end position.")
-                assert None not in list(new_positions[i]), new_positions
+        new_positions = self.replace_invalid_gene_positions(new_positions, fastq_data, read_id)
         self.get_gene_positions()[read_id] = new_positions
         return closest
 
@@ -1356,7 +1339,7 @@ class GeneMerGraph:
 
     def generate_replacement_dict(self, corrected, pair):
         """Generate a dictionary with replacements for invalid nodes."""
-        paths = self.find_paths_between_nodes(
+        paths = self.new_find_paths_between_nodes(
             corrected[pair[0]][0],
             corrected[pair[1]][0],
             self.get_kmerSize() * 2,
@@ -1384,8 +1367,10 @@ class GeneMerGraph:
         return valid_reads
 
     def needleman_wunsch(self, x, y):
-        if len(x) != 0 and len(y) != 0:
-            assert x[0] == y[0] and x[-1] == y[-1]
+        #print(x)
+        #print(y, "\n")
+        #if len(x) != 0 and len(y) != 0:
+        #    assert x[0] == y[0] and x[-1] == y[-1]
         N, M = len(x), len(y)
         # Scoring function: returns 1 if elements are equal, 0 otherwise
         s = lambda a, b: int(a == b)
@@ -1517,10 +1502,6 @@ class GeneMerGraph:
                 last_index == len(self.get_readNodePositions()[read_id]) - 1
             ), self.get_readNodePositions()[read_id]
             end_pos = len(entire_read_sequence) - 1
-        print(path)
-        print(nodes_on_read)
-        print(self.get_readNodePositions()[read_id])
-        print(len(entire_read_sequence), "\n")
         assert start_pos >= 0
         assert end_pos < len(entire_read_sequence)
         read_sequence = entire_read_sequence[start_pos : end_pos + 1]
@@ -1574,6 +1555,7 @@ class GeneMerGraph:
         suffix = genes_on_read[last_shared_read_index + 1 :]
         core = [c[0] for c in alignment_subset if c[0] != "*"]
         self.get_reads()[read_id] = prefix + core + suffix
+        return self.get_reads()[read_id]
 
     def get_gene_position_prefix(self, gene_positions, first_shared_read_index):
         return gene_positions[:first_shared_read_index]
@@ -1694,13 +1676,7 @@ class GeneMerGraph:
                 rv_alignment,
             )
             # get the alignment columns for the first and last elements shared with the list of genes
-            (
-                alignment_subset,
-                first_shared_read_index,
-                last_shared_read_index,
-                alignment_start,
-                alignment_end,
-            ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
+            alignment_subset, first_shared_read_index, last_shared_read_index, = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
             subpath = [c[1] for c in alignment_subset if c[1] != "*"]
             # Correct the read using the alignment subset
             if self.is_sublist(genes_on_read, subpath):
@@ -1779,38 +1755,89 @@ class GeneMerGraph:
                                     fastq_data,
                                 )
 
+    def split_into_contiguous_chunks(self, numbers):
+        if not numbers:
+            return []
+        # Initialize the list of chunks with the first number
+        chunks = []
+        current_chunk = [numbers[0]]
+        # Iterate through the numbers starting from the second element
+        for i in range(1, len(numbers)):
+            # Check if the current number is contiguous with the last number in the current chunk
+            if numbers[i] == numbers[i - 1] + 1:
+                current_chunk.append(numbers[i])
+            else:
+                # If not contiguous, add the current chunk to chunks and start a new chunk
+                chunks.append(current_chunk)
+                current_chunk = [numbers[i]]
+        # Add the last chunk to the list
+        chunks.append(current_chunk)
+        return chunks
+
+    def find_sublist_indices(self, main_list, sublist):
+        indices = []
+        sublist_length = len(sublist)
+        # Loop through the main list from start to the point where checking for the sublist still makes sense
+        for i in range(len(main_list) - sublist_length + 1):
+            # Check if the slice of main_list starting at i matches the sublist
+            if main_list[i:i + sublist_length] == sublist:
+                # Append the start and stop indices to the results
+                indices.append((i, i + sublist_length - 1))
+        return indices
+
+    def all_sublist_combinations(self, lst):
+        sublists = []
+        # Iterate over all possible starting indices
+        for start in range(len(lst)):
+            # Iterate over all possible ending indices for each start
+            for end in range(start + 1, len(lst) + 1):
+                sublists.append(lst[start:end])
+        return sublists
+
+
+    def get_path_to_alignment_mapping(self, alignment):
+        higher_index = 0
+        lower_index = 0
+        higher_mapping = {}
+        lower_mapping = {}
+        for i in range(len(alignment)):
+            col = alignment[i]
+            if col[1] != "*":
+                lower_mapping[lower_index] = i
+                lower_index += 1
+            if col[0] != "*":
+                higher_mapping[higher_index] = i
+                higher_index += 1
+        return higher_mapping, lower_mapping
+
     def slice_alignment_by_shared_elements(self, alignment, genes_on_read):
-        start_index = 0
-        stop_index = 0
-        read_start = 0
-        read_stop = 0
-        start_found = False
-        last_matched_gene_index = 0  # Keep track of the index in genes_on_read after the last match
-        for c in range(len(alignment)):
-            col = alignment[c]
-            for g in range(
-                last_matched_gene_index, len(genes_on_read)
-            ):  # Start from the last matched index
-                gene = genes_on_read[g]
-                if col[1] == gene:
-                    if not start_found:
-                        start_index = c
-                        read_start = g
-                        start_found = True
-                    stop_index = c
-                    read_stop = g
-                    last_matched_gene_index = (
-                        g + 1
-                    )  # Update the index to start from for the next iteration
-                    break  # Break after the first match to avoid updating stop_index for subsequent matches
-        # Ensure to return a slice that includes both start and stop indexes
-        return (
-            alignment[start_index : stop_index + 1],
-            read_start,
-            read_stop,
-            start_index,
-            stop_index,
-        )
+        # get the mappings of path gene to alignment gene
+        higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
+        # get the indices of all genes on the read that are shared with the alignment
+        genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
+        # get the indices of all genes shared with the alignment
+        shared_read_indices_with_lcp = [i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_lower_coverage_path]
+        # split the shared gene indices into contiguous chunks
+        read_chunks = self.split_into_contiguous_chunks(shared_read_indices_with_lcp)
+        if not len(read_chunks) == 0:
+            # iterate through the chunks
+            for chunk in read_chunks:
+                # get all possible sublist combinations
+                sublist_combinations = self.all_sublist_combinations(chunk)
+                # filter out the sublists that are not found in the path
+                valid_sublists = [s for s in sublist_combinations if self.is_sublist(genes_in_lower_coverage_path, [genes_on_read[i] for i in s])]
+                # filter out the sublists that are sublists of other sublists
+                filtered_sublists = [s for s in valid_sublists if not any(self.is_sublist(other, s) and s != other for other in valid_sublists)]
+                # get the locations of the sublists in the path
+                sublist_positions = [(s, self.find_sublist_indices(genes_in_lower_coverage_path, [genes_on_read[i] for i in s])) for s in filtered_sublists]
+                # sort the sublist positions by length
+                sorted_sublist_positions = sorted(sublist_positions, key=lambda x: max([s[1] - s[0] for s in x[1]]), reverse=True)
+                # choose the longest sublist match as the true subset
+                assert len(sorted_sublist_positions[0][1]) == 1
+                alignment_indices = [lower_mapping[i] for i in list(sorted_sublist_positions[0][1][0])]
+                return alignment[alignment_indices[0]: alignment_indices[-1] + 1], sorted_sublist_positions[0][0][0], sorted_sublist_positions[0][0][-1]
+        else:
+            return [], None, None
 
     def get_all_paths_between_junction_in_component(
         self, potential_bubble_starts_component, max_distance
