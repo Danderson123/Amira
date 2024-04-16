@@ -42,7 +42,7 @@ def get_read_start(cigar: list[tuple[int, int]]) -> int:
     """return an int of the 0 based position where the read region starts mapping to the gene"""
     # check if there are any hard clipped bases at the start of the mapping
     if cigar[0][0] == 5:
-        regionStart = cigar[0][1]
+        regionStart = cigar[0][1] - 1
     else:
         regionStart = 0
     return regionStart
@@ -54,7 +54,7 @@ def get_read_end(cigar: list[tuple[int, int]], regionStart: int) -> tuple[int, i
     for tuple in cigar:
         if not tuple[0] == 5:
             regionLength += tuple[1]
-    regionEnd = regionStart + regionLength
+    regionEnd = regionStart + regionLength - 1
     return regionEnd, regionLength
 
 

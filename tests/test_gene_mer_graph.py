@@ -3974,10 +3974,18 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             ("*", "+gene2"),
             ("-gene1", "-gene1")
         ]
-        fw_genes_in_path_counter = Counter(["+gene1", "+gene3", "-gene4", "+gene5", "-gene6"])
-        bw_genes_in_path_counter = Counter(["+gene6", "-gene5", "-gene3", "-gene1"])
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6"]
+        gene_mers = []
+        reverse_gene_mers = []
+        for i in range(len(genes) - (3 - 1)):
+            # take a slice of the list of Genes from index i to i + kmerSize
+            gene_mer = genes[i : i + 3]
+            gene_mers.append(tuple(gene_mer))
+            reverse_gene_mers.append(tuple(graph.reverse_list_of_genes(gene_mer)))
+        fw_gene_mers_in_path = Counter(gene_mers)
+        bw_gene_mers_in_path = Counter(reverse_gene_mers)
         # execution
-        actual_alignment = graph.reorient_alignment(["+gene3", "-gene4", "-gene6"], fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment)
+        actual_alignment = graph.reorient_alignment([tuple(["+gene3", "-gene4", "-gene6"])], fw_gene_mers_in_path, bw_gene_mers_in_path, fw_alignment, rv_alignment)
         # assertion
         self.assertEqual(actual_alignment, fw_alignment)
 
@@ -4000,10 +4008,18 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             ("*", "+gene2"),
             ("-gene1", "-gene1")
         ]
-        fw_genes_in_path_counter = Counter(["+gene1", "+gene3", "-gene4", "+gene5", "-gene6"])
-        bw_genes_in_path_counter = Counter(["+gene6", "-gene5", "-gene3", "-gene1"])
+        genes = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6"]
+        gene_mers = []
+        reverse_gene_mers = []
+        for i in range(len(genes) - (3 - 1)):
+            # take a slice of the list of Genes from index i to i + kmerSize
+            gene_mer = genes[i : i + 3]
+            gene_mers.append(tuple(gene_mer))
+            reverse_gene_mers.append(tuple(graph.reverse_list_of_genes(gene_mer)))
+        fw_gene_mers_in_path = Counter(gene_mers)
+        bw_gene_mers_in_path = Counter(reverse_gene_mers)
         # execution
-        actual_alignment = graph.reorient_alignment(["+gene6", "+gene4", "-gene3"], fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment)
+        actual_alignment = graph.reorient_alignment([tuple(["+gene6", "+gene4", "-gene3"])], fw_gene_mers_in_path, bw_gene_mers_in_path, fw_alignment, rv_alignment)
         # assertion
         self.assertEqual(actual_alignment, rv_alignment)
 
@@ -4026,10 +4042,18 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             ("*", "+gene2"),
             ("-gene1", "-gene1")
         ]
-        fw_genes_in_path_counter = Counter(["+gene1", "+gene3", "-gene4", "+gene5", "-gene6"])
-        bw_genes_in_path_counter = Counter(["+gene6", "-gene5", "-gene3", "-gene1"])
+        genes = ["+gene3", "-gene3", "+gene3", "-gene3", "+gene3"]
+        gene_mers = []
+        reverse_gene_mers = []
+        for i in range(len(genes) - (3 - 1)):
+            # take a slice of the list of Genes from index i to i + kmerSize
+            gene_mer = genes[i : i + 3]
+            gene_mers.append(tuple(gene_mer))
+            reverse_gene_mers.append(tuple(graph.reverse_list_of_genes(gene_mer)))
+        fw_gene_mers_in_path = Counter(gene_mers)
+        bw_gene_mers_in_path = Counter(reverse_gene_mers)
         # assertion
-        self.assertRaises(AssertionError, graph.reorient_alignment, ["-gene3"], fw_genes_in_path_counter, bw_genes_in_path_counter, fw_alignment, rv_alignment)
+        self.assertRaises(ValueError, graph.reorient_alignment, [tuple(["+gene3", "-gene3", "+gene3"])], fw_gene_mers_in_path, bw_gene_mers_in_path, fw_alignment, rv_alignment)
 
     def test___slice_alignment_by_shared_elements_unique_genes(self):
         # setup
@@ -4067,6 +4091,24 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_start_index, 0)
         self.assertEqual(actual_end_index, 4)
 
+    def test___slice_alignment_by_shared_elements_one_shared_gene(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("*", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        read_genes = ["+gene7", "-gene8", "+gene3", "-gene9", "-gene10"]
+        # execution
+        actual_alignment_subset, actual_start_index, actual_end_index = graph.slice_alignment_by_shared_elements(alignment, read_genes)
+        self.assertEqual(actual_alignment_subset, [("+gene3", "+gene3")])
+        self.assertEqual(actual_start_index, 2)
+        self.assertEqual(actual_end_index, 2)
+
     def test___slice_alignment_by_shared_elements_no_shared_genes(self):
         # setup
         graph = GeneMerGraph({}, 3)
@@ -4102,6 +4144,44 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_alignment_subset, [("+gene1", "+gene1"), ("-gene4", "-gene4")])
         self.assertEqual(actual_start_index, 2)
         self.assertEqual(actual_end_index, 3)
+
+    def test___slice_alignment_by_shared_elements_different_path(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("*", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        read_genes = ["-gene2", "-gene7", "-gene4", "-gene8", "+gene9"]
+        # execution
+        actual_alignment_subset, actual_start_index, actual_end_index = graph.slice_alignment_by_shared_elements(alignment, read_genes)
+        self.assertEqual(actual_alignment_subset, [])
+        self.assertEqual(actual_start_index, None)
+        self.assertEqual(actual_end_index, None)
+
+    def test___slice_alignment_by_shared_elements_multiple_chunks(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment = [
+            ("+gene1", "+gene1"),
+            ("*", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6"),
+            ("+gene7", "+gene7")
+        ]
+        read_genes = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
+        # execution
+        actual_alignment_subset, actual_start_index, actual_end_index = graph.slice_alignment_by_shared_elements(alignment, read_genes)
+        print(actual_alignment_subset, actual_start_index, actual_end_index)
+        self.assertEqual(actual_alignment_subset, alignment)
+        self.assertEqual(actual_start_index, 0)
+        self.assertEqual(actual_end_index, 6)
 
     def test___correct_genes_on_read_all_shared(self):
         # setup
@@ -4147,23 +4227,249 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(actual_corrected_reads, ["-gene0", "-gene4", "+gene1", "-gene4", "+gene5"])
 
-    def test___get_gene_position_prefix(self):
-        assert None
+    def test___get_gene_position_prefix_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        first_shared_read_index = 2
+        # execution
+        actual_prefix = graph.get_gene_position_prefix(gene_positions, first_shared_read_index)
+        # assertion
+        self.assertEqual(actual_prefix, [(0, 1000), (1001, 2000)])
 
-    def test___get_gene_position_suffix(self):
-        assert None
+    def test___get_gene_position_prefix_start(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        first_shared_read_index = 0
+        # execution
+        actual_prefix = graph.get_gene_position_prefix(gene_positions, first_shared_read_index)
+        # assertion
+        self.assertEqual(actual_prefix, [])
 
-    def test___get_gene_position_core(self):
-        assert None
+    def test___get_gene_position_prefix_end(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        first_shared_read_index = 5
+        # execution
+        actual_prefix = graph.get_gene_position_prefix(gene_positions, first_shared_read_index)
+        # assertion
+        self.assertEqual(actual_prefix, [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000)])
 
-    def test___get_new_gene_position_core(self):
-        assert None
+    def test___get_gene_position_suffix_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        last_shared_read_index = 3
+        # execution
+        actual_suffix = graph.get_gene_position_suffix(gene_positions, last_shared_read_index)
+        # assertion
+        self.assertEqual(actual_suffix, [(4001, 5000), (5001, 6000)])
 
-    def test___join_gene_position_ends_with_core(self):
-        assert None
+    def test___get_gene_position_suffix_end(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        last_shared_read_index = 5
+        # execution
+        actual_suffix = graph.get_gene_position_suffix(gene_positions, last_shared_read_index)
+        # assertion
+        self.assertEqual(actual_suffix, [])
 
-    def test___replace_invalid_gene_positions(self):
-        assert None
+    def test___get_gene_position_suffix_start(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        last_shared_read_index = 0
+        # execution
+        actual_suffix = graph.get_gene_position_suffix(gene_positions, last_shared_read_index)
+        # assertion
+        self.assertEqual(actual_suffix, [(1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)])
+
+    def test___get_gene_position_core_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        first_shared_read_index = 2
+        last_shared_read_index = 4
+        # execution
+        actual_core = graph.get_gene_position_core(gene_positions, first_shared_read_index, last_shared_read_index)
+        # assertion
+        self.assertEqual(actual_core, [(2001, 3000), (3001, 4000), (4001, 5000)])
+
+    def test___get_gene_position_core_ends(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        first_shared_read_index = 0
+        last_shared_read_index = 5
+        # execution
+        actual_core = graph.get_gene_position_core(gene_positions, first_shared_read_index, last_shared_read_index)
+        # assertion
+        self.assertEqual(actual_core, gene_positions)
+
+    def test___get_new_gene_position_core_single_gap(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment_subset = [
+            ("+gene1", "+gene1"),
+            ("*", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        core_gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (5001, 6000)]
+        # execution
+        actual_new_core_gene_positions = graph.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_core_gene_positions, [(0, 1000), (2001, 3000), (3001, 4000), (None, None), (5001, 6000)])
+
+    def test___get_new_gene_position_core_two_single_gaps(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment_subset = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "*"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        core_gene_positions = [(0, 1000), (2001, 3000), (3001, 4000), (5001, 6000)]
+        # execution
+        actual_new_core_gene_positions = graph.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_core_gene_positions, [(0, 1000), (None, None), (2001, 3000), (3001, 4000), (None, None), (5001, 6000)])
+
+    def test___get_new_gene_position_core_double_gap(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment_subset = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "*"),
+            ("+gene3", "*"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "*"),
+            ("-gene6", "-gene6")
+        ]
+        core_gene_positions = [(0, 1000), (3001, 4000), (5001, 6000)]
+        # execution
+        actual_new_core_gene_positions = graph.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_core_gene_positions, [(0, 1000), (None, None), (None, None), (3001, 4000), (None, None), (5001, 6000)])
+
+    def test___get_new_gene_position_core_gap_at_start(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment_subset = [
+            ("+gene1", "*"),
+            ("-gene2", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "+gene5"),
+            ("-gene6", "-gene6")
+        ]
+        core_gene_positions = [(1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        # execution
+        actual_new_core_gene_positions = graph.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_core_gene_positions, [(None, None), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)])
+
+    def test___get_new_gene_position_core_gap_at_end(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        alignment_subset = [
+            ("+gene1", "+gene1"),
+            ("-gene2", "-gene2"),
+            ("+gene3", "+gene3"),
+            ("-gene4", "-gene4"),
+            ("+gene5", "+gene5"),
+            ("-gene6", "*")
+        ]
+        core_gene_positions = [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (5001, 6000)]
+        # execution
+        actual_new_core_gene_positions = graph.get_new_gene_position_core(alignment_subset, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_core_gene_positions, [(0, 1000), (1001, 2000), (2001, 3000), (3001, 4000), (4001, 5000), (None, None)])
+
+    def test___join_gene_position_ends_with_core_all(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        position_prefix = [1, 2]
+        position_suffix = [5, 6]
+        core_gene_positions = [3, 4]
+        # execution
+        actual_new_positions = graph.join_gene_position_ends_with_core(position_prefix, position_suffix, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_positions, [1, 2, 3, 4, 5, 6])
+
+    def test___join_gene_position_ends_with_core_no_prefix(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        position_prefix = []
+        position_suffix = [5, 6]
+        core_gene_positions = [3, 4]
+        # execution
+        actual_new_positions = graph.join_gene_position_ends_with_core(position_prefix, position_suffix, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_positions, [3, 4, 5, 6])
+
+    def test___join_gene_position_ends_with_core_no_suffix(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        position_prefix = [1, 2]
+        position_suffix = []
+        core_gene_positions = [3, 4]
+        # execution
+        actual_new_positions = graph.join_gene_position_ends_with_core(position_prefix, position_suffix, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_positions, [1, 2, 3, 4])
+
+    def test___join_gene_position_ends_with_core_no_core(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        position_prefix = [1, 2]
+        position_suffix = [5, 6]
+        core_gene_positions = []
+        # execution
+        actual_new_positions = graph.join_gene_position_ends_with_core(position_prefix, position_suffix, core_gene_positions)
+        # assertion
+        self.assertEqual(actual_new_positions, [1, 2, 5, 6])
+
+    def test___replace_invalid_gene_positions_middle(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 5), (None, None), (None, None), (16, 20), (None, None), (26, 30)]
+        fastq_data = {"read1": {"sequence": "ACTGTACTGTACTGTACTGTACTGTACTGTACTGT"}}
+        # execution
+        actual_new_positions = graph.replace_invalid_gene_positions(gene_positions, fastq_data, "read1")
+        # assertion
+        expected_new_positions = [(0, 5), (5, 16), (5, 16), (16, 20), (20, 26), (26, 30)]
+        self.assertEqual(actual_new_positions, expected_new_positions)
+
+    def test___replace_invalid_gene_positions_start(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(None, None), (6, 15), (16, 20), (20, 26), (26, 30)]
+        fastq_data = {"read1": {"sequence": "ACTGTACTGTACTGTACTGTACTGTACTGTACTGT"}}
+        # execution
+        actual_new_positions = graph.replace_invalid_gene_positions(gene_positions, fastq_data, "read1")
+        # assertion
+        expected_new_positions = [(0, 6), (6, 15), (16, 20), (20, 26), (26, 30)]
+        self.assertEqual(actual_new_positions, expected_new_positions)
+
+    def test___replace_invalid_gene_positions_end(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        gene_positions = [(0, 5), (6, 20), (11, 15), (16, 20), (21, 25), (None, None)]
+        fastq_data = {"read1": {"sequence": "ACTGTACTGTACTGTACTGTACTGTACTGTACTGT"}}
+        # execution
+        actual_new_positions = graph.replace_invalid_gene_positions(gene_positions, fastq_data, "read1")
+        # assertion
+        expected_new_positions = [(0, 5), (6, 20), (11, 15), (16, 20), (21, 25), (25, 34)]
+        self.assertEqual(actual_new_positions, expected_new_positions)
 
     def test___correct_gene_positions_on_read(self):
             assert None

@@ -179,6 +179,58 @@ def find_trough(node_coverages, filename):
     plt.close()
     return trough_value
 
+def get_final_filter_threshold(node_coverages,
+                            filename):
+    # Calculate the frequency of each coverage value
+    coverages = {}
+    for cov in node_coverages:
+        coverages[cov] = coverages.get(cov, 0) + 1
+    # Sort the coverage values and their frequencies
+    vals = sorted(coverages.items())
+    x_values = [v[0] for v in vals]
+    y_values = [v[1] for v in vals]
+    # Apply log transformation to the counts, adding 1 to avoid log(0)
+    log_counts = np.log(np.array(y_values) + 1)
+    # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
+    window_length, poly_order = 30, 3  # Example values; need to be chosen based on your data
+    if len(log_counts) < window_length:  # Ensure we have enough data points for the chosen window
+        window_length = (
+            len(log_counts) // 2 * 2 + 1
+        )  # Make the window length the next odd number less than the data length
+    smoothed_log_counts = list(savgol_filter(log_counts, window_length, poly_order))
+    plt.figure(figsize=(10, 6))
+    plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
+    plt.plot(
+        x_values, smoothed_log_counts, color="red", label="Smoothed counts"
+    )  # Exponentiate to undo log transform for plotting
+    plt.title("Histogram of node coverages with Smoothed Curve")
+    plt.xlabel("Node Coverage")
+    plt.ylabel("Log of absolute frequency")
+    plt.xlim([0, max(x_values)])
+    plt.legend()
+    plt.savefig(filename)
+    plt.close()
+
+    peak_value = max(smoothed_log_counts)
+    peak_value_index = smoothed_log_counts.index(peak_value)
+    trough_y_value = min(smoothed_log_counts[:peak_value_index])
+    trough_value_index = smoothed_log_counts[:peak_value_index].index(trough_y_value)
+    trough_value = x_values[trough_value_index]
+    # Plot the histogram and the trough
+    plt.figure(figsize=(10, 6))
+    plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
+    plt.plot(
+        x_values, smoothed_log_counts, color="red", label="Smoothed counts"
+    )  # Exponentiate to undo log transform for plotting
+    plt.axvline(x=trough_value, color="r", linestyle="--", label=f"Trough at x={trough_value:.2f}")
+    plt.title("Histogram of node coverages with Smoothed Curve")
+    plt.xlabel("Node Coverage")
+    plt.ylabel("Log of absolute frequency")
+    plt.xlim([0, max(x_values)])
+    plt.legend()
+    plt.savefig(filename)
+    plt.close()
+    return trough_value
 
 def plot_log_histogram(distances, filename):
     import random
@@ -324,7 +376,7 @@ def main() -> None:
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
     # parse the original fastq file
-    cleaning_iterations = 3
+    cleaning_iterations = 5
     for this_iteration in range(cleaning_iterations):
         sys.stderr.write(
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}...\n"
@@ -336,11 +388,23 @@ def main() -> None:
         sys.stderr.write(f"\n\tAmira: popping bubbles...\n")
         graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         new_annotatedReads, new_gene_position_dict = graph.correct_bubbles(1, fastq_content)
+    final_filtering_threshold = get_final_filter_threshold(graph.get_all_node_coverages(),
+                                    os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
+    # do a final round of filtering
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    # decide the threshold for filtering
+    graph.filter_graph(final_filtering_threshold, 1)
+    new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph.filter_graph(final_filtering_threshold, 1)
+    new_annotatedReads = graph.get_valid_reads_only()
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph...\n")
     with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
         o.write(json.dumps(new_annotatedReads))
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    # remove low coverage components
+    graph.remove_low_coverage_components(5)
     try:
         find_trough(
             graph.get_all_node_coverages(),

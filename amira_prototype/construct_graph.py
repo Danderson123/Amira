@@ -1502,6 +1502,8 @@ class GeneMerGraph:
                 last_index == len(self.get_readNodePositions()[read_id]) - 1
             ), self.get_readNodePositions()[read_id]
             end_pos = len(entire_read_sequence) - 1
+        print(self.get_readNodePositions()[read_id])
+        print(len(entire_read_sequence), "\n")
         assert start_pos >= 0
         assert end_pos < len(entire_read_sequence)
         read_sequence = entire_read_sequence[start_pos : end_pos + 1]
@@ -1523,15 +1525,24 @@ class GeneMerGraph:
     def count_indels_in_alignment(self, aln):
         return len([col for col in aln if col[0] != col[1] and (col[0] == "*" or col[1] == "*")])
 
+    def get_gene_mer_strings(self, genes_on_read):
+        gene_mers_on_read = []
+        for i in range(len(genes_on_read) - (self.get_kmerSize() - 1)):
+            # take a slice of the list of Genes from index i to i + kmerSize
+            gene_mer = genes_on_read[i : i + self.get_kmerSize()]
+            gene_mers_on_read.append(tuple(gene_mer))
+        return gene_mers_on_read
+
     def reorient_alignment(
         self,
-        genes_on_read,
+        gene_mers_on_read,
         fw_genes_in_path_counter,
         bw_genes_in_path_counter,
         fw_alignment,
         rv_alignment,
     ):
-        genes_on_read_counter = Counter(genes_on_read)
+        # make a counter for the genes on the read
+        genes_on_read_counter = Counter(gene_mers_on_read)
         # choose the alignment or rv alignment
         fw_count = len(genes_on_read_counter & fw_genes_in_path_counter)
         rv_count = len(genes_on_read_counter & bw_genes_in_path_counter)
@@ -1540,6 +1551,8 @@ class GeneMerGraph:
             return fw_alignment
         elif rv_count > fw_count:
             return rv_alignment
+        elif fw_count == 0 and rv_count == 0:
+            return None
         else:
             raise ValueError("Forward and reverse path alignments are equally distant.")
 
@@ -1610,9 +1623,11 @@ class GeneMerGraph:
                 if prev_end != None and next_start != None:
                     new_positions[i] = (prev_end, next_start)
                 elif next_start == None and prev_end != None:
+                    if "_" in read_id:
+                        read_id = "_".join(read_id.split("_")[:-1])
                     new_positions[i] = (
                         prev_end,
-                        len(fastq_data["_".join(read_id.split("_")[:-1])]) - 1,
+                        len(fastq_data[read_id]["sequence"]) - 1,
                     )
                 else:
                     print(new_positions)
@@ -1655,11 +1670,12 @@ class GeneMerGraph:
     def correct_low_coverage_path(
         self,
         lower_coverage_path,
-        fw_genes_in_path_counter,
-        bw_genes_in_path_counter,
+        fw_gene_mer_counter,
+        bw_gene_mer_counter,
         fw_alignment,
         rv_alignment,
         fastq_data,
+        corrected_reads,
     ):
         # get the reads in the path
         nodes_to_correct = lower_coverage_path[1:-1]
@@ -1667,19 +1683,31 @@ class GeneMerGraph:
         for read_id in reads_in_path:
             # get the list of genes on this read
             genes_on_read = self.get_reads()[read_id][:]
+            # get the gene-mers on the read
+            gene_mers_on_read = self.get_gene_mer_strings(genes_on_read)
             # Determine which replacement dict to use based on shared counts
             alignment = self.reorient_alignment(
-                genes_on_read,
-                fw_genes_in_path_counter,
-                bw_genes_in_path_counter,
+                gene_mers_on_read,
+                fw_gene_mer_counter,
+                bw_gene_mer_counter,
                 fw_alignment,
                 rv_alignment,
             )
+            if alignment is None:
+                continue
             # get the alignment columns for the first and last elements shared with the list of genes
             alignment_subset, first_shared_read_index, last_shared_read_index, = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
-            subpath = [c[1] for c in alignment_subset if c[1] != "*"]
             # Correct the read using the alignment subset
-            if self.is_sublist(genes_on_read, subpath):
+            if len(alignment_subset) != 0:
+                # add the read to the corrected reads dictionary
+                if not read_id in corrected_reads:
+                    corrected_reads[read_id] = set()
+                # get the gene-mers in the low coverage path
+                gene_mers_on_lcp = self.get_gene_mer_strings([col[1] for col in alignment_subset if col[1] != "*"])
+                # skip the correction if the path we are correcting comes from a previous correction
+                if len(corrected_reads[read_id].intersection(gene_mers_on_lcp)) > 0:
+                    continue
+                # correct the genes on the read
                 self.correct_genes_on_read(
                     genes_on_read,
                     first_shared_read_index,
@@ -1687,6 +1715,7 @@ class GeneMerGraph:
                     alignment_subset,
                     read_id,
                 )
+                # correct the gene positions on the read
                 self.correct_gene_positions_on_read(
                     first_shared_read_index,
                     last_shared_read_index,
@@ -1694,15 +1723,19 @@ class GeneMerGraph:
                     read_id,
                     fastq_data,
                 )
+                # get the k-mers in the high coverage path
+                gene_mers_on_hcp = self.get_gene_mer_strings([col[0] for col in alignment_subset if col[0] != "*"])
+                # add the gene-mers to those we have corrected to for this read to prevent correcting a correct path
+                corrected_reads[read_id].update(gene_mers_on_hcp)
                 # check that the number of genes and number of gene positions are equal
                 assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id])
             else:
                 pass
             assert None not in self.get_reads()[read_id]
+        return corrected_reads
 
-    def compare_paths(self, lower_coverage_path, fw_higher_coverage_genes):
-        # get the genes in the lower coverage path
-        lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
+    def compare_paths(self, lower_coverage_genes, fw_higher_coverage_genes):
+        # get the alignment of this path
         fw_alignment = self.needleman_wunsch(fw_higher_coverage_genes, lower_coverage_genes)
         rv_alignment = self.reverse_gene_alignment(fw_alignment)
         # get the SNP differences
@@ -1712,6 +1745,7 @@ class GeneMerGraph:
         return fw_alignment, rv_alignment, SNP_count, INDEL_count
 
     def correct_bubble_paths(self, bubbles, fastq_data):
+        corrected_reads = {}
         for pair in tqdm(bubbles):
             if len(bubbles[pair]) > 1:
                 # sort the paths from highest to lower coverage
@@ -1726,13 +1760,6 @@ class GeneMerGraph:
                     if not tuple(higher_coverage_path) in corrected_paths:
                         # get the genes in the higher coverage path
                         fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
-                        # get the genes in the path
-                        fw_genes_in_path_counter = Counter(fw_higher_coverage_genes)
-                        # reverse the genes in the path
-                        bw_higher_coverage_genes = self.reverse_list_of_genes(
-                            fw_higher_coverage_genes
-                        )
-                        bw_genes_in_path_counter = Counter(bw_higher_coverage_genes)
                         # iterate through the remaining paths
                         for lower_coverage_path, lower_coverage in paths[i + 1 :]:
                             if tuple(lower_coverage_path) in corrected_paths:
@@ -1741,35 +1768,51 @@ class GeneMerGraph:
                             #    continue
                             lower_coverage_path = [n[0] for n in lower_coverage_path]
                             # get the genes in the lower coverage path
+                            lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
+                            # get the k-mers in the low coverage path
+                            gene_mers = []
+                            reverse_gene_mers = []
+                            for i in range(len(lower_coverage_genes) - (self.get_kmerSize() - 1)):
+                                # take a slice of the list of Genes from index i to i + kmerSize
+                                gene_mer = lower_coverage_genes[i : i + self.get_kmerSize()]
+                                gene_mers.append(tuple(gene_mer))
+                                reverse_gene_mers.append(tuple(self.reverse_list_of_genes(gene_mer)))
+                            # make counters for the gene-mer tuples
+                            fw_counter = Counter(gene_mers)
+                            bw_counter = Counter(reverse_gene_mers)
+                            # get the alignment of the high coverage and low coverage path
                             fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(
-                                lower_coverage_path, fw_higher_coverage_genes
+                                lower_coverage_genes, fw_higher_coverage_genes
                             )
                             # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
                             if SNP_count <= 2 and INDEL_count <= 2:
-                                self.correct_low_coverage_path(
+                                corrected_reads = self.correct_low_coverage_path(
                                     lower_coverage_path,
-                                    fw_genes_in_path_counter,
-                                    bw_genes_in_path_counter,
+                                    fw_counter,
+                                    bw_counter,
                                     fw_alignment,
                                     rv_alignment,
                                     fastq_data,
+                                    corrected_reads
                                 )
 
-    def split_into_contiguous_chunks(self, numbers):
-        if not numbers:
+    def split_into_contiguous_chunks(self, shared_read_indices_with_lcp, shared_read_indices_with_hcp):
+        if not shared_read_indices_with_lcp:
             return []
         # Initialize the list of chunks with the first number
         chunks = []
-        current_chunk = [numbers[0]]
+        current_chunk = [shared_read_indices_with_lcp[0]]
         # Iterate through the numbers starting from the second element
-        for i in range(1, len(numbers)):
+        for i in range(1, len(shared_read_indices_with_lcp)):
             # Check if the current number is contiguous with the last number in the current chunk
-            if numbers[i] == numbers[i - 1] + 1:
-                current_chunk.append(numbers[i])
+            if shared_read_indices_with_lcp[i] == shared_read_indices_with_lcp[i - 1] + 1:
+                current_chunk.append(shared_read_indices_with_lcp[i])
             else:
-                # If not contiguous, add the current chunk to chunks and start a new chunk
-                chunks.append(current_chunk)
-                current_chunk = [numbers[i]]
+                if shared_read_indices_with_lcp[i] - 1 in shared_read_indices_with_hcp:
+                    current_chunk += [shared_read_indices_with_lcp[i] - 1, shared_read_indices_with_lcp[i]]
+                else:
+                    chunks.append(current_chunk)
+                    current_chunk = [shared_read_indices_with_lcp[i]]
         # Add the last chunk to the list
         chunks.append(current_chunk)
         return chunks
@@ -1794,7 +1837,6 @@ class GeneMerGraph:
                 sublists.append(lst[start:end])
         return sublists
 
-
     def get_path_to_alignment_mapping(self, alignment):
         higher_index = 0
         lower_index = 0
@@ -1815,27 +1857,36 @@ class GeneMerGraph:
         higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
         # get the indices of all genes on the read that are shared with the alignment
         genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
-        # get the indices of all genes shared with the alignment
         shared_read_indices_with_lcp = [i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_lower_coverage_path]
+        genes_in_higher_coverage_path = [a[0] for a in alignment if not a[0] == "*"]
+        shared_read_indices_with_hcp = [i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_higher_coverage_path]
         # split the shared gene indices into contiguous chunks
-        read_chunks = self.split_into_contiguous_chunks(shared_read_indices_with_lcp)
+        read_chunks = self.split_into_contiguous_chunks(shared_read_indices_with_lcp, shared_read_indices_with_hcp)
         if not len(read_chunks) == 0:
-            # iterate through the chunks
+            if len(read_chunks) > 1 and all(len(c) == 1 for c in read_chunks):
+                return [], None, None
+            current_chunk = []
+            current_sorted_sublist_positions = []
             for chunk in read_chunks:
                 # get all possible sublist combinations
                 sublist_combinations = self.all_sublist_combinations(chunk)
                 # filter out the sublists that are not found in the path
-                valid_sublists = [s for s in sublist_combinations if self.is_sublist(genes_in_lower_coverage_path, [genes_on_read[i] for i in s])]
-                # filter out the sublists that are sublists of other sublists
-                filtered_sublists = [s for s in valid_sublists if not any(self.is_sublist(other, s) and s != other for other in valid_sublists)]
+                valid_sublists = [s for s in sublist_combinations if self.is_sublist(genes_in_lower_coverage_path, [genes_on_read[i] for i in s if genes_on_read[i] in genes_in_lower_coverage_path and genes_on_read[i] not in genes_in_higher_coverage_path])]
                 # get the locations of the sublists in the path
-                sublist_positions = [(s, self.find_sublist_indices(genes_in_lower_coverage_path, [genes_on_read[i] for i in s])) for s in filtered_sublists]
+                sublist_positions = [(s, self.find_sublist_indices(genes_in_lower_coverage_path, [genes_on_read[i] for i in s if genes_on_read[i] in genes_in_lower_coverage_path])) for s in valid_sublists]
+                # filter sublists that do not occur in the lower coverage path
+                filtered_sublist_positions = [t for t in sublist_positions if len(t[1]) != 0]
                 # sort the sublist positions by length
-                sorted_sublist_positions = sorted(sublist_positions, key=lambda x: max([s[1] - s[0] for s in x[1]]), reverse=True)
+                sorted_sublist_positions = sorted(filtered_sublist_positions, key=lambda x: max([s[1] - s[0] for s in x[1]]), reverse=True)
                 # choose the longest sublist match as the true subset
-                assert len(sorted_sublist_positions[0][1]) == 1
-                alignment_indices = [lower_mapping[i] for i in list(sorted_sublist_positions[0][1][0])]
-                return alignment[alignment_indices[0]: alignment_indices[-1] + 1], sorted_sublist_positions[0][0][0], sorted_sublist_positions[0][0][-1]
+                if len(chunk) > len(current_chunk):
+                    current_chunk = chunk
+                    current_sorted_sublist_positions = sorted_sublist_positions
+            if len(current_sorted_sublist_positions[0][1]) == 1:
+                alignment_indices = [lower_mapping[i] for i in list(current_sorted_sublist_positions[0][1][0])]
+                return alignment[alignment_indices[0]: alignment_indices[-1] + 1], current_sorted_sublist_positions[0][0][0], current_sorted_sublist_positions[0][0][-1]
+            else:
+                return [], None, None
         else:
             return [], None, None
 
