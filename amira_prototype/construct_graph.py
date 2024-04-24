@@ -1,11 +1,10 @@
-from itertools import combinations
 import os
 import statistics
 import subprocess
 import sys
 from collections import Counter, deque
 from itertools import product
-
+import math
 import numpy as np
 import pysam
 import sourmash
@@ -13,10 +12,11 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
-from amira_prototype.construct_gene import Gene, convert_int_strand_to_string
+from amira_prototype.construct_gene import convert_int_strand_to_string
 from amira_prototype.construct_gene_mer import GeneMer
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
+from amira_prototype.construct_unitig import Unitig
 
 sys.setrecursionlimit(50000)
 
@@ -1502,8 +1502,8 @@ class GeneMerGraph:
                 last_index == len(self.get_readNodePositions()[read_id]) - 1
             ), self.get_readNodePositions()[read_id]
             end_pos = len(entire_read_sequence) - 1
-        print(self.get_readNodePositions()[read_id])
-        print(len(entire_read_sequence), "\n")
+        #print(self.get_readNodePositions()[read_id])
+        #print(len(entire_read_sequence), "\n")
         assert start_pos >= 0
         assert end_pos < len(entire_read_sequence)
         read_sequence = entire_read_sequence[start_pos : end_pos + 1]
@@ -1744,7 +1744,7 @@ class GeneMerGraph:
         INDEL_count = self.count_indels_in_alignment(fw_alignment)
         return fw_alignment, rv_alignment, SNP_count, INDEL_count
 
-    def correct_bubble_paths(self, bubbles, fastq_data):
+    def correct_bubble_paths(self, bubbles, fastq_data, path_minimizers):
         corrected_reads = {}
         for pair in tqdm(bubbles):
             if len(bubbles[pair]) > 1:
@@ -1760,6 +1760,8 @@ class GeneMerGraph:
                     if not tuple(higher_coverage_path) in corrected_paths:
                         # get the genes in the higher coverage path
                         fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
+                        # get the minimzers
+                        high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
                         # iterate through the remaining paths
                         for lower_coverage_path, lower_coverage in paths[i + 1 :]:
                             if tuple(lower_coverage_path) in corrected_paths:
@@ -1786,15 +1788,20 @@ class GeneMerGraph:
                             )
                             # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
                             if SNP_count <= 2 and INDEL_count <= 2:
-                                corrected_reads = self.correct_low_coverage_path(
-                                    lower_coverage_path,
-                                    fw_counter,
-                                    bw_counter,
-                                    fw_alignment,
-                                    rv_alignment,
-                                    fastq_data,
-                                    corrected_reads
-                                )
+                                # get the minimzers
+                                low_coverage_minimizers = path_minimizers[tuple(lower_coverage_path)]
+                                # get the distance
+                                if max([len(high_coverage_minimizers & low_coverage_minimizers) / len(high_coverage_minimizers),
+                                    len(high_coverage_minimizers & low_coverage_minimizers) / len(low_coverage_minimizers)]) > 0.85:
+                                    corrected_reads = self.correct_low_coverage_path(
+                                        lower_coverage_path,
+                                        fw_counter,
+                                        bw_counter,
+                                        fw_alignment,
+                                        rv_alignment,
+                                        fastq_data,
+                                        corrected_reads
+                                    )
 
     def split_into_contiguous_chunks(self, shared_read_indices_with_lcp, shared_read_indices_with_hcp):
         if not shared_read_indices_with_lcp:
@@ -1890,20 +1897,27 @@ class GeneMerGraph:
         else:
             return [], None, None
 
-    def get_all_paths_between_junction_in_component(
-        self, potential_bubble_starts_component, max_distance
+
+    def get_all_paths_between_junctions_in_component(
+        self, potential_bubble_starts_component, max_distance, cores
     ):
         # store the paths
         unique_paths = set()
-        seen_pairs = set()
-        # iterate through the bubble nodes
-        for start_hash, start_direction in tqdm(potential_bubble_starts_component):
+        # iterate through the bubble nodes and correct the pairs to process
+        pairs_to_process = set()
+        for start_hash, start_direction in potential_bubble_starts_component:
             for stop_hash, stop_direction in potential_bubble_starts_component:
                 if start_hash == stop_hash:
                     continue
-                if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
-                    continue
-                # seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
+                pair_tuple = tuple(sorted([(start_hash, start_direction), (stop_hash, stop_direction)]))
+                pairs_to_process.add(pair_tuple)
+
+        def find_paths_between_pairs(batch, max_distance):
+            paths_between_these_nodes = []
+            for pair in batch:
+                start_hash = pair[0][0]
+                stop_hash = pair[1][0]
+                start_direction = pair[0][1]
                 paths_between_nodes = self.new_find_paths_between_nodes(
                     start_hash, stop_hash, max_distance, start_direction
                 )
@@ -1918,25 +1932,19 @@ class GeneMerGraph:
                 # check if there is more than one option
                 if len(valid_paths_between_nodes) > 1:
                     for p in valid_paths_between_nodes:
-                        unique_paths.add(
+                        paths_between_these_nodes.append(
                             tuple(sorted([p, list(reversed([(t[0], t[1] * -1) for t in p]))])[0])
                         )
-                seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
-        # convert to list
-        unique_paths = list(unique_paths)
-        # Assuming unique_paths is a list of lists or a similar iterable of iterables.
-        filtered_paths = []
-        for p in unique_paths:
-            p_list = list(p)
-            # Skip self-comparison and check for sublists in both forward and reversed directions
-            if not any(
-                self.is_sublist(list(q), p) or self.is_sublist(list(q), list(reversed(p)))
-                for q in unique_paths
-                if q != p
-            ):
-                if len(p_list) > 2:
-                    filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
-        return filtered_paths
+            return paths_between_these_nodes
+
+        pairs_to_process = list(pairs_to_process)
+        batches = [pairs_to_process[i::cores] for i in range(cores)]
+        all_paths = Parallel(n_jobs=cores)(
+                delayed(find_paths_between_pairs)(batch, max_distance) for batch in tqdm(batches)
+            )
+        for batch_result in all_paths:
+            unique_paths.update(batch_result)
+        return unique_paths
 
     def separate_paths_by_terminal_nodes(self, sorted_filtered_paths):
         paired_sorted_filtered_paths = {}
@@ -1955,7 +1963,76 @@ class GeneMerGraph:
         }
         return sorted_filtered_paths
 
-    def correct_bubbles(self, node_min_coverage, fastq_data):
+    def filter_paths_between_bubble_starts(self, unique_paths):
+        # convert to list
+        unique_paths = list(unique_paths)
+        # Assuming unique_paths is a list of lists or a similar iterable of iterables.
+        filtered_paths = []
+        for p in unique_paths:
+            p_list = list(p)
+            # Skip self-comparison and check for sublists in both forward and reversed directions
+            if not any(
+                self.is_sublist(list(q), p) or self.is_sublist(list(q), list(reversed(p)))
+                for q in unique_paths
+                if q != p
+            ):
+                if len(p_list) > 2:
+                    filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
+        return filtered_paths
+
+    def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
+        for node_hash in batch:
+            node = self.get_node_by_hash(node_hash)
+            minhash = sourmash.MinHash(n=0, ksize=15, scaled=5)
+            # iterate through the reads
+            for read in node.get_reads():
+                # get the indices of the node occurence on the read
+                indices = [i for i, n in enumerate(self.get_readNodes()[read]) if n == node_hash]
+                # get the positions on the read
+                positions = [self.get_readNodePositions()[read][i] for i in indices]
+                # get the read sequence
+                entire_read_sequence = fastq_data[read.split("_")[0]]["sequence"]
+                # iterate through the positions
+                for p in positions:
+                    # add the sequence to the minhash object
+                    minhash.add_sequence(entire_read_sequence[p[0]: p[1] + 1], force=True)
+            node_minhashes[node_hash] = minhash
+
+    def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
+        for path_tuple in batch:
+            for node_hash in path_tuple:
+                assert node_minhashes[node_hash] is not None
+                path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
+
+    def get_minhashes_for_paths(self, sorted_filtered_paths, fastq_data, cores):
+        path_minimizers = {}
+        node_minhashes = {}
+        for path_tuple, path_coverage in sorted_filtered_paths:
+            path = [p[0] for p in path_tuple]
+            # iterate through the nodes
+            for node_hash in path:
+                node_minhashes[node_hash] = None
+            path_minimizers[tuple(path)] = set()
+        keys = list(node_minhashes.keys())
+        batches = [set(keys[i::cores]) for i in range(cores)]
+        Parallel(n_jobs=cores, prefer="threads")(
+                delayed(self.get_minhash_of_nodes)(
+                        batch,
+                        node_minhashes,
+                        fastq_data) for batch in batches
+                )
+        keys = list(path_minimizers.keys())
+        batches = [set(keys[i::cores]) for i in range(cores)]
+        Parallel(n_jobs=cores, prefer="threads")(
+                delayed(self.get_minhash_of_path)(
+                        batch,
+                        path_minimizers,
+                        node_minhashes) for batch in batches
+                )
+        assert not any(v is None for v in path_minimizers.values())
+        return path_minimizers
+
+    def correct_low_coverage_paths(self, node_min_coverage, fastq_data, cores):
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
         # get the potential start nodes
@@ -1969,15 +2046,19 @@ class GeneMerGraph:
                 continue
             potential_bubble_starts_component = potential_bubble_starts[component]
             # get all the paths of length <= max distance between all pairs of junctions in this component
-            filtered_paths = self.get_all_paths_between_junction_in_component(
-                potential_bubble_starts_component, max_distance
+            unique_paths = self.get_all_paths_between_junctions_in_component(
+                potential_bubble_starts_component, max_distance, cores
             )
+            # filter the paths out if they are subpaths of longer paths
+            filtered_paths = self.filter_paths_between_bubble_starts(unique_paths)
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
+            # get a minhash object for each path
+            path_minimizers = self.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, cores)
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
-            self.correct_bubble_paths(sorted_filtered_paths, fastq_data)
+            self.correct_bubble_paths(sorted_filtered_paths, fastq_data, path_minimizers)
         return self.get_reads(), self.get_gene_positions()
 
     def identify_potential_bubble_starts(self):
@@ -2197,6 +2278,82 @@ class GeneMerGraph:
                     )
             print("\n")
         return resolved_clusters
+
+    def get_unitig_paths(self, unitig_ends, anchor_nodes, junction_nodes, nodeHashesOfInterest):
+        all_unique_linear_paths = set()
+        nodeHashesOfInterest = set(nodeHashesOfInterest)
+        # iterate through the unitig_ends
+        for node_hash in unitig_ends:
+            # get the node object
+            node = self.get_node_by_hash(node_hash)
+            # iterate through the neighbors of these nodes
+            for neighbor_node_hash in self.get_all_neighbor_hashes(node):
+                # check if the node is one we are interested in
+                if neighbor_node_hash in nodeHashesOfInterest and neighbor_node_hash not in junction_nodes:
+                    # get the linear path for this neighbor
+                    linear_path = [n for n in self.get_linear_path_for_node(self.get_node_by_hash(neighbor_node_hash), True) if n in nodeHashesOfInterest]
+                    # add this path to the set of linear paths
+                    all_unique_linear_paths.add(tuple(sorted([linear_path, list(reversed(linear_path))])[0]))
+        return all_unique_linear_paths
+
+    def convert_paths_to_untigs(self, unitig_paths, junction_nodes):
+        unitigs = []
+        unitig_ID = 0
+        # iterate through the paths
+        for path in unitig_paths:
+            # get the coverages of all nodes in the path other than the junction nodes
+            node_coverages = [self.get_node_by_hash(n).get_node_coverage() for n in path if n not in junction_nodes]
+            # create a unitig object
+            this_unitig = Unitig(path, node_coverages, unitig_ID)
+            # collect the unitig objects
+            unitigs.append(this_unitig)
+            # increment the unitig ID
+            unitig_ID += 1
+        return unitigs
+
+    def get_unitigs_in_list_of_nodes(self, anchor_nodes, junction_nodes, nodeHashesOfInterest):
+        # join the anchor nodes and junction nodes
+        unitig_ends = set(list(anchor_nodes) + list(junction_nodes))
+        # get all the linear paths containing this AMR gene
+        unitig_paths = self.get_unitig_paths(unitig_ends, anchor_nodes, junction_nodes, nodeHashesOfInterest)
+        # filter out paths that cross a junction
+        unitigs = self.convert_paths_to_untigs(unitig_paths, junction_nodes)
+        return unitigs
+
+    def estimate_unitig_frequencies(self, unitigs):
+        # get the minimum of the coverage of all unitigs
+        mean_coverages = [(u.get_unitig_ID(), u.get_mean_coverage()) for u in unitigs]
+        # get the minimum mean coverage
+        min_mean_coverage = min([c[1] for c in mean_coverages])
+        # make a dictionary of unitig frequencies relative to the minimum coverage
+        unitig_frequencies = {}
+        for i in range(len(unitigs)):
+            unitig_frequencies[mean_coverages[i][0]] = math.ceil(mean_coverages[i][1] / min_mean_coverage)
+        return unitig_frequencies
+
+    def new_get_paths_for_gene(self, geneOfInterest):
+        # get the graph nodes containing this gene
+        nodeOfInterest = self.get_nodes_containing(geneOfInterest)
+        # get the node hashes containing this gene
+        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
+        # get the nodes that contain this gene but are at the end of a path
+        anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
+        # get all the possible AMR gene unitigs
+        unitigs = self.get_unitigs_in_list_of_nodes(anchor_nodes, junction_nodes, nodeHashesOfInterest)
+        # estimate the unitig frequencies
+        unitig_frequencies = self.estimate_unitig_frequencies(unitigs)
+        return
+
+
+    def new_assign_reads_to_genes(self, listOfGenes, fastq_data):
+        # iterate through the genes we are interested in
+        for geneOfInterest in tqdm(listOfGenes):
+            # get the potential paths for all alleles of this gene
+            nodeHashesOfInterest = self.new_get_paths_for_gene(geneOfInterest)
+            # get the reads covering the node hashes of interest
+            reads_of_interest = self.collect_reads_in_path(nodeHashesOfInterest)
+            # assign reads to the paths they follow
+        return
 
     def merge_clusters_by_minhash(self, clustered_reads, minhash_dictionary, threshold=0.85):
         """Merge clusters with Jaccard distance above the threshold and include unmatched paths."""

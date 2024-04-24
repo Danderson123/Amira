@@ -1,3 +1,13 @@
+import hashlib
+import pickle
+
+def hashlib_hash(value):
+    # Serialize the value using pickle
+    serialized_value = pickle.dumps(value)
+    hex_digest = hashlib.sha256(serialized_value).hexdigest()
+    integer_hash = int(hex_digest, 16)
+    return integer_hash
+
 def convert_string_strand_to_int(stringStrand: str) -> int:
     """convert a string strand to an integer strand and return the value"""
     # ensure the string strand is "+" or "-" only
@@ -30,7 +40,6 @@ def convert_int_strand_to_string(intStrand: int) -> str:
     else:
         stringStrand = "+"
     return stringStrand
-
 
 class Gene:
     def __init__(self, gene: str):
@@ -78,4 +87,4 @@ class Gene:
 
     def __hash__(self) -> int:
         """return a hash of the gene name multiplied by the strand"""
-        return hash(self.name) * self.strand
+        return hashlib_hash(self.name) * self.strand

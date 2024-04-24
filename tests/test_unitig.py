@@ -1,7 +1,7 @@
 import unittest
 
 from amira_prototype.construct_graph import GeneMerGraph
-from amira_prototype.construct_unitig import UnitigTools
+from amira_prototype.old_construct_unitig import UnitigTools
 
 
 class TestUnitigsConstructor(unittest.TestCase):

@@ -1,5 +1,5 @@
+from amira_prototype.construct_gene import hashlib_hash
 from amira_prototype.construct_node import Node
-
 
 def extract_node_hashes(firstNode, secondNode):
     """get the gene mer hashes for the first node and the second node"""
@@ -43,6 +43,16 @@ class Edge:
         """return the assigned target Node object"""
         return self.targetNode
 
+    def set_sourceNode(self, new_sourceNode) -> Node:
+        """return the assigned source Node object"""
+        self.sourceNode = new_sourceNode
+        return self.get_sourceNode()
+
+    def set_targetNode(self, new_targetNode) -> Node:
+        """return the assigned target Node object"""
+        self.targetNode = new_targetNode
+        return self.get_targetNode()
+
     def set_sourceNodeDirection(self, sourceDirection) -> int:
         """return and int of the new direction of the source node"""
         self.sourceNodeDirection = sourceDirection
@@ -70,6 +80,11 @@ class Edge:
         self.edgeCoverage += 1
         return self.get_edge_coverage()
 
+    def extend_edge_coverage(self, value) -> int:
+        """increase the edge coverage by the value and return the new edge coverage"""
+        self.edgeCoverage += value
+        return self.get_edge_coverage()
+
     def reduce_edge_coverage(self):
         """reduce the edge coverage by 1 and return the new edge coverage"""
         self.edgeCoverage -= 1
@@ -87,7 +102,7 @@ class Edge:
 
     def __hash__(self):
         """return a hash of a tuple of the source and target gene mer hashes"""
-        forwardEdgeHash = hash(
+        forwardEdgeHash = hashlib_hash(
             (
                 (
                     self.get_sourceNode().__hash__() * self.get_sourceNodeDirection(),
@@ -95,7 +110,7 @@ class Edge:
                 )
             )
         )
-        reverseEdgeHash = hash(
+        reverseEdgeHash = hashlib_hash(
             (
                 (
                     self.get_sourceNode().__hash__() * self.get_sourceNodeDirection() * -1,
@@ -104,5 +119,5 @@ class Edge:
             )
         )
         sortedEdgeHashes = sorted([forwardEdgeHash, reverseEdgeHash])
-        edgeHash = hash(sortedEdgeHashes[0])
+        edgeHash = sortedEdgeHashes[0]
         return edgeHash

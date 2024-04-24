@@ -1,10 +1,12 @@
 from collections import Counter
+import numpy as np
 import unittest
 
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
+from amira_prototype.construct_unitig import Unitig
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -1844,9 +1846,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         expected_sourceNode_Id = 0
         expected_targetNode_Id = 1
-        self.assertEqual(sourceToTargetEdge.get_sourceNode().get_nodeId(), expected_sourceNode_Id)
+        self.assertEqual(sourceToTargetEdge.get_sourceNode().get_node_Id(), expected_sourceNode_Id)
         self.assertEqual(
-            reverseTargetToSourceEdge.get_sourceNode().get_nodeId(), expected_targetNode_Id
+            reverseTargetToSourceEdge.get_sourceNode().get_node_Id(), expected_targetNode_Id
         )
 
     def test___write_gml_to_file(self):
@@ -3395,6 +3397,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
         )
+        graph.generate_gml("tests", 3, 1, 1)
         for geneOfInterest in set(["gene4", "gene17"]):
             # get the graph nodes containing this gene
             nodeOfInterest = graph.get_nodes_containing(geneOfInterest)
@@ -4490,3 +4493,161 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___correct_reads(self):
         assert None
+
+    def test___get_unitigs_in_list_of_nodes_branch_single_gene(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        genes2 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene21",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 5
+        )
+        nodeOfInterest = graph.get_nodes_containing("gene7")
+        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        # execution
+        unique_paths = graph.get_unitigs_in_list_of_nodes(anchor_nodes, junction_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(unique_paths), 3)
+
+    def test___get_unitigs_in_list_of_nodes_bubble_multiple_genes(self):
+        # setup
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene7",
+            "-gene6",
+            "+gene7",
+            "+gene22",
+            "+gene7",
+            "+gene16",
+            "-gene7",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        genes2 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene7",
+            "-gene6",
+            "+gene7",
+            "+gene21",
+            "+gene7",
+            "+gene16",
+            "-gene7",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
+        )
+        nodeOfInterest = graph.get_nodes_containing("gene7")
+        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        # execution
+        unique_paths = graph.get_unitigs_in_list_of_nodes(anchor_nodes, junction_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(unique_paths), 4)
+
+    def test___get_unitigs_in_list_of_nodes_bubble_triangle(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
+        nodeOfInterest = graph.get_nodes_containing("gene6")
+        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        # execution
+        unique_paths = graph.get_unitigs_in_list_of_nodes(anchor_nodes, junction_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(unique_paths), 3)
+
+    def test___estimate_unitig_frequencies(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "-gene4",
+            "-gene6",
+            "+gene7",
+            "+gene9",
+            "-gene10",
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene20",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
+        nodeOfInterest = graph.get_nodes_containing("gene6")
+        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        unique_paths = graph.get_unitigs_in_list_of_nodes(anchor_nodes, junction_nodes, nodeHashesOfInterest)
+        # execution
+        actual_unitig_frequencies = graph.estimate_unitig_frequencies(unique_paths)
+        # assertion
+        actual_unitig_frequencies = [actual_unitig_frequencies[k] for k in actual_unitig_frequencies]
+        self.assertEqual(actual_unitig_frequencies.count(1), 2)
+        self.assertEqual(actual_unitig_frequencies.count(2), 1)

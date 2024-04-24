@@ -1,3 +1,5 @@
+import sourmash
+
 from amira_prototype.construct_read import GeneMer, Read
 
 
@@ -26,14 +28,6 @@ class Node:
         """return the list of reversed gene objects represented by this node"""
         return self.reverseGeneMer
 
-    def assign_nodeId(self, nodeId):
-        self.nodeId = nodeId
-        return self.get_nodeId()
-
-    def get_nodeId(self):
-        """return a unique integer node ID for this node"""
-        return self.nodeId
-
     def get_node_coverage(self) -> int:
         """return the number of time we have seen this geneMer"""
         return self.nodeCoverage
@@ -41,6 +35,11 @@ class Node:
     def increment_node_coverage(self) -> int:
         """increase the coverage of this node by 1 and return the new coverage"""
         self.nodeCoverage += 1
+        return self.get_node_coverage()
+
+    def extend_node_coverage(self, value) -> int:
+        """increase the coverage of this node by the value and return the new coverage"""
+        self.nodeCoverage += value
         return self.get_node_coverage()
 
     def get_list_of_reads(self) -> list:
@@ -117,12 +116,12 @@ class Node:
 
     def assign_node_Id(self, nodeId):
         """assign an integer identifier to this node and return it"""
-        self.nodeId = nodeId
-        return nodeId
+        self._nodeId = nodeId
+        return self.get_node_Id()
 
     def get_node_Id(self):
         """return the integer node ID for this node"""
-        return self.nodeId
+        return self._nodeId
 
     def __eq__(self, otherNode):
         """check if two nodes are identical"""

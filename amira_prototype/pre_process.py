@@ -108,15 +108,16 @@ def convert_pandora_output(
             ) <= regionLength <= gene_length_upper_threshold * len(
                 pandora_consensus[strandlessGene]["sequence"]
             ):
+                read_name = read.query_name# + "_" + str(read_tracking[read.query_name]["index"]
                 if (
-                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    read_name
                     not in annotatedReads
                 ):
                     annotatedReads[
-                        read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                        read_name
                     ] = []
                     gene_position_dict[
-                        read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                        read_name
                     ] = []
                 # count how many times we see each gene
                 if strandlessGene not in geneCounts:
@@ -124,21 +125,21 @@ def convert_pandora_output(
                 geneCounts[strandlessGene] += 1
                 # store the per read gene names, gene starts and gene ends
                 gene_position_dict[
-                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    read_name
                 ].append((regionStart, regionEnd))
                 # store the per read gene names
                 annotatedReads[
-                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    read_name
                 ].append(gene_name)
                 if (
-                    not read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    not read_name
                     in distances
                 ):
                     distances[
-                        read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                        read_name
                     ] = []
                 distances[
-                    read.query_name + "_" + str(read_tracking[read.query_name]["index"])
+                    read_name
                 ].append(regionStart - read_tracking[read.query_name]["end"])
                 read_tracking[read.query_name]["end"] = regionEnd
                 # if strandlessGene not in fp_genes and read.query_name not in fp_reads:

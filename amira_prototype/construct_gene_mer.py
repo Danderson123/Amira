@@ -1,5 +1,4 @@
-from amira_prototype.construct_gene import Gene
-
+from amira_prototype.construct_gene import Gene, hashlib_hash
 
 def define_rc_geneMer(geneMer):
     """return a reversed list of reverse complement geneMers for the input list of geneMers"""
@@ -94,4 +93,4 @@ class GeneMer:
     def __hash__(self):
         """return a hash of the gene mer to see if two gene mers are the same"""
         geneMerGenes = tuple([g.__hash__() for g in self.get_canonical_geneMer()])
-        return hash(geneMerGenes)
+        return hashlib_hash(geneMerGenes)

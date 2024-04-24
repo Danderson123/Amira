@@ -10,7 +10,7 @@ from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
 from amira_prototype.construct_graph import GeneMerGraph
-from amira_prototype.construct_unitig import parse_fastq, write_fastq
+from amira_prototype.old_construct_unitig import parse_fastq, write_fastq
 from amira_prototype.pre_process import convert_pandora_output, process_pandora_json
 
 # from test_functions import TestUnitigTools, Unitig
@@ -85,6 +85,13 @@ def get_options() -> argparse.Namespace:
         dest="path_to_interesting_genes",
         help="Path to a newline delimited file of genes of interest.",
         required=True,
+    )
+    parser.add_argument(
+        "--cores",
+        dest="cores",
+        type=int,
+        help="Number of CPUs.",
+        default=1,
     )
     parser.add_argument(
         "--racon-path",
@@ -182,9 +189,11 @@ def find_trough(node_coverages, filename):
 def get_final_filter_threshold(node_coverages,
                             filename):
     # Calculate the frequency of each coverage value
-    coverages = {}
+    max_coverage = max(node_coverages)
+    coverages = {i: 0 for i in range(max_coverage + 1)}
     for cov in node_coverages:
-        coverages[cov] = coverages.get(cov, 0) + 1
+        if cov in coverages:  # This check ensures we only count values within the range we initialized
+            coverages[cov] += 1
     # Sort the coverage values and their frequencies
     vals = sorted(coverages.items())
     x_values = [v[0] for v in vals]
@@ -192,7 +201,7 @@ def get_final_filter_threshold(node_coverages,
     # Apply log transformation to the counts, adding 1 to avoid log(0)
     log_counts = np.log(np.array(y_values) + 1)
     # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
-    window_length, poly_order = 30, 3  # Example values; need to be chosen based on your data
+    window_length, poly_order = 20, 3  # Example values; need to be chosen based on your data
     if len(log_counts) < window_length:  # Ensure we have enough data points for the chosen window
         window_length = (
             len(log_counts) // 2 * 2 + 1
@@ -211,11 +220,11 @@ def get_final_filter_threshold(node_coverages,
     plt.savefig(filename)
     plt.close()
 
-    peak_value = max(smoothed_log_counts)
-    peak_value_index = smoothed_log_counts.index(peak_value)
-    trough_y_value = min(smoothed_log_counts[:peak_value_index])
-    trough_value_index = smoothed_log_counts[:peak_value_index].index(trough_y_value)
-    trough_value = x_values[trough_value_index]
+    peaks, _ = find_peaks(smoothed_log_counts, prominence=0.2)
+    first_peak_index = x_values.index(peaks[0])
+    trough_index = smoothed_log_counts.index(min(smoothed_log_counts[:first_peak_index]))
+    trough_value = x_values[trough_index]
+
     # Plot the histogram and the trough
     plt.figure(figsize=(10, 6))
     plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
@@ -346,6 +355,8 @@ def main() -> None:
     # build the gene-mer graph
     sys.stderr.write("\nAmira: building intitial gene-mer graph...\n")
     graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
+    get_final_filter_threshold(graph.get_all_node_coverages(),
+                                    os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # filter junk reads
     graph.filter_graph(2, 1)
     new_annotatedReads, new_gene_position_dict = graph.remove_junk_reads(0.80)
@@ -364,7 +375,8 @@ def main() -> None:
             node_min_coverage = 5
     else:
         node_min_coverage = args.node_min_coverage
-    # remove nodes with coverage 1
+    # remove nodes below the coverage threshold
+    sys.stderr.write(f"\nAmira: removing nodes with coverage < {node_min_coverage}...\n")
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     node_trough_value = find_trough(
         graph.get_all_node_coverages(),
@@ -385,9 +397,9 @@ def main() -> None:
         graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         graph.remove_short_linear_paths(args.geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-        sys.stderr.write(f"\n\tAmira: popping bubbles...\n")
+        sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs...\n")
         graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-        new_annotatedReads, new_gene_position_dict = graph.correct_bubbles(1, fastq_content)
+        new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(1, fastq_content, args.cores)
     final_filtering_threshold = get_final_filter_threshold(graph.get_all_node_coverages(),
                                     os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # do a final round of filtering
@@ -395,9 +407,9 @@ def main() -> None:
     # decide the threshold for filtering
     graph.filter_graph(final_filtering_threshold, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    graph.filter_graph(final_filtering_threshold, 1)
-    new_annotatedReads = graph.get_valid_reads_only()
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    #graph.filter_graph(final_filtering_threshold, 1)
+    #new_annotatedReads = graph.get_valid_reads_only()
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph...\n")
     with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
@@ -405,13 +417,6 @@ def main() -> None:
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     # remove low coverage components
     graph.remove_low_coverage_components(5)
-    try:
-        find_trough(
-            graph.get_all_node_coverages(),
-            os.path.join(args.output_dir, f"post_correction_node_coverages.png"),
-        )
-    except:
-        pass
     # color nodes in the graph if --debug is used
     if args.debug:
         for node in graph.all_nodes():
@@ -439,8 +444,6 @@ def main() -> None:
             underscore_split = r.split("_")
             fastq_data = fastq_content[underscore_split[0]]
             read_subset[underscore_split[0]] = fastq_data
-            # print(len(read_subset[underscore_split[0]]["sequence"]), int(underscore_split[-2]), int(underscore_split[-1]))
-            # read_subset[underscore_split[0]]["sequence"] = read_subset[underscore_split[0]]["sequence"][int(underscore_split[-2]): int(underscore_split[-1]) + 1]
             assert not read_subset[underscore_split[0]]["sequence"] == ""
         write_fastq(
             os.path.join(args.output_dir, "AMR_allele_fastqs", allele + ".fastq.gz"), read_subset
