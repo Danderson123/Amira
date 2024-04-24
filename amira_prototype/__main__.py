@@ -10,7 +10,7 @@ from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
 from amira_prototype.construct_graph import GeneMerGraph
-from amira_prototype.old_construct_unitig import parse_fastq, write_fastq
+from amira_prototype.construct_unitig import parse_fastq, write_fastq
 from amira_prototype.pre_process import convert_pandora_output, process_pandora_json
 
 # from test_functions import TestUnitigTools, Unitig
