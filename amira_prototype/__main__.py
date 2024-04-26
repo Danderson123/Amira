@@ -1,4 +1,5 @@
 import argparse
+from joblib import Parallel, delayed
 import json
 import os
 import shutil
@@ -9,7 +10,7 @@ import numpy as np
 from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
-from amira_prototype.construct_graph import GeneMerGraph
+from amira_prototype.construct_graph import GeneMerGraph, build_graph, merge_graphs
 from amira_prototype.construct_unitig import parse_fastq, write_fastq
 from amira_prototype.pre_process import convert_pandora_output, process_pandora_json
 
@@ -244,7 +245,7 @@ def get_final_filter_threshold(node_coverages,
 def plot_log_histogram(distances, filename):
     import random
 
-    distances = random.sample(distances, 10000)
+    #distances = random.sample(distances, 10000)
     # Calculate histogram data (counts and bin edges) without plotting
     counts, bin_edges = np.histogram(
         distances, bins=len(distances) - 1
@@ -272,15 +273,34 @@ def plot_log_histogram(distances, filename):
     plt.savefig(filename, dpi=300)  # Adjust dpi for higher resolution if needed
     plt.close()
 
+def build_multiprocessed_graph(annotatedReads, geneMer_size, cores, gene_positions=None):
+    batches = [set(list(annotatedReads.keys())[i::cores]) for i in range(cores)]
+    if gene_positions is not None:
+        sub_graphs = Parallel(n_jobs=cores)(
+                        delayed(build_graph)(
+                                {k: annotatedReads[k] for k in annotatedReads if k in batch},
+                                geneMer_size,
+                                {k: gene_positions[k] for k in gene_positions if k in batch}) for batch in batches
+                        )
+    else:
+        sub_graphs = Parallel(n_jobs=cores)(
+                        delayed(build_graph)(
+                                {k: annotatedReads[k] for k in annotatedReads if k in batch},
+                                geneMer_size) for batch in batches
+                        )
+    merged_graph = merge_graphs(sub_graphs)
+    return merged_graph
 
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
     geneMer_size: int,
     genesOfInterest: list[str],
     output_dir: str,
+    cores: int
 ) -> GeneMerGraph:
     sys.stderr.write("\nAmira: building pre-correction gene-mer graph...\n")
-    raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
+    raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, cores)
+    #raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
         node.color_node(genesOfInterest)
@@ -348,13 +368,14 @@ def main() -> None:
     # write out debug files if specified
     if args.debug:
         write_debug_files(
-            annotatedReads, args.geneMer_size, sample_genesOfInterest, args.output_dir
+            annotatedReads, args.geneMer_size, sample_genesOfInterest, args.output_dir, args.cores
         )
     # load the fastq data
     fastq_content = parse_fastq(args.readfile)
     # build the gene-mer graph
     sys.stderr.write("\nAmira: building intitial gene-mer graph...\n")
     graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
+    #graph = build_multiprocessed_graph(annotatedReads, args.geneMer_size, args.cores, gene_position_dict)
     get_final_filter_threshold(graph.get_all_node_coverages(),
                                     os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # filter junk reads
@@ -363,6 +384,7 @@ def main() -> None:
     # dynamically determine the node threshold for filtering
     sys.stderr.write("\nAmira: removing low coverage components...\n")
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     graph.remove_low_coverage_components(5)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
     if not args.node_min_coverage:
@@ -378,6 +400,7 @@ def main() -> None:
     # remove nodes below the coverage threshold
     sys.stderr.write(f"\nAmira: removing nodes with coverage < {node_min_coverage}...\n")
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     node_trough_value = find_trough(
         graph.get_all_node_coverages(),
         os.path.join(args.output_dir, f"pre_correction_node_coverages.png"),
@@ -385,6 +408,7 @@ def main() -> None:
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
     # parse the original fastq file
@@ -395,15 +419,18 @@ def main() -> None:
         )
         sys.stderr.write(f"\n\tAmira: removing dead ends...\n")
         graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+        #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
         graph.remove_short_linear_paths(args.geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs...\n")
         graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-        new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(1, fastq_content, args.cores)
+        #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+        new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(1, fastq_content, sample_genesOfInterest, args.cores)
     final_filtering_threshold = get_final_filter_threshold(graph.get_all_node_coverages(),
                                     os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # do a final round of filtering
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     # decide the threshold for filtering
     graph.filter_graph(final_filtering_threshold, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
@@ -415,6 +442,7 @@ def main() -> None:
     with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
         o.write(json.dumps(new_annotatedReads))
     graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+   # graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     # remove low coverage components
     graph.remove_low_coverage_components(5)
     # color nodes in the graph if --debug is used
@@ -431,7 +459,7 @@ def main() -> None:
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads...\n")
-    clusters_of_interest = graph.assign_reads_to_genes(sample_genesOfInterest, fastq_content)
+    clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest)
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
@@ -442,9 +470,11 @@ def main() -> None:
         read_subset = {}
         for r in clusters_of_interest[allele]:
             underscore_split = r.split("_")
-            fastq_data = fastq_content[underscore_split[0]]
+            fastq_data = fastq_content[underscore_split[0]].copy()
+            print(underscore_split, len(fastq_data["sequence"]))
+            fastq_data["sequence"] = fastq_data["sequence"][max([0, int(underscore_split[1]) - 100]): int(underscore_split[2]) + 101]
             read_subset[underscore_split[0]] = fastq_data
-            assert not read_subset[underscore_split[0]]["sequence"] == ""
+            assert read_subset[underscore_split[0]]["sequence"] != ""
         write_fastq(
             os.path.join(args.output_dir, "AMR_allele_fastqs", allele + ".fastq.gz"), read_subset
         )

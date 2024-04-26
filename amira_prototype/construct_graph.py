@@ -21,6 +21,75 @@ from amira_prototype.construct_unitig import Unitig
 sys.setrecursionlimit(50000)
 
 
+def build_graph(read_dict, kmer_size, gene_positions=None):
+    graph = GeneMerGraph(read_dict, kmer_size, gene_positions)
+    return graph
+
+def merge_nodes(sub_graphs, fastq_data=None):
+    reference_graph = sub_graphs[0]
+    # iterate through the subgraphs
+    for graph in sub_graphs[1:]:
+        # iterate through the reads in the subgraph
+        for read_id in graph.get_readNodes():
+            # get the nodes on each read
+            node_hashes_on_read = graph.get_readNodes()[read_id]
+            # get the direction of each node on each read
+            node_directions_on_read = graph.get_readNodeDirections()[read_id]
+            # get the positions of each node on each read
+            node_positions_on_read = graph.get_readNodePositions()[read_id]
+            # iterate through the nodes
+            for i in range(len(node_hashes_on_read)):
+                # get the node object
+                node_in_subgraph = graph.get_node_by_hash(node_hashes_on_read[i])
+                # add the node to the reference graph
+                node_in_reference = reference_graph.add_node(node_in_subgraph.get_geneMer(), node_in_subgraph.get_reads())
+                # add to the minhash
+                if fastq_data is not None:
+                    if node_in_reference.get_minhash() is None:
+                        node_in_reference.set_minhash(node_in_subgraph.get_minhash())
+                    node_in_reference.get_minhash().add_many(node_in_subgraph.get_minhash())
+                # increment the node coverage
+                node_in_reference.increment_node_coverage()
+                # add the node to the read in the reference graph
+                reference_graph.add_node_to_read(node_in_reference, read_id, node_directions_on_read[i], node_positions_on_read[i])
+    return reference_graph
+
+def merge_edges(sub_graphs, reference_graph):
+    for graph in sub_graphs[1:]:
+        for edge_hash in graph.get_edges():
+            if edge_hash not in reference_graph.get_edges():
+                # get the edge object in the subgraph
+                edge_in_subgraph = graph.get_edge_by_hash(edge_hash)
+                # change the source and target node to those in the reference graph
+                reference_source_node = edge_in_subgraph.set_sourceNode(reference_graph.get_node_by_hash(edge_in_subgraph.get_sourceNode().__hash__()))
+                reference_target_node = edge_in_subgraph.set_targetNode(reference_graph.get_node_by_hash(edge_in_subgraph.get_targetNode().__hash__()))
+                # add the edge to the node
+                reference_graph.add_edge_to_node(reference_source_node, edge_in_subgraph)
+                # add the edge object to the graph
+                reference_graph.get_edges()[edge_hash] = edge_in_subgraph
+            else:
+                # get the reference edge
+                reference_edge = reference_graph.get_edge_by_hash(edge_hash)
+                # extend the coverage
+                reference_edge.extend_edge_coverage(reference_edge.get_edge_coverage())
+
+def merge_reads(sub_graphs, reference_graph):
+    for graph in sub_graphs[1:]:
+        for read in graph.get_reads():
+            reference_graph.get_reads()[read] = graph.get_reads()[read]
+            if reference_graph.get_gene_positions() is not None:
+                reference_graph.get_gene_positions()[read] = graph.get_gene_positions()[read]
+
+def merge_graphs(sub_graphs):
+    # merge the nodes
+    reference_graph = merge_nodes(sub_graphs)
+    # merge the edges
+    merge_edges(sub_graphs, reference_graph)
+    # merge the reads
+    merge_reads(sub_graphs, reference_graph)
+    reference_graph.assign_component_ids()
+    return reference_graph
+
 class GeneMerGraph:
     def __init__(self, readDict, kmerSize, gene_positions=None):
         self._reads = readDict
@@ -1510,7 +1579,7 @@ class GeneMerGraph:
         return read_sequence
 
     def get_minhash_for_path(self, path, reads_in_path, fastq_data):
-        minhash = sourmash.MinHash(n=0, ksize=13, scaled=1)
+        minhash = sourmash.MinHash(n=0, ksize=9, scaled=1)
         reads_with_positions = set()
         for read_id in reads_in_path:
             read_sequence = self.get_read_sequence_for_path(read_id, path, fastq_data)
@@ -1744,8 +1813,9 @@ class GeneMerGraph:
         INDEL_count = self.count_indels_in_alignment(fw_alignment)
         return fw_alignment, rv_alignment, SNP_count, INDEL_count
 
-    def correct_bubble_paths(self, bubbles, fastq_data, path_minimizers):
+    def correct_bubble_paths(self, bubbles, fastq_data, path_minimizers, genesOfInterest):
         corrected_reads = {}
+        all_path_coverages = []
         for pair in tqdm(bubbles):
             if len(bubbles[pair]) > 1:
                 # sort the paths from highest to lower coverage
@@ -1755,13 +1825,14 @@ class GeneMerGraph:
                 # iterate through the paths
                 for i in range(len(paths)):
                     higher_coverage_path, higher_coverage = paths[i]
+                    all_path_coverages.append(higher_coverage)
                     higher_coverage_path = [n[0] for n in higher_coverage_path]
                     # check if the current high coverage path has been corrected
                     if not tuple(higher_coverage_path) in corrected_paths:
                         # get the genes in the higher coverage path
                         fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
                         # get the minimzers
-                        high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
+                        #high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
                         # iterate through the remaining paths
                         for lower_coverage_path, lower_coverage in paths[i + 1 :]:
                             if tuple(lower_coverage_path) in corrected_paths:
@@ -1788,20 +1859,25 @@ class GeneMerGraph:
                             )
                             # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
                             if SNP_count <= 2 and INDEL_count <= 2:
+                                # make sure that we do not delete AMR genes
+                                if any(c[1][1:] in genesOfInterest and c[1][1:] != c[0][1:] for c in fw_alignment):
+                                    continue
                                 # get the minimzers
-                                low_coverage_minimizers = path_minimizers[tuple(lower_coverage_path)]
+                                #low_coverage_minimizers = path_minimizers[tuple(lower_coverage_path)]
                                 # get the distance
-                                if max([len(high_coverage_minimizers & low_coverage_minimizers) / len(high_coverage_minimizers),
-                                    len(high_coverage_minimizers & low_coverage_minimizers) / len(low_coverage_minimizers)]) > 0.85:
-                                    corrected_reads = self.correct_low_coverage_path(
-                                        lower_coverage_path,
-                                        fw_counter,
-                                        bw_counter,
-                                        fw_alignment,
-                                        rv_alignment,
-                                        fastq_data,
-                                        corrected_reads
-                                    )
+                                #if max([len(high_coverage_minimizers & low_coverage_minimizers) / len(high_coverage_minimizers),
+                                #    len(high_coverage_minimizers & low_coverage_minimizers) / len(low_coverage_minimizers)]) >= 0.80:
+                                corrected_reads = self.correct_low_coverage_path(
+                                    lower_coverage_path,
+                                    fw_counter,
+                                    bw_counter,
+                                    fw_alignment,
+                                    rv_alignment,
+                                    fastq_data,
+                                    corrected_reads
+                                )
+        from amira_prototype.__main__ import plot_log_histogram
+        plot_log_histogram(all_path_coverages, "/home/daniel/Documents/GitHub/amira_prototype/amira.output.GCA_027944575.1_ASM2794457v1_genomic.path_minimizers/path_coverages,png")
 
     def split_into_contiguous_chunks(self, shared_read_indices_with_lcp, shared_read_indices_with_hcp):
         if not shared_read_indices_with_lcp:
@@ -1898,7 +1974,7 @@ class GeneMerGraph:
             return [], None, None
 
 
-    def get_all_paths_between_junctions_in_component(
+    def mp_get_all_paths_between_junctions_in_component(
         self, potential_bubble_starts_component, max_distance, cores
     ):
         # store the paths
@@ -1946,6 +2022,40 @@ class GeneMerGraph:
             unique_paths.update(batch_result)
         return unique_paths
 
+    def get_all_paths_between_junctions_in_component(
+        self, potential_bubble_starts_component, max_distance, cores=1
+    ):
+        # store the paths
+        unique_paths = set()
+        seen_pairs = set()
+        # iterate through the bubble nodes
+        for start_hash, start_direction in tqdm(potential_bubble_starts_component):
+            for stop_hash, stop_direction in potential_bubble_starts_component:
+                if start_hash == stop_hash:
+                    continue
+                if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
+                    continue
+                # seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
+                paths_between_nodes = self.new_find_paths_between_nodes(
+                    start_hash, stop_hash, max_distance, start_direction
+                )
+                # remove paths that do not start and stop in the same direction
+                valid_paths_between_nodes = [
+                    p
+                    for p in paths_between_nodes
+                    if p[0] == (start_hash, start_direction)
+                    and (p[-1][0], self.get_direction_between_two_nodes(p[-2][0], p[-1][0]))
+                    == (stop_hash, stop_direction)
+                ]
+                # check if there is more than one option
+                if len(valid_paths_between_nodes) > 1:
+                    for p in valid_paths_between_nodes:
+                        unique_paths.add(
+                            tuple(sorted([p, list(reversed([(t[0], t[1] * -1) for t in p]))])[0])
+                        )
+                seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
+        return list(unique_paths)
+
     def separate_paths_by_terminal_nodes(self, sorted_filtered_paths):
         paired_sorted_filtered_paths = {}
         for p in sorted_filtered_paths:
@@ -1983,7 +2093,7 @@ class GeneMerGraph:
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
         for node_hash in batch:
             node = self.get_node_by_hash(node_hash)
-            minhash = sourmash.MinHash(n=0, ksize=15, scaled=5)
+            minhash = sourmash.MinHash(n=0, ksize=13, scaled=1)
             # iterate through the reads
             for read in node.get_reads():
                 # get the indices of the node occurence on the read
@@ -2032,7 +2142,7 @@ class GeneMerGraph:
         assert not any(v is None for v in path_minimizers.values())
         return path_minimizers
 
-    def correct_low_coverage_paths(self, node_min_coverage, fastq_data, cores):
+    def correct_low_coverage_paths(self, node_min_coverage, fastq_data, genesOfInterest, cores):
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
         # get the potential start nodes
@@ -2054,11 +2164,11 @@ class GeneMerGraph:
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # get a minhash object for each path
-            path_minimizers = self.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, cores)
+            path_minimizers = {}#self.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, cores)
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
-            self.correct_bubble_paths(sorted_filtered_paths, fastq_data, path_minimizers)
+            self.correct_bubble_paths(sorted_filtered_paths, fastq_data, path_minimizers, genesOfInterest)
         return self.get_reads(), self.get_gene_positions()
 
     def identify_potential_bubble_starts(self):
@@ -2279,81 +2389,98 @@ class GeneMerGraph:
             print("\n")
         return resolved_clusters
 
-    def get_unitig_paths(self, unitig_ends, anchor_nodes, junction_nodes, nodeHashesOfInterest):
-        all_unique_linear_paths = set()
-        nodeHashesOfInterest = set(nodeHashesOfInterest)
-        # iterate through the unitig_ends
-        for node_hash in unitig_ends:
-            # get the node object
-            node = self.get_node_by_hash(node_hash)
-            # iterate through the neighbors of these nodes
-            for neighbor_node_hash in self.get_all_neighbor_hashes(node):
-                # check if the node is one we are interested in
-                if neighbor_node_hash in nodeHashesOfInterest and neighbor_node_hash not in junction_nodes:
-                    # get the linear path for this neighbor
-                    linear_path = [n for n in self.get_linear_path_for_node(self.get_node_by_hash(neighbor_node_hash), True) if n in nodeHashesOfInterest]
-                    # add this path to the set of linear paths
-                    all_unique_linear_paths.add(tuple(sorted([linear_path, list(reversed(linear_path))])[0]))
-        return all_unique_linear_paths
+    def new_get_paths_for_gene(self, reads, anchor_nodes, junction_nodes):
+        paths = {}
+        # iterate through the reads
+        for read in tqdm(reads):
+            # get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read]
+            # initialise the start and end indices
+            start, end = len(nodes_on_read), 0
+            # iterate through the nodes on the read
+            for i, n in enumerate(nodes_on_read):
+                # check if the current node is an anchor node
+                if n in anchor_nodes:
+                    # set start to the index of the first anchor
+                    start = min(start, i)
+                    # set end to the index of the last anchor
+                    end = max(end, i)
+            # slice the nodes on the read to those between the first and last anchor
+            path = nodes_on_read[start:end + 1]
+            # if there is more than one node in the path
+            if len(path) > 1:
+                # get the canonical path
+                path = tuple(sorted([path, list(reversed(path))])[0])
+                if path not in paths:
+                    paths[path] = set()
+                # check if there are any junctions in this path
+                if not any(p in junction_nodes for p in path):
+                    # assign reads that do not span the entire path
+                    path_set = set(path)
+                    for nodehash in path_set:
+                        for other_read in self.get_node_by_hash(nodehash).get_reads():
+                            node_indices_shared_with_path = [i for i, n in enumerate(self.get_readNodes()[other_read]) if n in path_set]
+                            positions_of_nodes = self.get_readNodePositions()[other_read][min(node_indices_shared_with_path): max(node_indices_shared_with_path)+1]
+                            paths[path].add(f"{other_read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
+                else:
+                    # get the read node positions
+                    positions_of_nodes = self.get_readNodePositions()[read][start: end+1]
+                    # assign the read to the path
+                    paths[path].add(f"{read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
+        return paths
 
-    def convert_paths_to_untigs(self, unitig_paths, junction_nodes):
-        unitigs = []
-        unitig_ID = 0
-        # iterate through the paths
-        for path in unitig_paths:
-            # get the coverages of all nodes in the path other than the junction nodes
-            node_coverages = [self.get_node_by_hash(n).get_node_coverage() for n in path if n not in junction_nodes]
-            # create a unitig object
-            this_unitig = Unitig(path, node_coverages, unitig_ID)
-            # collect the unitig objects
-            unitigs.append(this_unitig)
-            # increment the unitig ID
-            unitig_ID += 1
-        return unitigs
+    def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest):
+        allele_count = 1
+        finalPathsOfInterest = {}
+        for path in pathsOfinterest:
+            if not len(path) > self.get_kmerSize():
+                finalPathsOfInterest[f"{geneOfInterest}_{allele_count}"] = pathsOfinterest[path]
+                allele_count += 1
+            else:
+                node_hashes = list(path)
+                # get the genes in the path
+                genes_in_path = self.get_genes_in_unitig(node_hashes)
+                # make a dictionary to track the node for each gene of interest in the path
+                node_indices_for_each_gene_index = {}
+                for i in range(len(node_hashes)):
+                    gene_indices = [j for j in range(i, i + self.get_kmerSize())]
+                    for g in gene_indices:
+                        if genes_in_path[g][1:] == geneOfInterest:
+                            if g not in node_indices_for_each_gene_index:
+                                node_indices_for_each_gene_index[g] = []
+                            node_indices_for_each_gene_index[g].append(i)
+                for i in node_indices_for_each_gene_index:
+                    nodes_containing_this_gene = [
+                        node_hashes[j] for j in node_indices_for_each_gene_index[i]
+                    ]
+                    finalPathsOfInterest[f"{geneOfInterest}_{allele_count}"] = pathsOfinterest[path]
+                    allele_count += 1
+        return finalPathsOfInterest
 
-    def get_unitigs_in_list_of_nodes(self, anchor_nodes, junction_nodes, nodeHashesOfInterest):
-        # join the anchor nodes and junction nodes
-        unitig_ends = set(list(anchor_nodes) + list(junction_nodes))
-        # get all the linear paths containing this AMR gene
-        unitig_paths = self.get_unitig_paths(unitig_ends, anchor_nodes, junction_nodes, nodeHashesOfInterest)
-        # filter out paths that cross a junction
-        unitigs = self.convert_paths_to_untigs(unitig_paths, junction_nodes)
-        return unitigs
-
-    def estimate_unitig_frequencies(self, unitigs):
-        # get the minimum of the coverage of all unitigs
-        mean_coverages = [(u.get_unitig_ID(), u.get_mean_coverage()) for u in unitigs]
-        # get the minimum mean coverage
-        min_mean_coverage = min([c[1] for c in mean_coverages])
-        # make a dictionary of unitig frequencies relative to the minimum coverage
-        unitig_frequencies = {}
-        for i in range(len(unitigs)):
-            unitig_frequencies[mean_coverages[i][0]] = math.ceil(mean_coverages[i][1] / min_mean_coverage)
-        return unitig_frequencies
-
-    def new_get_paths_for_gene(self, geneOfInterest):
-        # get the graph nodes containing this gene
-        nodeOfInterest = self.get_nodes_containing(geneOfInterest)
-        # get the node hashes containing this gene
-        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
-        # get the nodes that contain this gene but are at the end of a path
-        anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
-        # get all the possible AMR gene unitigs
-        unitigs = self.get_unitigs_in_list_of_nodes(anchor_nodes, junction_nodes, nodeHashesOfInterest)
-        # estimate the unitig frequencies
-        unitig_frequencies = self.estimate_unitig_frequencies(unitigs)
-        return
-
-
-    def new_assign_reads_to_genes(self, listOfGenes, fastq_data):
+    def new_assign_reads_to_genes(self, listOfGenes):
+        clustered_reads = {}
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
-            # get the potential paths for all alleles of this gene
-            nodeHashesOfInterest = self.new_get_paths_for_gene(geneOfInterest)
-            # get the reads covering the node hashes of interest
-            reads_of_interest = self.collect_reads_in_path(nodeHashesOfInterest)
-            # assign reads to the paths they follow
-        return
+            # get the graph nodes containing this gene
+            nodesOfInterest = self.get_nodes_containing(geneOfInterest)
+            # get the node hashes containing this gene
+            nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+            # get the nodes that contain this gene but are at the end of a path
+            anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
+            # get the reads containing the nodes
+            reads = self.collect_reads_in_path(nodeHashesOfInterest)
+            # get the paths containing this gene
+            pathsOfInterest = self.new_get_paths_for_gene(reads, anchor_nodes, junction_nodes)
+            # split the paths into subpaths
+            finalAllelesOfInterest = self.new_split_into_subpaths(geneOfInterest, pathsOfInterest)
+            # iterate through the alleles
+            for allele in finalAllelesOfInterest:
+                # add this allele if there are 5 or more reads
+                if len(finalAllelesOfInterest[allele]) > 4:
+                    clustered_reads[allele] = finalAllelesOfInterest[allele]
+                else:
+                    sys.stderr.write(f"Amira: allele {allele} filtered due to an insufficient number of reads.\n")
+        return clustered_reads
 
     def merge_clusters_by_minhash(self, clustered_reads, minhash_dictionary, threshold=0.85):
         """Merge clusters with Jaccard distance above the threshold and include unmatched paths."""
@@ -2443,7 +2570,7 @@ class GeneMerGraph:
                     ">"
                     + gene_name
                     + "\n"
-                    + fastqContent["_".join(gene_name.split("_")[:-2])]["sequence"]
+                    + fastqContent["_".join(gene_name.split("_")[:-1])]["sequence"]
                     + "\n"
                 )
             # map the reads to the consensus file
@@ -2465,7 +2592,7 @@ class GeneMerGraph:
                 racon_command = (
                     racon_path
                     + " -t 1 -w "
-                    + str(len(fastqContent["_".join(gene_name.split("_")[:-2])]["sequence"]))
+                    + str(len(fastqContent["_".join(gene_name.split("_")[:-1])]["sequence"]))
                     + " "
                 )
                 racon_command += file + " " + os.path.join(outputDir, "02.read.mapped.sam") + " "
