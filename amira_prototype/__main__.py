@@ -5,6 +5,8 @@ import os
 import shutil
 import sys
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import find_peaks, savgol_filter
@@ -431,7 +433,6 @@ def main() -> None:
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
     #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
@@ -449,8 +450,9 @@ def main() -> None:
         sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs...\n")
         #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
-        #new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(fastq_content, sample_genesOfInterest, args.cores)
+        new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(fastq_content, sample_genesOfInterest, args.cores)
     # merge paths that are very similar in terms of minimizers
+    sys.stderr.write(f"\n\tAmira: using minimizers to correct high coverage paths...\n")
     #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(fastq_content, sample_genesOfInterest, args.cores, True)
@@ -462,9 +464,6 @@ def main() -> None:
     # decide the threshold for filtering
     graph.filter_graph(final_filtering_threshold, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    #graph.filter_graph(final_filtering_threshold, 1)
-    #new_annotatedReads = graph.get_valid_reads_only()
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph...\n")
     with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
@@ -499,7 +498,6 @@ def main() -> None:
         for r in clusters_of_interest[allele]:
             underscore_split = r.split("_")
             fastq_data = fastq_content[underscore_split[0]].copy()
-#            print(underscore_split, len(fastq_data["sequence"]))
             fastq_data["sequence"] = fastq_data["sequence"][max([0, int(underscore_split[1]) - 100]): min([len(fastq_data["sequence"])-1, int(underscore_split[2]) + 101])]
             fastq_data["quality"] = fastq_data["quality"][max([0, int(underscore_split[1]) - 100]): min([len(fastq_data["quality"])-1, int(underscore_split[2]) + 101])]
             read_subset[underscore_split[0]] = fastq_data
@@ -526,8 +524,8 @@ def main() -> None:
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
             del clusters_of_interest[g[0]]
-            #shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
-            #os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
+            shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
     # write out the clustered reads
     for allele in clusters_of_interest:
         new_reads = set()
