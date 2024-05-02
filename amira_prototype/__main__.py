@@ -406,19 +406,14 @@ def main() -> None:
     fastq_content = parse_fastq(args.readfile)
     # build the gene-mer graph
     sys.stderr.write("\nAmira: building intitial gene-mer graph...\n")
-    graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
-    #graph = build_multiprocessed_graph(annotatedReads, args.geneMer_size, args.cores, gene_position_dict)
+    #graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
+    graph = build_multiprocessed_graph(annotatedReads, args.geneMer_size, args.cores, gene_position_dict)
     #get_final_filter_threshold(graph.get_all_node_coverages(),
     #                                os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # filter junk reads
     graph.filter_graph(2, 1)
     new_annotatedReads, new_gene_position_dict = graph.remove_junk_reads(0.80)
     # dynamically determine the node threshold for filtering
-    sys.stderr.write("\nAmira: removing low coverage components...\n")
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
-    graph.remove_low_coverage_components(5)
-    new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
     if not args.node_min_coverage:
         try:
             node_min_coverage = find_trough(
@@ -429,18 +424,15 @@ def main() -> None:
             node_min_coverage = 5
     else:
         node_min_coverage = args.node_min_coverage
-    # remove nodes below the coverage threshold
-    sys.stderr.write(f"\nAmira: removing nodes with coverage < {node_min_coverage}...\n")
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
-    node_trough_value = find_trough(
-        graph.get_all_node_coverages(),
-        os.path.join(args.output_dir, f"pre_correction_node_coverages.png"),
-    )
+    sys.stderr.write(f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}...\n")
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+    graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
     # parse the original fastq file
@@ -450,35 +442,23 @@ def main() -> None:
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}...\n"
         )
         sys.stderr.write(f"\n\tAmira: removing dead ends...\n")
-        graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-        ############## debugging plots
-        # graph.generate_gml(f"{args.output_dir}/{this_iteration}", 5, 1, 1)
-        # for component in graph.components():
-        #     unitigs = {}
-        #     node_coverages = []
-        #     for node in graph.get_nodes_in_component(component):
-        #         unitig = graph.get_linear_path_for_node(node, True)
-        #         canonical = sorted([unitig, list(reversed(unitig))])[0]
-        #         unitigs[tuple(canonical)] = len(graph.collect_reads_in_path(canonical))
-        #         node_coverages.append(node.get_node_coverage())
-        #     coverages = []
-        #     for u in unitigs:
-        #         coverages.append(unitigs[u])
-        #     plot_unitig_coverages(coverages, f"{args.output_dir}/{this_iteration}_{component}_unitig_coverages.png")
-        #     plot_unitig_coverages(node_coverages, f"{args.output_dir}/{this_iteration}_{component}_node_coverages.png")
-        ####################################################
-        #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+        #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+        graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
         graph.remove_short_linear_paths(args.geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs...\n")
-        graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-        #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
-        new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(1, fastq_content, sample_genesOfInterest, args.cores)
+        #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+        graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+        #new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(fastq_content, sample_genesOfInterest, args.cores)
+    # merge paths that are very similar in terms of minimizers
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+    new_annotatedReads, new_gene_position_dict = graph.correct_low_coverage_paths(fastq_content, sample_genesOfInterest, args.cores, True)
     final_filtering_threshold = get_final_filter_threshold(graph.get_all_node_coverages(),
                                     os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # do a final round of filtering
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     # decide the threshold for filtering
     graph.filter_graph(final_filtering_threshold, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
@@ -489,8 +469,8 @@ def main() -> None:
     sys.stderr.write("\nAmira: building corrected gene-mer graph...\n")
     with open(os.path.join(args.output_dir, "corrected_genesAnnotatedOnReads.json"), "w") as o:
         o.write(json.dumps(new_annotatedReads))
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-   # graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
+    #graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
     # remove low coverage components
     graph.remove_low_coverage_components(5)
     # color nodes in the graph if --debug is used

@@ -1820,9 +1820,9 @@ class GeneMerGraph:
         INDEL_count = self.count_indels_in_alignment(fw_alignment)
         return fw_alignment, rv_alignment, SNP_count, INDEL_count
 
-    def correct_bubble_paths(self, bubbles, fastq_data, path_minimizers, genesOfInterest):
+    def correct_bubble_paths(self, bubbles, fastq_data, path_minimizers, genesOfInterest, threshold=0.80):
         corrected_reads = {}
-        all_path_coverages = []
+        # iterate through the path terminals
         for pair in tqdm(bubbles):
             if len(bubbles[pair]) > 1:
                 # sort the paths from highest to lower coverage
@@ -1831,22 +1831,32 @@ class GeneMerGraph:
                 corrected_paths = set()
                 # iterate through the paths
                 for i in range(len(paths)):
+                    # split the path tuple
                     higher_coverage_path, higher_coverage = paths[i]
-                    all_path_coverages.append(higher_coverage)
+                    # get the nodes in the path
                     higher_coverage_path = [n[0] for n in higher_coverage_path]
                     # check if the current high coverage path has been corrected
                     if not tuple(higher_coverage_path) in corrected_paths:
                         # get the genes in the higher coverage path
                         fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
-                        # get the minimzers
-                        #high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
+                        # get the minimzers if this is the final round of bubble popping
+                        if path_minimizers is not None:
+                            high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
                         # iterate through the remaining paths
                         for lower_coverage_path, lower_coverage in paths[i + 1 :]:
+                            # skip the correction if we have already corrected this path
                             if tuple(lower_coverage_path) in corrected_paths:
                                 continue
-                            # if lower_coverage >= 10:
-                            #    continue
+                            # get the nodes in the path
                             lower_coverage_path = [n[0] for n in lower_coverage_path]
+                            # see if this is the final round of correction
+                            if path_minimizers is None:
+                                # if not, only correct paths with a mean coverage < 10
+                                if lower_coverage >= 10:
+                                    continue
+                            else:
+                                # if so, get the minimizers of the lower coverage path
+                                low_coverage_minimizers = path_minimizers[tuple(lower_coverage_path)]
                             # get the genes in the lower coverage path
                             lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
                             # get the k-mers in the low coverage path
@@ -1864,16 +1874,26 @@ class GeneMerGraph:
                             fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(
                                 lower_coverage_genes, fw_higher_coverage_genes
                             )
-                            # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
-                            if SNP_count <= 2 and INDEL_count <= 2:
+                            # placeholder to decide if we are correcting this low coverage path
+                            correct_path = False
+                            # see if we are using the minimizers to decide on correction
+                            if path_minimizers is None:
+                                # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
+                                if SNP_count <= 2 and INDEL_count <= 2:
+                                    correct_path = True
+                            else:
+                                # see how similar the paths are based on their minimizers
+                                containment = max([
+                                        len(high_coverage_minimizers & low_coverage_minimizers) / len(low_coverage_minimizers),
+                                        len(high_coverage_minimizers & low_coverage_minimizers) / len(high_coverage_minimizers)])
+                                # if the containment is greater than the threshold then correct the path
+                                if containment > threshold:
+                                    correct_path = False
+                            if correct_path is True:
                                 # make sure that we do not delete AMR genes
                                 if any(c[1][1:] in genesOfInterest and c[1][1:] != c[0][1:] for c in fw_alignment):
                                     continue
-                                # get the minimzers
-                                #low_coverage_minimizers = path_minimizers[tuple(lower_coverage_path)]
-                                # get the distance
-                                #if max([len(high_coverage_minimizers & low_coverage_minimizers) / len(high_coverage_minimizers),
-                                #    len(high_coverage_minimizers & low_coverage_minimizers) / len(low_coverage_minimizers)]) >= 0.80:
+                                # correct the lower coverage path to the higher coverage path
                                 corrected_reads = self.correct_low_coverage_path(
                                     lower_coverage_path,
                                     fw_counter,
@@ -2147,7 +2167,7 @@ class GeneMerGraph:
         assert not any(v is None for v in path_minimizers.values())
         return path_minimizers
 
-    def correct_low_coverage_paths(self, node_min_coverage, fastq_data, genesOfInterest, cores):
+    def correct_low_coverage_paths(self, fastq_data, genesOfInterest, cores, use_minimizers=False):
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
         # get the potential start nodes
@@ -2169,7 +2189,10 @@ class GeneMerGraph:
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # get a minhash object for each path
-            path_minimizers = {}#self.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, cores)
+            if use_minimizers:
+                path_minimizers = self.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, cores)
+            else:
+                path_minimizers = None
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
