@@ -3658,6 +3658,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         actual_genes = graph.get_genes_in_unitig(nodes)
         # assertion
+        ddd
         self.assertTrue(actual_genes == ["+gene13", "+gene14", "-gene15", "+gene16", "-gene17"] or actual_genes == ["+gene17", "-gene16", "+gene15", "-gene14", "-gene13"])
 
     def test___get_genes_in_unitig_length_zero(self):
@@ -4724,6 +4725,136 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(len(actual_final_paths), 3)
         for k in actual_final_paths:
             self.assertEqual(len(actual_final_paths[k]), 3)
+
+    def test___assess_connectivity(self):
+        # setup
+        import sourmash
+        seq1 = "ATGGTCTCCGAGCTGCAGCGCCAGCTGGCGCTGCATCGGCAGACCCGCGGTGTAGGGTCTTCGTCGACTGCTT"
+        seq2 = "ATGGTCTCCGAGCTGCAGCGCCAGCTTTCGCTGCATCGGCAGACCCGCGGTGTAGGGTCTTCGTCGACTGCTT"
+        seq3 = "ATGAGTAGTAGGTCGTCGATCGTCAGCTGGATCTGAGATTCGGATTCGGCGGCTATCGGCTAGTCGACTGCTT"
+        m1 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m1.add_sequence(seq1, force=True)
+        m2 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m2.add_sequence(seq2, force=True)
+        m3 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m3.add_sequence(seq3, force=True)
+        minhash_dictionary = {(1, 2, 3): m1, (1, 4, 3): m2, (1, 5, 3): m3}
+        path_dictionary = {(1, 2, 3): ["read1", "read2", "read3"], (1, 4, 3): ["read4", "read5", "read6"], (1, 5, 3): ["read7", "read8", "read9"]}
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_connectivity = graph.assess_connectivity(path_dictionary, minhash_dictionary, 0.9)
+        # assertion
+        self.assertEqual(actual_connectivity[(1, 2, 3)], {(1, 4, 3)})
+        self.assertEqual(actual_connectivity[(1, 4, 3)], {(1, 2, 3)})
+        self.assertEqual(actual_connectivity[(1, 5, 3)], set())
+
+    def test___assess_connectivity_1(self):
+        # setup
+        import sourmash
+        seq1 = "ATGGTCTCCGAGCTGCAGCGCCAGCTGGCGCTGCATCGGCAGACCCGCGGTGTAGGGTCTTCGTCGACTGCTT"
+        seq2 = "ATGGTCTCCGAGCTGCAGCGCCAGCTTTCGCTGCATCGGCAGACCCGCGGTGTAGGGTCTTCGTCGACTGCTT"
+        seq3 = "ATGAGTAGTAGGTCGTCGATCGTCAGCTGGATCTGAGATTCGGATTCGGCGGCTATCGGCTAGTCGACTGCTT"
+        m1 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m1.add_sequence(seq1, force=True)
+        m2 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m2.add_sequence(seq2, force=True)
+        m3 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m3.add_sequence(seq3, force=True)
+        minhash_dictionary = {(1, 2, 3): m1, (1, 4, 3): m2, (1, 5, 3): m3}
+        path_dictionary = {(1, 2, 3): ["read1", "read2", "read3"], (1, 4, 3): ["read4", "read5", "read6"], (1, 5, 3): ["read7", "read8", "read9"]}
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_connectivity = graph.assess_connectivity(path_dictionary, minhash_dictionary, 1)
+        # assertion
+        self.assertEqual(actual_connectivity[(1, 2, 3)], set())
+        self.assertEqual(actual_connectivity[(1, 4, 3)], set())
+        self.assertEqual(actual_connectivity[(1, 5, 3)], set())
+
+    def test___assess_connectivity_zero(self):
+        # setup
+        import sourmash
+        seq1 = "ATGGTCTCCGAGCTGCAGCGCCAGCTGGCGCTGCATCGGCAGACCCGCGGTGTAGGGTCTTCGTCGACTGCTT"
+        seq2 = "ATGGTCTCCGAGCTGCAGCGCCAGCTTTCGCTGCATCGGCAGACCCGCGGTGTAGGGTCTTCGTCGACTGCTT"
+        seq3 = "ATGAGTAGTAGGTCGTCGATCGTCAGCTGGATCTGAGATTCGGATTCGGCGGCTATCGGCTAGTCGACTGCTT"
+        m1 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m1.add_sequence(seq1, force=True)
+        m2 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m2.add_sequence(seq2, force=True)
+        m3 = sourmash.MinHash(n=0, ksize=9, scaled=1)
+        m3.add_sequence(seq3, force=True)
+        minhash_dictionary = {(1, 2, 3): m1, (1, 4, 3): m2, (1, 5, 3): m3}
+        path_dictionary = {(1, 2, 3): ["read1", "read2", "read3"], (1, 4, 3): ["read4", "read5", "read6"], (1, 5, 3): ["read7", "read8", "read9"]}
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_connectivity = graph.assess_connectivity(path_dictionary, minhash_dictionary, 0)
+        # assertion
+        self.assertEqual(actual_connectivity[(1, 2, 3)], {(1, 4, 3), (1, 5, 3)})
+        self.assertEqual(actual_connectivity[(1, 4, 3)], {(1, 2, 3), (1, 5, 3)})
+        self.assertEqual(actual_connectivity[(1, 5, 3)], {(1, 4, 3), (1, 2, 3)})
+
+    def test___cluster_paths_one(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_merged_paths = graph.cluster_paths({(1, 2, 3): {(1, 4, 3)}, (1, 4, 3): {(1, 2, 3)}, (1, 5, 3): set()})
+        # assertion
+        self.assertEqual(actual_merged_paths, {(1, 2, 3): {(1, 4, 3), (1, 2, 3)}, (1, 5, 3): {(1, 5, 3)}})
+
+    def test___cluster_paths_two(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_merged_paths = graph.cluster_paths({(1, 2, 3): set(), (1, 4, 3): set(), (1, 5, 3): set()})
+        # assertion
+        self.assertEqual(actual_merged_paths,{(1, 2, 3): {(1, 2, 3)}, (1, 4, 3): {(1, 4, 3)}, (1, 5, 3): {(1, 5, 3)}} )
+
+    def test___cluster_paths_three(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_merged_paths = graph.cluster_paths({(1, 2, 3): {(1, 4, 3), (1, 5, 3)}, (1, 4, 3): {(1, 2, 3), (1, 5, 3)}, (1, 5, 3): {(1, 4, 3), (1, 2, 3)}})
+        # assertion
+        self.assertEqual(actual_merged_paths, {(1, 2, 3): {(1, 4, 3), (1, 5, 3), (1, 2, 3)}})
+
+    def test___find_sublist_indices_one(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_indices = graph.find_sublist_indices(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], ["4", "5", "6"])
+        # assertion
+        self.assertEqual(actual_indices, [(3, 5)])
+
+    def test___find_sublist_indices_two(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_indices = graph.find_sublist_indices(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], ["11", "12", "13"])
+        # assertion
+        self.assertEqual(actual_indices, [])
+
+    def test___find_sublist_indices_three(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_indices = graph.find_sublist_indices(["1", "2", "3", "4", "5", "6", "2", "3", "4", "10"], ["2", "3", "4"])
+        # assertion
+        self.assertEqual(actual_indices, [(1, 3), (6, 8)])
+
+    def test___find_sublist_indices_four(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_indices = graph.find_sublist_indices(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"])
+        # assertion
+        self.assertEqual(actual_indices, [(0, 9)])
+
+    def test___find_sublist_indices_five(self):
+        # setup
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_indices = graph.find_sublist_indices(["1", "1", "1", "1", "1"], ["1", "1", "1"])
+        # assertion
+        self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
 
     def test___correct_reads(self):
         assert None

@@ -263,7 +263,6 @@ class GeneMerGraph:
             self.add_node_to_nodes(node, nodeHash)
         else:
             node = self.get_node_by_hash(nodeHash)
-            # assert geneMer.get_geneMerDirection() == node.get_geneMer().get_geneMerDirection()
         # add the reads for this node to the dictionary of reads
         for r in reads:
             node.add_read(r)
@@ -687,10 +686,17 @@ class GeneMerGraph:
                     newAnnotations += self.get_gene_mer_genes(sourceNode)
                 else:
                     newAnnotations += self.get_reverse_gene_mer_genes(sourceNode)
-            if edge.get_targetNodeDirection() == 1:
-                newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
+            fw_genes = self.get_gene_mer_genes(targetNode)
+            bw_genes = self.get_reverse_gene_mer_genes(targetNode)
+            if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]:
+                newAnnotations.append(fw_genes[-1])
             else:
-                newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
+                assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]
+                newAnnotations.append(bw_genes[-1])
+            # if edge.get_targetNodeDirection() == 1:
+            #     newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
+            # else:
+            #     newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
         return newAnnotations
 
     def remove_short_linear_paths(self, min_length):
@@ -1623,7 +1629,8 @@ class GeneMerGraph:
         elif fw_count == 0 and rv_count == 0:
             return None
         else:
-            raise ValueError("Forward and reverse path alignments are equally distant.")
+            return None
+#            raise ValueError("Forward and reverse path alignments are equally distant.")
 
     def correct_genes_on_read(
         self,
@@ -1876,8 +1883,6 @@ class GeneMerGraph:
                                     fastq_data,
                                     corrected_reads
                                 )
-        from amira_prototype.__main__ import plot_log_histogram
-        plot_log_histogram(all_path_coverages, "/home/daniel/Documents/GitHub/amira_prototype/amira.output.GCA_027944575.1_ASM2794457v1_genomic.path_minimizers/path_coverages,png")
 
     def split_into_contiguous_chunks(self, shared_read_indices_with_lcp, shared_read_indices_with_hcp):
         if not shared_read_indices_with_lcp:
@@ -2414,50 +2419,189 @@ class GeneMerGraph:
                 if path not in paths:
                     paths[path] = set()
                 # check if there are any junctions in this path
-                if not any(p in junction_nodes for p in path):
-                    # assign reads that do not span the entire path
-                    path_set = set(path)
-                    for nodehash in path_set:
-                        for other_read in self.get_node_by_hash(nodehash).get_reads():
-                            node_indices_shared_with_path = [i for i, n in enumerate(self.get_readNodes()[other_read]) if n in path_set]
-                            positions_of_nodes = self.get_readNodePositions()[other_read][min(node_indices_shared_with_path): max(node_indices_shared_with_path)+1]
-                            paths[path].add(f"{other_read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
-                else:
+                # if not (len(path) > self.get_kmerSize() or any(p in junction_nodes for p in path)):
+                #     # assign reads that do not span the entire path
+                #     path_set = set(path)
+                #     for nodehash in path_set:
+                #         for other_read in self.get_node_by_hash(nodehash).get_reads():
+                #             #node_indices_shared_with_path = [i for i, n in enumerate(self.get_readNodes()[other_read]) if n in path_set]
+                #             #positions_of_nodes = self.get_readNodePositions()[other_read][min(node_indices_shared_with_path): max(node_indices_shared_with_path)+1]
+                #             #paths[path].add(f"{other_read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
+                #             paths[path].add(f"{other_read}")
+                # else:
                     # get the read node positions
-                    positions_of_nodes = self.get_readNodePositions()[read][start: end+1]
+                    #print(self.get_readNodePositions()[read])
+                    #positions_of_nodes = self.get_readNodePositions()[read][start: end+1]
                     # assign the read to the path
-                    paths[path].add(f"{read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
+                    #paths[path].add(f"{read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
+                paths[path].add(f"{read}")
         return paths
 
-    def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest):
+    def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest, fastq_content):
         allele_count = 1
-        finalPathsOfInterest = {}
+        gene_clusters = {}
+        # iterate through the paths
         for path in pathsOfinterest:
-            if not len(path) > self.get_kmerSize():
-                finalPathsOfInterest[f"{geneOfInterest}_{allele_count}"] = pathsOfinterest[path]
-                allele_count += 1
-            else:
-                node_hashes = list(path)
-                # get the genes in the path
-                genes_in_path = self.get_genes_in_unitig(node_hashes)
-                # make a dictionary to track the node for each gene of interest in the path
-                node_indices_for_each_gene_index = {}
-                for i in range(len(node_hashes)):
-                    gene_indices = [j for j in range(i, i + self.get_kmerSize())]
-                    for g in gene_indices:
-                        if genes_in_path[g][1:] == geneOfInterest:
-                            if g not in node_indices_for_each_gene_index:
-                                node_indices_for_each_gene_index[g] = []
-                            node_indices_for_each_gene_index[g].append(i)
-                for i in node_indices_for_each_gene_index:
-                    nodes_containing_this_gene = [
-                        node_hashes[j] for j in node_indices_for_each_gene_index[i]
-                    ]
-                    finalPathsOfInterest[f"{geneOfInterest}_{allele_count}"] = pathsOfinterest[path]
+            # get the genes in the path
+            genes_in_path = self.get_genes_in_unitig(list(path))
+            reverse_genes_in_path = self.reverse_list_of_genes(genes_in_path)
+            # check if the path length is greater than k
+            #if [g[1:] for g in genes_in_path].count(geneOfInterest) > 1:
+            # make a separate cluster for each allele
+            indices_in_path = {}
+            for g in range(len(genes_in_path)):
+                if genes_in_path[g][1:] == geneOfInterest:
+                    indices_in_path[g] = f"{geneOfInterest}_{allele_count}"
+                    # add the allele to the cluster dictionary
+                    gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     allele_count += 1
-        return finalPathsOfInterest
+            # iterate through the reads in this path
+            for read_id in pathsOfinterest[path]:
+                # get the genes on the read
+                genes_on_read = self.get_reads()[read_id]
+                # get the positions of the path on the read
+                if self.is_sublist(genes_on_read, genes_in_path):
+                    positions_of_path = self.find_sublist_indices(genes_on_read, genes_in_path)
+                else:
+                    positions_of_path = self.find_sublist_indices(genes_on_read, reverse_genes_in_path)
+                assert len(positions_of_path) > 0
+                # iterate through the path indices
+                for path_start, path_end in positions_of_path:
+                    for gene_index in indices_in_path:
+                        assert self.get_reads()[read_id][path_start+gene_index][1:] == geneOfInterest
+                        # get the sequence start and end of the allele on the read
+                        sequence_start, sequence_end = self.get_gene_positions()[read_id][path_start+gene_index]
+                        # add the read to the allele
+                        gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{max(0, sequence_start - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, sequence_end + 101)}")
+            # else:
+            #     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
+            #     # iterate through the reads
+            #     for read_id in pathsOfinterest[path]:
+            #         # get the nodes on the read
+            #         nodes_on_read = self.get_readNodes()[read_id]
+            #         # make a map saying which index of each node of interest maps to each node
+            #         node_indices_for_each_gene_index = {}
+            #         for i in range(len(nodes_on_read)):
+            #             gene_indices = [j for j in range(i, i + self.get_kmerSize())]
+            #             for g in gene_indices:
+            #                 if self.get_reads()[read_id][g][1:] == geneOfInterest:
+            #                     if g not in node_indices_for_each_gene_index:
+            #                         node_indices_for_each_gene_index[g] = []
+            #                     node_indices_for_each_gene_index[g].append(i)
+            #         # get the indices of nodes shared between the read and path
+            #         nodes_shared = [i for i, n in enumerate(self.get_readNodePositions()[read_id]) if n in path]
+            #         # add the alleles to the gene clusters if they are found in a node shared with the path
+            #         for g in node_indices_for_each_gene_index:
+            #             if len(set(node_indices_for_each_gene_index[g]) & set(nodes_shared)) > 0:
+            #                 gene_clusters[f"{geneOfInterest}_{allele_count}"].append(f"{read_id}_{max(0, self.get_gene_positions()[read_id][g][0] - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, self.get_gene_positions()[read_id][g][1] + 101)}")
+            #     allele_count += 1
+        return gene_clusters
 
-    def new_assign_reads_to_genes(self, listOfGenes):
+    def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
+        path_minhashes = {}
+        for path in pathsOfInterest:
+            # make a sourmash minhash object for the path
+            minhash = sourmash.MinHash(n=0, ksize=9, scaled=1)
+            for read_id in pathsOfInterest[path]:
+                # split the read identifier
+                read, start, end = read_id.split("_")
+                # get the sequence of the path
+                read_sequence = fastq_dict[read]["sequence"][int(start): int(end)+1]
+                # add the sequence to the minhash object
+                minhash.add_sequence(read_sequence, force=True)
+            path_minhashes[path] = minhash
+        return path_minhashes
+
+    def find(self, parent, item):
+        if parent[item] != item:
+            parent[item] = self.find(parent, parent[item])  # Path compression
+        return parent[item]
+
+    def union(self, parent, rank, set1, set2):
+        root1 = self.find(parent, set1)
+        root2 = self.find(parent, set2)
+        if root1 != root2:
+            # Union by rank
+            if rank[root1] > rank[root2]:
+                parent[root2] = root1
+            elif rank[root1] < rank[root2]:
+                parent[root1] = root2
+            else:
+                parent[root2] = root1
+                rank[root1] += 1
+
+    def cluster_paths(self, clusters):
+        parent = {}
+        rank = {}
+        # Initialize parent and rank
+        for node in clusters:
+            parent[node] = node
+            rank[node] = 0
+            for connected_node in clusters[node]:
+                parent[connected_node] = connected_node
+                rank[connected_node] = 0
+        # Perform unions
+        for node in clusters:
+            for connected_node in clusters[node]:
+                self.union(parent, rank, node, connected_node)
+        # Gather clusters
+        result = {}
+        for node in parent:
+            root = self.find(parent, node)
+            if root not in result:
+                result[root] = set()
+            result[root].add(node)
+        return result
+
+    def assess_connectivity(self, pathsOfInterest, minhash_for_paths, threshold):
+        cluster_pairs = {}
+        for i, p1 in enumerate(pathsOfInterest):
+            if p1 not in cluster_pairs:
+                cluster_pairs[p1] = set()
+            for j in range(i + 1, len(pathsOfInterest)):
+                p2 = list(pathsOfInterest.keys())[j]
+                # Calculate Jaccard containment in both directions and take the maximum
+                jaccard_containment = max(minhash_for_paths[p1].contained_by(minhash_for_paths[p2]),
+                                        minhash_for_paths[p2].contained_by(minhash_for_paths[p1]))
+                if jaccard_containment >= threshold:
+                    cluster_pairs[p1].add(p2)
+                    # Ensure bidirectional association
+                    if p2 not in cluster_pairs:
+                        cluster_pairs[p2] = set()
+                    cluster_pairs[p2].add(p1)
+        return cluster_pairs
+
+    def merge_read_clusters(self, merged_paths, pathsOfInterest):
+        merged_clusters = {}
+        for cluster in merged_paths:
+            merged_clusters[cluster] = set()
+            for path in merged_paths[cluster]:
+                # add the reads to the cluster
+                merged_clusters[cluster].update(pathsOfInterest[path])
+        return merged_clusters
+
+    def new_merge_clusters(self, pathsOfInterest, fastq_dict):
+        # get the minhash objetcs for the paths
+        minhash_for_paths = self.new_get_minhashes_for_paths(pathsOfInterest, fastq_dict)
+        # make a dictionary that tells us which paths are similar to one another
+        cluster_pairs = self.assess_connectivity(pathsOfInterest, minhash_for_paths, 0.85)
+        # merged the paths using a Union-Find algorithm
+        merged_paths = self.cluster_paths(cluster_pairs)
+        # make the key the highest coverage path
+        final_merged_paths = {}
+        for key in merged_paths:
+            paths_in_cluster = merged_paths[key]
+            selected = None
+            coverage = 0
+            for p in paths_in_cluster:
+                if len(self.collect_reads_in_path(list(p))) > coverage:
+                    selected = p
+            final_merged_paths[selected] = paths_in_cluster
+        # merge the clusters of reads for each merged path
+        merged_clusters = self.merge_read_clusters(merged_paths, pathsOfInterest)
+        return merged_clusters
+
+    def new_assign_reads_to_genes(self, listOfGenes, fastq_dict):
         clustered_reads = {}
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
@@ -2471,8 +2615,10 @@ class GeneMerGraph:
             reads = self.collect_reads_in_path(nodeHashesOfInterest)
             # get the paths containing this gene
             pathsOfInterest = self.new_get_paths_for_gene(reads, anchor_nodes, junction_nodes)
+            # merge clusters of reads if the minimizers are very similar
+            #merged_pathsOfInterest = self.new_merge_clusters(pathsOfInterest, fastq_dict)
             # split the paths into subpaths
-            finalAllelesOfInterest = self.new_split_into_subpaths(geneOfInterest, pathsOfInterest)
+            finalAllelesOfInterest = self.new_split_into_subpaths(geneOfInterest, pathsOfInterest, fastq_dict)
             # iterate through the alleles
             for allele in finalAllelesOfInterest:
                 # add this allele if there are 5 or more reads

@@ -265,6 +265,7 @@ def plot_log_histogram(distances, filename):
         color="white",
         edgecolor="black",
     )
+    plt.xlim([0, 200])
     # Set plot title and labels
     plt.title("Histogram of distances between genes")
     plt.xlabel("Distance")
@@ -313,6 +314,37 @@ def write_debug_files(
     )
     return raw_graph
 
+def plot_unitig_coverages(coverages, filename):
+    counts = {}
+    for c in range(min(500, max(max(coverages), 100)) + 1):
+        if c in coverages:
+            counts[c] = coverages.count(c)
+        else:
+            counts[c] = 0
+    x_vals = []
+    y_vals = []
+    for c in counts:
+        x_vals.append(c)
+        y_vals.append(counts[c])
+    y_vals = np.log10(np.array(y_vals)+1)
+    plt.figure(figsize=(10, 6))
+    plt.bar(x_vals, y_vals)
+    plt.title("Histogram of coverages")
+    plt.xlabel("Coverage")
+    plt.ylabel("Log of absolute frequency")
+    plt.xlim([0, min(500, max(max(coverages), 100))])
+    plt.ylim([0, max(y_vals)])
+    window_length, poly_order = 50, 3  # Example values; need to be chosen based on your data
+    if len(y_vals) < window_length:  # Ensure we have enough data points for the chosen window
+        window_length = (
+            len(y_vals) // 2 * 2 + 1
+        )  # Make the window length the next odd number less than the data length
+    smoothed_log_counts = list(savgol_filter(y_vals, window_length, poly_order))
+    plt.plot(
+        x_vals, smoothed_log_counts, color="red", label="Smoothed counts"
+    )
+    plt.savefig(filename)
+    plt.close()
 
 def main() -> None:
     # get command line options
@@ -376,8 +408,8 @@ def main() -> None:
     sys.stderr.write("\nAmira: building intitial gene-mer graph...\n")
     graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
     #graph = build_multiprocessed_graph(annotatedReads, args.geneMer_size, args.cores, gene_position_dict)
-    get_final_filter_threshold(graph.get_all_node_coverages(),
-                                    os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
+    #get_final_filter_threshold(graph.get_all_node_coverages(),
+    #                                os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
     # filter junk reads
     graph.filter_graph(2, 1)
     new_annotatedReads, new_gene_position_dict = graph.remove_junk_reads(0.80)
@@ -419,6 +451,22 @@ def main() -> None:
         )
         sys.stderr.write(f"\n\tAmira: removing dead ends...\n")
         graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+        ############## debugging plots
+        # graph.generate_gml(f"{args.output_dir}/{this_iteration}", 5, 1, 1)
+        # for component in graph.components():
+        #     unitigs = {}
+        #     node_coverages = []
+        #     for node in graph.get_nodes_in_component(component):
+        #         unitig = graph.get_linear_path_for_node(node, True)
+        #         canonical = sorted([unitig, list(reversed(unitig))])[0]
+        #         unitigs[tuple(canonical)] = len(graph.collect_reads_in_path(canonical))
+        #         node_coverages.append(node.get_node_coverage())
+        #     coverages = []
+        #     for u in unitigs:
+        #         coverages.append(unitigs[u])
+        #     plot_unitig_coverages(coverages, f"{args.output_dir}/{this_iteration}_{component}_unitig_coverages.png")
+        #     plot_unitig_coverages(node_coverages, f"{args.output_dir}/{this_iteration}_{component}_node_coverages.png")
+        ####################################################
         #graph = build_multiprocessed_graph(new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict)
         graph.remove_short_linear_paths(args.geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
@@ -459,7 +507,7 @@ def main() -> None:
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads...\n")
-    clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest)
+    clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
@@ -471,8 +519,9 @@ def main() -> None:
         for r in clusters_of_interest[allele]:
             underscore_split = r.split("_")
             fastq_data = fastq_content[underscore_split[0]].copy()
-            print(underscore_split, len(fastq_data["sequence"]))
-            fastq_data["sequence"] = fastq_data["sequence"][max([0, int(underscore_split[1]) - 100]): int(underscore_split[2]) + 101]
+#            print(underscore_split, len(fastq_data["sequence"]))
+            fastq_data["sequence"] = fastq_data["sequence"][max([0, int(underscore_split[1]) - 100]): min([len(fastq_data["sequence"])-1, int(underscore_split[2]) + 101])]
+            fastq_data["quality"] = fastq_data["quality"][max([0, int(underscore_split[1]) - 100]): min([len(fastq_data["quality"])-1, int(underscore_split[2]) + 101])]
             read_subset[underscore_split[0]] = fastq_data
             assert read_subset[underscore_split[0]]["sequence"] != ""
         write_fastq(
@@ -497,8 +546,8 @@ def main() -> None:
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
             del clusters_of_interest[g[0]]
-            shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
-            os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
+            #shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            #os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
     # write out the clustered reads
     for allele in clusters_of_interest:
         new_reads = set()
