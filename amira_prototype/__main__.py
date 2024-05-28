@@ -482,7 +482,7 @@ def main() -> None:
                 graph.get_all_node_coverages(),
                 os.path.join(args.output_dir, "node_coverages.png"),
             )
-        except:
+        except ValueError:
             node_min_coverage = 5
     else:
         node_min_coverage = args.node_min_coverage
