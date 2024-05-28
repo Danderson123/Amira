@@ -2806,7 +2806,7 @@ class GeneMerGraph:
                             f"Amira: allele {allele} in component {component} "
                             "filtered due to an insufficient number of reads.\n"
                         )
-                # collect all of the reads containing the gene in the component if no reads were long enough
+                # if no reads were long enough collect all of the reads containing the gene
                 if len(clustered_reads[component][geneOfInterest]) == 0:
                     # add the allele
                     allele_name = f"{geneOfInterest}_{allele_counts[gene_name]}"
@@ -2924,8 +2924,11 @@ class GeneMerGraph:
             map_command += os.path.join(outputDir, "01.pandora.consensus.fasta") + " " + file
             map_command += " > " + os.path.join(outputDir, "02.read.mapped.sam")
             subprocess.run(map_command, shell=True, check=True)
+            samtools_command = f"samtools sort {os.path.join(outputDir, '02.read.mapped.sam')} "
+            samtools_command += f"> {os.path.join(outputDir, '02.read.mapped.bam')} "
+            samtools_command += f"&& samtools index {os.path.join(outputDir, '02.read.mapped.bam')}"
             subprocess.run(
-                f"samtools sort {os.path.join(outputDir, '02.read.mapped.sam')} > {os.path.join(outputDir, '02.read.mapped.bam')} && samtools index {os.path.join(outputDir, '02.read.mapped.bam')}",
+                samtools_command,
                 shell=True,
                 check=True,
             )
