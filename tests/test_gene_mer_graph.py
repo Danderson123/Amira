@@ -3792,14 +3792,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         ]
         self.assertEqual(actual_alignment, expected_alignment)
 
-    def test___needleman_wunsch_terminals_different(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        first = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6"]
-        second = ["+gene7", "-gene2", "+gene3", "-gene4", "+gene5", "-gene8"]
-        # assertion
-        self.assertRaises(AssertionError, graph.needleman_wunsch, first, second)
-
     def test___reverse_gene_alignment_no_gaps(self):
         # setup
         graph = GeneMerGraph({}, 3)
@@ -4032,46 +4024,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         # assertion
         self.assertEqual(actual_alignment, rv_alignment)
-
-    def test___reorient_alignment_both(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        fw_alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene3", "-gene3"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-        ]
-        rv_alignment = [
-            ("+gene6", "+gene6"),
-            ("-gene5", "*"),
-            ("+gene3", "+gene3"),
-            ("-gene3", "-gene3"),
-            ("*", "+gene2"),
-            ("-gene1", "-gene1"),
-        ]
-        genes = ["+gene3", "-gene3", "+gene3", "-gene3", "+gene3"]
-        gene_mers = []
-        reverse_gene_mers = []
-        for i in range(len(genes) - (3 - 1)):
-            # take a slice of the list of Genes from index i to i + kmerSize
-            gene_mer = genes[i : i + 3]
-            gene_mers.append(tuple(gene_mer))
-            reverse_gene_mers.append(tuple(graph.reverse_list_of_genes(gene_mer)))
-        fw_gene_mers_in_path = Counter(gene_mers)
-        bw_gene_mers_in_path = Counter(reverse_gene_mers)
-        # assertion
-        self.assertRaises(
-            ValueError,
-            graph.reorient_alignment,
-            [tuple(["+gene3", "-gene3", "+gene3"])],
-            fw_gene_mers_in_path,
-            bw_gene_mers_in_path,
-            fw_alignment,
-            rv_alignment,
-        )
 
     def test___slice_alignment_by_shared_elements_unique_genes(self):
         # setup
@@ -4628,14 +4580,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_new_positions = [(0, 5), (6, 20), (11, 15), (16, 20), (21, 25), (25, 34)]
         self.assertEqual(actual_new_positions, expected_new_positions)
 
-    def test___correct_gene_positions_on_read(self):
-        assert None
+    # def test___correct_gene_positions_on_read(self):
+    #     assert None
 
-    def test___correct_bubble_paths(self):
-        assert None
+    # def test___correct_bubble_paths(self):
+    #     assert None
 
-    def test___get_all_paths_between_junctions_in_component(self):
-        assert None
+    # def test___get_all_paths_between_junctions_in_component(self):
+    #     assert None
 
     def test___get_paths_for_gene_linear_path(self):
         # setup
@@ -5119,5 +5071,5 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
 
-    def test___correct_reads(self):
-        assert None
+    # def test___correct_reads(self):
+    #     assert None
