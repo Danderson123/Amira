@@ -1814,7 +1814,7 @@ class GeneMerGraph:
             # Correct the read using the alignment subset
             if len(alignment_subset) != 0:
                 # add the read to the corrected reads dictionary
-                if not read_id in corrected_reads:
+                if read_id not in corrected_reads:
                     corrected_reads[read_id] = set()
                 # get the gene-mers in the low coverage path
                 gene_mers_on_lcp = self.get_gene_mer_strings(
@@ -1843,7 +1843,7 @@ class GeneMerGraph:
                 gene_mers_on_hcp = self.get_gene_mer_strings(
                     [col[0] for col in alignment_subset if col[0] != "*"]
                 )
-                # add the gene-mers to those we have corrected to for this read to prevent correcting a correct path
+                # add the gene-mers to those we have corrected to for this read
                 corrected_reads[read_id].update(gene_mers_on_hcp)
                 # check that the number of genes and number of gene positions are equal
                 assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id])
@@ -1941,7 +1941,7 @@ class GeneMerGraph:
                             correct_path = False
                             # see if we are using the minimizers to decide on correction
                             if path_minimizers is None:
-                                # correct the lower coverage path if there are fewer than 2 SNPs and 1 INDEL
+                                # correct if there are fewer than 2 SNPs and 1 INDEL
                                 if SNP_count <= 2 and INDEL_count <= 2:
                                     correct_path = True
                             else:
@@ -1954,7 +1954,7 @@ class GeneMerGraph:
                                         / len(high_coverage_minimizers),
                                     ]
                                 )
-                                # if the containment is greater than the threshold then correct the path
+                                # correct if the containment is greater than the threshold
                                 if containment > threshold:
                                     correct_path = True
                             if correct_path is True:
@@ -2005,7 +2005,7 @@ class GeneMerGraph:
     def find_sublist_indices(self, main_list, sublist):
         indices = []
         sublist_length = len(sublist)
-        # Loop through the main list from start to the point where checking for the sublist still makes sense
+        # Loop through the main list from start to end
         for i in range(len(main_list) - sublist_length + 1):
             # Check if the slice of main_list starting at i matches the sublist
             if main_list[i : i + sublist_length] == sublist:
@@ -2206,7 +2206,7 @@ class GeneMerGraph:
         paired_sorted_filtered_paths = {}
         for p in sorted_filtered_paths:
             sorted_terminals = tuple(sorted([p[0][0][0], p[0][-1][0]]))
-            if not sorted_terminals in paired_sorted_filtered_paths:
+            if sorted_terminals not in paired_sorted_filtered_paths:
                 paired_sorted_filtered_paths[sorted_terminals] = []
             paired_sorted_filtered_paths[sorted_terminals].append(p)
         sorted_filtered_paths = {
@@ -2320,10 +2320,10 @@ class GeneMerGraph:
         path_coverages = []
         for component in self.components():
             # convert the bubbles nodes to a list
-            if not component in potential_bubble_starts:
+            if component not in potential_bubble_starts:
                 continue
             potential_bubble_starts_component = potential_bubble_starts[component]
-            # get all the paths of length <= max distance between all pairs of junctions in this component
+            # get all the paths of length <= max distance
             unique_paths = self.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, cores
             )
@@ -2392,7 +2392,7 @@ class GeneMerGraph:
             p = list(p)
             if 2 < len(p):
                 terminals = (p[0][0], p[-1][0])
-                if not terminals in paths_from_start:
+                if terminals not in paths_from_start:
                     paths_from_start[terminals] = []
                 path_coverage = self.calculate_path_coverage(p)
                 paths_from_start[terminals].append((([n[0] for n in p]), path_coverage))
@@ -2405,27 +2405,31 @@ class GeneMerGraph:
             path = []
         if seen_nodes is None:
             seen_nodes = set()
-
+        # Append the current node and direction to the path
         path.append(
             (start_hash, current_direction)
-        )  # Append the current node and direction to the path
-        seen_nodes.add(start_hash)  # Add the current node to the seen nodes to avoid revisiting
+        )
+        # Add the current node to the seen nodes to avoid revisiting
+        seen_nodes.add(start_hash)
 
-        # Check if we've reached the end node or if end_hash is None and the path length equals the specified distance
+        # Check if we've reached the end node
         if (end_hash and start_hash == end_hash and len(path) - 1 <= distance) or (
             end_hash is None and len(path) - 1 == distance
         ):
-            path_copy = path.copy()  # Make a copy of the path to return
-            path.pop()  # Remove the last element before returning to ensure correct backtracking
-            return [path_copy]  # Return the path copy
-
+            # Make a copy of the path to return
+            path_copy = path.copy()
+            # Remove the last element before returning to ensure correct backtracking
+            path.pop()
+            return [path_copy]
+        # Check if the current path length exceeds the allowed distance
         if (
             len(path) - 1 > distance
-        ):  # Check if the current path length exceeds the allowed distance
-            path.pop()  # Remove the last element added to path before returning
+        ):
+            # Remove the last element added to path before returning
+            path.pop()
             return []
-
-        paths = []  # Initialize the list to collect paths
+        # Initialize the list to collect paths
+        paths = []
         next_nodes = []
         if current_direction == 1:
             next_nodes = self.get_node_by_hash(start_hash).get_forward_edge_hashes()
@@ -2434,8 +2438,9 @@ class GeneMerGraph:
         for edge_hash in next_nodes:
             edge = self.get_edge_by_hash(edge_hash)
             node_hash = edge.get_targetNode().__hash__()
-            if node_hash not in seen_nodes:  # Check if the node has not been visited
-                # Make a copy of seen_nodes for each recursive call to ensure correct tracking of visited nodes
+            # Check if the node has not been visited
+            if node_hash not in seen_nodes:
+                # Make a copy of seen_nodes for each recursive call
                 new_seen_nodes = seen_nodes.copy()
                 new_seen_nodes.add(node_hash)
                 newpaths = self.new_find_paths_between_nodes(
@@ -2443,12 +2448,13 @@ class GeneMerGraph:
                     end_hash,
                     distance,
                     edge.get_targetNodeDirection(),
-                    path.copy(),  # Pass a copy of the path to avoid modification by reference
-                    new_seen_nodes,  # Pass the updated copy of seen_nodes
+                    path.copy(),
+                    new_seen_nodes,
                 )
-                paths.extend(newpaths)  # Add the new paths found to the paths list
-
-        path.pop()  # Remove the last element added to path before returning to the caller
+                # Add the new paths found to the paths list
+                paths.extend(newpaths)
+        # Remove the last element added to path before returning to the caller
+        path.pop()
         return paths
 
     def calculate_path_coverage(self, path):
