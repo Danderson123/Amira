@@ -1,6 +1,7 @@
 from amira_prototype.construct_gene import hashlib_hash
 from amira_prototype.construct_node import Node
 
+
 def extract_node_hashes(firstNode, secondNode):
     """get the gene mer hashes for the first node and the second node"""
     firstNodeHash = firstNode.__hash__()

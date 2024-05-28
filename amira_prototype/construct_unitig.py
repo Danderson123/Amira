@@ -1,12 +1,10 @@
 import gzip
 import statistics
 
+
 class Unitig:
 
-    def __init__(self,
-                path,
-                path_node_coverages,
-                unitig_ID):
+    def __init__(self, path, path_node_coverages, unitig_ID):
         self._path = path
         self._min_coverage = min(path_node_coverages)
         self._max_coverage = max(path_node_coverages)
@@ -38,6 +36,7 @@ class Unitig:
         else:
             return 0
 
+
 def parse_fastq_lines(fh):
     # Initialize a counter to keep track of the current line number
     line_number = 0
@@ -55,6 +54,7 @@ def parse_fastq_lines(fh):
         elif line_number % 4 == 0:
             # Yield the identifier, sequence and quality
             yield identifier, sequence, line.strip()
+
 
 def parse_fastq(fastq_file):
     # Initialize an empty dictionary to store the results
@@ -74,6 +74,7 @@ def parse_fastq(fastq_file):
                 results[identifier] = {"sequence": sequence, "quality": quality}
     # Return the dictionary of results
     return results
+
 
 def write_fastq(fastq_file, data):
     # Open the fastq file

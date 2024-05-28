@@ -1,5 +1,6 @@
 from amira_prototype.construct_gene import Gene, hashlib_hash
 
+
 def define_rc_geneMer(geneMer):
     """return a reversed list of reverse complement geneMers for the input list of geneMers"""
     # ensure that all input genes are gene objects
