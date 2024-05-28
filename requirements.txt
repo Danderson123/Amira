@@ -1,0 +1,7 @@
+cigar
+joblib
+matplotlib
+pysam
+pytest
+sourmash
+tqdm
