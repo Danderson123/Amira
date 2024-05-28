@@ -1,21 +1,20 @@
 import argparse
 import json
 import os
-import shutil
 import sys
 
 import matplotlib
-from joblib import Parallel, delayed
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from joblib import Parallel, delayed
 from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
 from amira_prototype.construct_graph import GeneMerGraph, build_graph, merge_graphs
 from amira_prototype.construct_unitig import parse_fastq, write_fastq
 from amira_prototype.pre_process import convert_pandora_output, process_pandora_json
+
+matplotlib.use("Agg")
 
 # from test_functions import TestUnitigTools, Unitig
 
@@ -249,7 +248,6 @@ def get_final_filter_threshold(node_coverages, filename):
 
 
 def plot_log_histogram(distances, filename):
-    import random
 
     # distances = random.sample(distances, 10000)
     # Calculate histogram data (counts and bin edges) without plotting
