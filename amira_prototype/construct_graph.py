@@ -17,7 +17,6 @@ from amira_prototype.construct_gene import convert_int_strand_to_string
 from amira_prototype.construct_gene_mer import GeneMer
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
-from amira_prototype.construct_unitig import Unitig
 
 sys.setrecursionlimit(50000)
 
@@ -73,9 +72,6 @@ def merge_edges(sub_graphs, reference_graph):
                 # change the source and target node to those in the reference graph
                 reference_source_node = edge_in_subgraph.set_sourceNode(
                     reference_graph.get_node_by_hash(edge_in_subgraph.get_sourceNode().__hash__())
-                )
-                reference_target_node = edge_in_subgraph.set_targetNode(
-                    reference_graph.get_node_by_hash(edge_in_subgraph.get_targetNode().__hash__())
                 )
                 # add the edge to the node
                 reference_graph.add_edge_to_node(reference_source_node, edge_in_subgraph)
@@ -498,7 +494,7 @@ class GeneMerGraph:
         """remove an edge from all graph edges and the node edges"""
         # check that the edge exists in the graph
         # assert edgeHash in self.get_edges(), "This edge is not in the graph"
-        if not edgeHash in self.get_edges():
+        if edgeHash not in self.get_edges():
             return
         # get the edge object from all graph edges by hash
         edge = self.get_edges()[edgeHash]
@@ -1302,7 +1298,8 @@ class GeneMerGraph:
                     d_nodes = [n[0] for n in d_path] if d_path else []
                     d_directions = [n[1] for n in d_path] if d_path else []
 
-                    # Combine the paths, excluding the last node of the upstream and the first node of the downstream
+                    # Combine the paths
+                    # Excludes the last node of the upstream and the first node of the downstream
                     combined_path = (
                         (u_nodes[:-1] if u_nodes else [])
                         + corrected_path
@@ -1471,7 +1468,7 @@ class GeneMerGraph:
     def get_valid_reads_only(self):
         valid_reads = {}
         for read_id in self.get_reads():
-            if not read_id in self.get_reads_to_correct():
+            if read_id not in self.get_reads_to_correct():
                 valid_reads[read_id] = self.get_reads()[read_id]
         return valid_reads
 
@@ -1481,8 +1478,11 @@ class GeneMerGraph:
         # if len(x) != 0 and len(y) != 0:
         #    assert x[0] == y[0] and x[-1] == y[-1]
         N, M = len(x), len(y)
+
         # Scoring function: returns 1 if elements are equal, 0 otherwise
-        s = lambda a, b: int(a == b)
+        def s(a, b):
+            return int(a == b)
+
         # Direction constants for traceback
         DIAG, LEFT, UP = (-1, -1), (-1, 0), (0, -1)
         # Initialize score (F) and pointer (Ptr) matrices
@@ -1531,7 +1531,6 @@ class GeneMerGraph:
         return list(alignment)
 
     def calculate_path_coverage(self, path):
-        # return statistics.mean([self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]])
         return statistics.mean(
             [self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]]
         )
@@ -1549,7 +1548,7 @@ class GeneMerGraph:
     def collect_reads_in_path(self, path):
         reads_in_path = set()
         for node_hash in list(path):
-            if not node_hash in self.get_nodes():
+            if node_hash not in self.get_nodes():
                 continue
             for read in self.get_node_by_hash(node_hash).get_reads():
                 reads_in_path.add(read)
@@ -1731,9 +1730,9 @@ class GeneMerGraph:
                     if new_positions[j][0] is not None:
                         next_start = new_positions[j][0]
                         break
-                if prev_end != None and next_start != None:
+                if prev_end is not None and next_start is not None:
                     new_positions[i] = (prev_end, next_start)
-                elif next_start == None and prev_end != None:
+                elif next_start is None and prev_end is not None:
                     if "_" in read_id:
                         read_id = "_".join(read_id.split("_")[:-1])
                     new_positions[i] = (
@@ -1767,7 +1766,7 @@ class GeneMerGraph:
         new_positions = self.join_gene_position_ends_with_core(
             position_prefix, position_suffix, new_core_gene_positions
         )
-        # genes we have had to add have invalid start and stop positions, this function corrects them
+        # genes we have had to add have invalid start and stop positions
         corrected_new_positions = self.replace_invalid_gene_positions(
             new_positions, fastq_data, read_id
         )
@@ -1806,7 +1805,7 @@ class GeneMerGraph:
             )
             if alignment is None:
                 continue
-            # get the alignment columns for the first and last elements shared with the list of genes
+            # get the alignment columns between the first and last elements of the list of genes
             (
                 alignment_subset,
                 first_shared_read_index,

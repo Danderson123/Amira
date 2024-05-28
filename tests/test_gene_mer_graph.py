@@ -1,13 +1,10 @@
 import unittest
 from collections import Counter
 
-import numpy as np
-
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
-from amira_prototype.construct_unitig import Unitig
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):

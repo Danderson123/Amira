@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import shutil
 import sys
 
 import matplotlib
@@ -308,7 +309,7 @@ def write_debug_files(
     output_dir: str,
     cores: int,
 ) -> GeneMerGraph:
-    sys.stderr.write("\nAmira: building pre-correction gene-mer graph...\n")
+    sys.stderr.write("\nAmira: building pre-correction gene-mer graph\n")
     raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, cores)
     # raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
     # color nodes in the graph
@@ -411,7 +412,10 @@ def main() -> None:
     if args.pandoraJSON:
         # output sample information
         sys.stderr.write(
-            f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\nJSON file: {os.path.basename(args.pandoraJSON)}\nFASTQ path: {os.path.basename(args.readfile)}\nSubsample reads: {args.sample_reads}\n"
+            f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\n"
+            f"JSON file: {os.path.basename(args.pandoraJSON)}\n"
+            f"FASTQ path: {os.path.basename(args.readfile)}\n"
+            f"Subsample reads: {args.sample_reads}\n"
         )
         annotatedReads, sample_genesOfInterest = process_pandora_json(
             args.pandoraJSON, genesOfInterest
@@ -420,9 +424,12 @@ def main() -> None:
     if args.pandoraSam:
         # output sample information
         sys.stderr.write(
-            f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\nSAM file: {os.path.basename(args.pandoraSam)}\nFASTQ path: {os.path.basename(args.readfile)}\nSubsample reads: {args.sample_reads}\n"
+            f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\n"
+            f"SAM file: {os.path.basename(args.pandoraSam)}\n"
+            f"FASTQ path: {os.path.basename(args.readfile)}\n"
+            f"Subsample reads: {args.sample_reads}\n"
         )
-        sys.stderr.write("\nAmira: loading Pandora SAM file...\n")
+        sys.stderr.write("\nAmira: loading Pandora SAM file\n")
         pandora_consensus = parse_fastq(args.pandoraConsensus)
         annotatedReads, sample_genesOfInterest, gene_position_dict = convert_pandora_output(
             args.pandoraSam,
@@ -445,11 +452,7 @@ def main() -> None:
             annotatedReads = dict(
                 random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
             )
-        # plot_log_histogram(distances, os.path.join(args.output_dir, "distance_between_genes.png"))
     print(list(sorted(list(sample_genesOfInterest))))
-    # with open(os.path.join(args.output_dir, "gene_gap_sizes.json"), "w") as o:
-    #    o.write(json.dumps(distances))
-    # plot_log_histogram(proportion_gene_length, os.path.join(args.output_dir, "proportion_genes_covered.png"))
     # write out debug files if specified
     if args.debug:
         write_debug_files(
@@ -458,7 +461,7 @@ def main() -> None:
     # load the fastq data
     fastq_content = parse_fastq(args.readfile)
     # build the gene-mer graph
-    sys.stderr.write("\nAmira: building intitial gene-mer graph...\n")
+    sys.stderr.write("\nAmira: building intitial gene-mer graph\n")
     # graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
     graph = build_multiprocessed_graph(
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
@@ -477,14 +480,14 @@ def main() -> None:
         try:
             node_min_coverage = find_trough(
                 graph.get_all_node_coverages(),
-                os.path.join(args.output_dir, f"node_coverages.png"),
+                os.path.join(args.output_dir, "node_coverages.png"),
             )
         except:
             node_min_coverage = 5
     else:
         node_min_coverage = args.node_min_coverage
     sys.stderr.write(
-        f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}...\n"
+        f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
     )
     # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
@@ -510,18 +513,16 @@ def main() -> None:
     prev_nodes = 0
     for this_iteration in range(cleaning_iterations):
         sys.stderr.write(
-            f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}...\n"
+            f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}\n"
         )
-        sys.stderr.write(f"\n\tAmira: removing dead ends...\n")
+        sys.stderr.write("\n\tAmira: removing dead ends\n")
         # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         graph = build_multiprocessed_graph(
             new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
         )
         # check if the current number of nodes is equal to the previous number of nodes
         if len(graph.get_nodes()) == prev_nodes:
-            sys.stderr.write(
-                f"\n\tAmira: terminating cleaning at iteration {this_iteration+1}...\n"
-            )
+            sys.stderr.write(f"\n\tAmira: terminating cleaning at iteration {this_iteration+1}\n")
             break
         prev_nodes = len(graph.get_nodes())
         # collect the reads that have fewer than k genes
@@ -529,7 +530,7 @@ def main() -> None:
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
         graph.remove_short_linear_paths(args.geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-        sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs...\n")
+        sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs\n")
         # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         graph = build_multiprocessed_graph(
             new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
@@ -543,30 +544,13 @@ def main() -> None:
             )
         )
     # merge paths that are very similar in terms of minimizers
-    sys.stderr.write(f"\n\tAmira: using minimizers to correct high coverage paths...\n")
+    sys.stderr.write("\n\tAmira: using minimizers to correct high coverage paths\n")
     # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
-    # collect the reads that have fewer than k genes
-    short_reads.update(graph.get_short_read_annotations())
-    short_read_gene_positions.update(graph.get_short_read_gene_positions())
-    # new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = graph.correct_low_coverage_paths(fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True)
-    # final_filtering_threshold = get_final_filter_threshold(graph.get_all_node_coverages(),
-    #                                os.path.join(args.output_dir, f"final_correction_node_coverages.png"))
-    # do a final round of filtering
-    # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
-    graph = build_multiprocessed_graph(
-        new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
-    )
-    # collect the reads that have fewer than k genes
-    short_reads.update(graph.get_short_read_annotations())
-    short_read_gene_positions.update(graph.get_short_read_gene_positions())
-    # decide the threshold for filtering
-    # graph.filter_graph(final_filtering_threshold, 1)
-    # new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
     # build the corrected gene-mer graph
-    sys.stderr.write("\nAmira: building corrected gene-mer graph...\n")
+    sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     with open(os.path.join(args.output_dir, "corrected_gene_calls_after_filtering.json"), "w") as o:
         o.write(json.dumps(new_annotatedReads))
     with open(
@@ -586,13 +570,8 @@ def main() -> None:
     if args.debug:
         for node in graph.all_nodes():
             node.color_node(sample_genesOfInterest)
-    # write the reads belonging to each component
-    # for component in graph.components():
-    #    nodes = graph.get_nodes_in_component(component)
-    #    component_reads = set(graph.collect_reads_in_path([n.__hash__() for n in nodes]))
-    #    write_fastq(os.path.join(args.output_dir, f"component_{component}.fastq.gz"), {k: fastq_content[k] for k in fastq_content if k in component_reads})
     # write out the graph as a GML
-    sys.stderr.write("\nAmira: writing gene-mer graph...\n")
+    sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(
         os.path.join(args.output_dir, "gene_mer_graph"),
         args.geneMer_size,
@@ -600,7 +579,7 @@ def main() -> None:
         args.edge_min_coverage,
     )
     # assign reads to AMR genes by path
-    sys.stderr.write("\nAmira: clustering reads...\n")
+    sys.stderr.write("\nAmira: clustering reads\n")
     clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
     # get the unique genes we have found
     found_genes_of_interest = set()
@@ -619,10 +598,9 @@ def main() -> None:
             ):
                 if f"{strandless_gene}_1" not in clusters_to_add:
                     clusters_to_add[f"{strandless_gene}_1"] = []
-                # clusters_of_interest[f"{strandless_gene}_1"].append(f"{read_id}_{max(0, short_read_gene_positions[read_id][g][0] - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, short_read_gene_positions[read_id][g][1] + 101)}")
-                clusters_to_add[f"{strandless_gene}_1"].append(
-                    f"{read_id}_{short_read_gene_positions[read_id][g][0]}_{short_read_gene_positions[read_id][g][1]}"
-                )
+                gene_start = short_read_gene_positions[read_id][g][0]
+                gene_end = short_read_gene_positions[read_id][g][1]
+                clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
@@ -651,7 +629,7 @@ def main() -> None:
         return os.path.join(output_dir, "AMR_allele_fastqs", allele_name + ".fastq.gz")
 
     files_to_assemble = []
-    sys.stderr.write("\nAmira: writing fastqs...\n")
+    sys.stderr.write("\nAmira: writing fastqs\n")
     final_clusters_of_interest = {}
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
@@ -672,7 +650,7 @@ def main() -> None:
         )
         final_clusters_of_interest[allele] = clusters_to_add[allele]
     # run racon to polish the pandora consensus
-    sys.stderr.write("\nAmira: obtaining nucleotide sequences...\n")
+    sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
     genes_to_remove = graph.polish_pandora_consensus(
         files_to_assemble,
         args.racon_path,
@@ -687,8 +665,8 @@ def main() -> None:
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
             del final_clusters_of_interest[g[0]]
-            # shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
-            # os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
+            shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
     # write out the clustered reads
     for allele in final_clusters_of_interest:
         new_reads = set()

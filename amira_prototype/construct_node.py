@@ -1,5 +1,3 @@
-import sourmash
-
 from amira_prototype.construct_read import GeneMer, Read
 
 

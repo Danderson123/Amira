@@ -140,7 +140,7 @@ def convert_pandora_output(
                 gene_position_dict[read_name].append((regionStart, regionEnd))
                 # store the per read gene names
                 annotatedReads[read_name].append(gene_name)
-                if not read_name in distances:
+                if read_name not in distances:
                     distances[read_name] = []
                 distances[read_name].append(regionStart - read_tracking[read.query_name]["end"])
                 read_tracking[read.query_name]["end"] = regionEnd
