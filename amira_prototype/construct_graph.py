@@ -2406,9 +2406,7 @@ class GeneMerGraph:
         if seen_nodes is None:
             seen_nodes = set()
         # Append the current node and direction to the path
-        path.append(
-            (start_hash, current_direction)
-        )
+        path.append((start_hash, current_direction))
         # Add the current node to the seen nodes to avoid revisiting
         seen_nodes.add(start_hash)
 
@@ -2422,9 +2420,7 @@ class GeneMerGraph:
             path.pop()
             return [path_copy]
         # Check if the current path length exceeds the allowed distance
-        if (
-            len(path) - 1 > distance
-        ):
+        if len(path) - 1 > distance:
             # Remove the last element added to path before returning
             path.pop()
             return []
@@ -2456,11 +2452,6 @@ class GeneMerGraph:
         # Remove the last element added to path before returning to the caller
         path.pop()
         return paths
-
-    def calculate_path_coverage(self, path):
-        return statistics.mean(
-            [self.get_node_by_hash(n[0]).get_node_coverage() for n in path[1:-1]]
-        )
 
     def reverse_complement(self, seq):
         reversed_seq = list(reversed(list(seq)))
@@ -2519,7 +2510,7 @@ class GeneMerGraph:
                     if not any(n in junction_nodes for n in p):
                         if len(set(p).intersection(set(nodes_on_read))) > 0:
                             path_tuple = tuple(p)
-                            if not path_tuple in clustered_reads:
+                            if path_tuple not in clustered_reads:
                                 clustered_reads[path_tuple] = set()
                             clustered_reads[path_tuple].add(read_id)
                     else:
@@ -2527,7 +2518,7 @@ class GeneMerGraph:
                             reversed_node_on_read, p
                         ):
                             path_tuple = tuple(p)
-                            if not path_tuple in clustered_reads:
+                            if path_tuple not in clustered_reads:
                                 clustered_reads[path_tuple] = set()
                             clustered_reads[path_tuple].add(read_id)
         return clustered_reads
@@ -2562,17 +2553,20 @@ class GeneMerGraph:
             clustered_reads = self.merge_clusters_by_minhash(clustered_reads, minhash_dictionary)
             # store the paths
             copy_counts = {}
-            if not geneOfInterest in copy_counts:
+            if geneOfInterest not in copy_counts:
                 copy_counts[geneOfInterest] = 0
             for path in clustered_reads:
-                if len(clustered_reads[path]) >= 5:
-                    resolved_clusters[
-                        f"{geneOfInterest}_{copy_counts[geneOfInterest]}_{len(clustered_reads[path])}"
-                    ] = list(clustered_reads[path])
+                allele_count = copy_counts[geneOfInterest]
+                read_count = len(clustered_reads[path])
+                if read_count >= 5:
+                    resolved_clusters[f"{geneOfInterest}_{allele_count}_{read_count}"] = list(
+                        clustered_reads[path]
+                    )
                     copy_counts[geneOfInterest] += 1
                 else:
                     sys.stderr.write(
-                        f"\nAmira: allele {geneOfInterest}_{copy_counts[geneOfInterest]}_{len(clustered_reads[path])} filtered due to an insufficient number of reads.\n"
+                        f"\nAmira: allele {geneOfInterest}_{allele_count}_{read_count} "
+                        "filtered due to an insufficient number of reads.\n"
                     )
             print("\n")
         return resolved_clusters
@@ -2601,22 +2595,6 @@ class GeneMerGraph:
                 path = tuple(sorted([path, list(reversed(path))])[0])
                 if path not in paths:
                     paths[path] = set()
-                # check if there are any junctions in this path
-                # if not (len(path) > self.get_kmerSize() or any(p in junction_nodes for p in path)):
-                #     # assign reads that do not span the entire path
-                #     path_set = set(path)
-                #     for nodehash in path_set:
-                #         for other_read in self.get_node_by_hash(nodehash).get_reads():
-                #             #node_indices_shared_with_path = [i for i, n in enumerate(self.get_readNodes()[other_read]) if n in path_set]
-                #             #positions_of_nodes = self.get_readNodePositions()[other_read][min(node_indices_shared_with_path): max(node_indices_shared_with_path)+1]
-                #             #paths[path].add(f"{other_read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
-                #             paths[path].add(f"{other_read}")
-                # else:
-                # get the read node positions
-                # print(self.get_readNodePositions()[read])
-                # positions_of_nodes = self.get_readNodePositions()[read][start: end+1]
-                # assign the read to the path
-                # paths[path].add(f"{read}_{positions_of_nodes[0][0]}_{positions_of_nodes[-1][1]}")
                 paths[path].add(f"{read}")
         return paths
 
@@ -2665,7 +2643,6 @@ class GeneMerGraph:
                             path_start + gene_index
                         ]
                         # add the read to the allele
-                        # gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{max(0, sequence_start - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, sequence_end + 101)}")
                         gene_clusters[indices_in_path[gene_index]].append(
                             f"{read_id}_{sequence_start}_{sequence_end}"
                         )
@@ -2688,7 +2665,7 @@ class GeneMerGraph:
 
     def find(self, parent, item):
         if parent[item] != item:
-            parent[item] = self.find(parent, parent[item])  # Path compression
+            parent[item] = self.find(parent, parent[item])
         return parent[item]
 
     def union(self, parent, rank, set1, set2):
@@ -2816,7 +2793,7 @@ class GeneMerGraph:
                 for allele in finalAllelesOfInterest:
                     underscore_split = allele.split("_")
                     gene_name = "_".join(underscore_split[:-1])
-                    if not gene_name in allele_counts:
+                    if gene_name not in allele_counts:
                         allele_counts[gene_name] = 1
                     # add this allele if there are 5 or more reads
                     if len(finalAllelesOfInterest[allele]) > 4:
@@ -2826,7 +2803,8 @@ class GeneMerGraph:
                         allele_counts[gene_name] += 1
                     else:
                         sys.stderr.write(
-                            f"Amira: allele {allele} in component {component} filtered due to an insufficient number of reads.\n"
+                            f"Amira: allele {allele} in component {component} "
+                            "filtered due to an insufficient number of reads.\n"
                         )
                 # collect all of the reads containing the gene in the component if no reads were long enough
                 if len(clustered_reads[component][geneOfInterest]) == 0:
