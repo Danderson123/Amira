@@ -11,16 +11,18 @@ def clean_gene(g):
 
 
 def process_pandora_json(
-    pandoraJSON: str, genesOfInterest: list[str]
+    pandoraJSON: str, positionJSON: str, genesOfInterest: list[str]
 ) -> tuple[dict[str, list[str]], list[str]]:
     with open(pandoraJSON) as i:
         annotatedReads = json.loads(i.read())
+    with open(positionJSON) as i:
+        genePositions = json.loads(i.read())
     ###################
-    # just needed for running on simulated data
-    newAnnotatedReads = {}
-    for r in annotatedReads:
-        newAnnotatedReads[r] = ["_".join(g.split("_")[:-1]) for g in annotatedReads[r]]
-    annotatedReads = newAnnotatedReads
+    # # just needed for running on simulated data
+    # newAnnotatedReads = {}
+    # for r in annotatedReads:
+    #     newAnnotatedReads[r] = ["_".join(g.split("_")[:-1]) for g in annotatedReads[r]]
+    # annotatedReads = newAnnotatedReads
     ###################
     to_delete = []
     subsettedGenesOfInterest = set()
@@ -32,10 +34,10 @@ def process_pandora_json(
                 subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
         if not containsAMRgene:
             to_delete.append(read)
-    for read in to_delete:
-        del annotatedReads[read]
+    #for read in to_delete:
+    #    del annotatedReads[read]
     genesOfInterest = list(subsettedGenesOfInterest)
-    return annotatedReads, genesOfInterest
+    return annotatedReads, genesOfInterest, genePositions
 
 
 def get_read_start(cigar: list[tuple[int, int]]) -> int:
@@ -116,11 +118,11 @@ def convert_pandora_output(
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
             # exclude genes that do not have a pandora consensus
-            if strandlessGene in pandora_consensus and gene_length_lower_threshold * len(
+            if strandlessGene in pandora_consensus and (gene_length_lower_threshold * len(
                 pandora_consensus[strandlessGene]["sequence"]
             ) <= regionLength <= gene_length_upper_threshold * len(
                 pandora_consensus[strandlessGene]["sequence"]
-            ):
+            ) or strandlessGene in genesOfInterest):
                 read_name = read.query_name# + "_" + str(read_tracking[read.query_name]["index"]
                 if (
                     read_name

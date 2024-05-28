@@ -3658,7 +3658,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         actual_genes = graph.get_genes_in_unitig(nodes)
         # assertion
-        ddd
         self.assertTrue(actual_genes == ["+gene13", "+gene14", "-gene15", "+gene16", "-gene17"] or actual_genes == ["+gene17", "-gene16", "+gene15", "-gene14", "-gene13"])
 
     def test___get_genes_in_unitig_length_zero(self):
@@ -4481,12 +4480,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___correct_bubble_paths(self):
         assert None
 
-
-
-
-
-
-    def test___get_all_paths_between_junction_in_component(self):
+    def test___get_all_paths_between_junctions_in_component(self):
         assert None
 
     def test___get_paths_for_gene_linear_path(self):
@@ -4521,7 +4515,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(paths[k]), 4)
+            self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_linear_path_duplicates(self):
         # setup
@@ -4540,7 +4534,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "-gene4",
         ]
         genes3 = [
-            "-gene4",
+            "+gene4",
             "-gene6",
             "+gene7",
         ]
@@ -4554,10 +4548,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # execution
         paths = graph.new_get_paths_for_gene(reads, anchor_nodes, junction_nodes)
         # assertion
+        graph.generate_gml("tests/test", 3, 1, 1)
         self.assertEqual(len(paths), 1)
         for k in paths:
             self.assertEqual(len(k), 4)
-            self.assertEqual(len(paths[k]), 3)
+            self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_branching_path(self):
         # setup
@@ -4678,20 +4673,43 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "-gene10",
             "+gene11",
         ]
+        positions1 = [
+            (0, 1),
+            (2, 3),
+            (4, 5),
+            (6, 7),
+            (8, 9),
+            (10, 11),
+            (12, 13),
+            (14, 15),
+            (16, 17),
+            (18, 19)
+        ]
         graph = GeneMerGraph(
-            {"read1": genes1, "read2": genes1, "read3": genes1}, 3
+            {"read1": genes1, "read2": genes1, "read3": genes1},
+            3,
+            {"read1": positions1, "read2": positions1, "read3": positions1},
         )
         nodesOfInterest = graph.get_nodes_containing("gene5")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         paths = graph.new_get_paths_for_gene(reads, anchor_nodes, junction_nodes)
+        fastq_content = {
+            "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
+            "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
+            "read3": {"sequence": "ACTGACTGACTGACTGATGC"}
+            }
         # execution
-        actual_final_paths = graph.new_split_into_subpaths("gene5", paths)
+        actual_final_paths = graph.new_split_into_subpaths("gene5", paths, fastq_content)
         # assertion
         self.assertEqual(len(actual_final_paths), 2)
         for k in actual_final_paths:
             self.assertEqual(len(actual_final_paths[k]), 3)
+        expected_1 = set(["read1_8_9", "read2_8_9", "read3_8_9"])
+        expected_2 = set(["read1_12_13", "read2_12_13", "read3_12_13"])
+        self.assertTrue(any(len(set(actual_final_paths[k]).intersection(expected_1))) == 3 for k in actual_final_paths)
+        self.assertTrue(any(len(set(actual_final_paths[k]).intersection(expected_2))) == 3 for k in actual_final_paths)
 
     def test___new_split_into_subpaths_triangle(self):
         # setup
@@ -4711,20 +4729,49 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "-gene10",
             "+gene11",
         ]
+        positions1 = [
+            (0, 1),
+            (2, 3),
+            (4, 5),
+            (6, 7),
+            (8, 9),
+            (10, 11),
+            (12, 13),
+            (14, 15),
+            (16, 17),
+            (18, 19),
+            (20, 21),
+            (22, 23),
+            (24, 25),
+            (26, 27)
+        ]
         graph = GeneMerGraph(
-            {"read1": genes1, "read2": genes1, "read3": genes1}, 3
+            {"read1": genes1, "read2": genes1, "read3": genes1},
+            3,
+            {"read1": positions1, "read2": positions1, "read3": positions1},
         )
         nodesOfInterest = graph.get_nodes_containing("gene5")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         paths = graph.new_get_paths_for_gene(reads, anchor_nodes, junction_nodes)
+        fastq_content = {
+            "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
+            "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
+            "read3": {"sequence": "ACTGACTGACTGACTGATGC"}
+            }
         # execution
-        actual_final_paths = graph.new_split_into_subpaths("gene5", paths)
+        actual_final_paths = graph.new_split_into_subpaths("gene5", paths, fastq_content)
         # assertion
         self.assertEqual(len(actual_final_paths), 3)
         for k in actual_final_paths:
             self.assertEqual(len(actual_final_paths[k]), 3)
+        expected_1 = set(["read1_16_17", "read2_16_17", "read3_16_17"])
+        expected_2 = set(["read1_12_13", "read2_12_13", "read3_12_13"])
+        expected_3 = set(["read1_8_9", "read2_8_9", "read3_8_9"])
+        self.assertTrue(any(len(set(actual_final_paths[k]).intersection(expected_1))) == 3 for k in actual_final_paths)
+        self.assertTrue(any(len(set(actual_final_paths[k]).intersection(expected_2))) == 3 for k in actual_final_paths)
+        self.assertTrue(any(len(set(actual_final_paths[k]).intersection(expected_3))) == 3 for k in actual_final_paths)
 
     def test___assess_connectivity(self):
         # setup
