@@ -87,7 +87,7 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--gene-path",
         dest="path_to_interesting_genes",
-        help="Path to a newline delimited file of genes of interest.",
+        help="Path to a multi_FASTA file of the AMR gene alleles of interest.",
         required=True,
     )
     parser.add_argument(
@@ -126,127 +126,6 @@ def get_options() -> argparse.Namespace:
     )
     args = parser.parse_args()
     return args
-
-
-def find_trough(node_coverages, filename):
-    # Calculate the frequency of each coverage value
-    coverages = {}
-    for cov in node_coverages:
-        coverages[cov] = coverages.get(cov, 0) + 1
-    # Sort the coverage values and their frequencies
-    vals = sorted(coverages.items())
-    x_values = [v[0] for v in vals]
-    y_values = [v[1] for v in vals]
-    # Apply log transformation to the counts, adding 1 to avoid log(0)
-    log_counts = np.log(np.array(y_values) + 1)
-    # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
-    window_length, poly_order = 30, 3  # Example values; need to be chosen based on your data
-    if len(log_counts) < window_length:  # Ensure we have enough data points for the chosen window
-        window_length = (
-            len(log_counts) // 2 * 2 + 1
-        )  # Make the window length the next odd number less than the data length
-    smoothed_log_counts = savgol_filter(log_counts, window_length, poly_order)
-    plt.figure(figsize=(10, 6))
-    plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
-    plt.plot(
-        x_values, smoothed_log_counts, color="red", label="Smoothed counts"
-    )  # Exponentiate to undo log transform for plotting
-    plt.title("Histogram of node coverages with Smoothed Curve")
-    plt.xlabel("Node Coverage")
-    plt.ylabel("Log of absolute frequency")
-    plt.xlim([0, max(x_values)])
-    plt.legend()
-    plt.savefig(filename)
-    plt.close()
-
-    # Check if the first or last data point is a peak and handle it
-    modified_smoothed_log_counts = np.array([0] + list(smoothed_log_counts))
-    # Find the indices of the peaks
-    peak_indices, _ = find_peaks(modified_smoothed_log_counts)
-    # Find the two most prominent peaks
-    if len(peak_indices) < 2:
-        raise ValueError("Not enough peaks to find a trough.")
-    prominent_peaks = peak_indices[np.argsort(modified_smoothed_log_counts[peak_indices])[-2:]]
-    prominent_peaks.sort()
-    # Find the index of the minimum value (trough) between the two peaks
-    trough_index = (
-        np.argmin(modified_smoothed_log_counts[prominent_peaks[0] : prominent_peaks[1]])
-        + prominent_peaks[0]
-    )
-    trough_value = x_values[trough_index - 1]
-    # Plot the histogram and the trough
-    plt.figure(figsize=(10, 6))
-    plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
-    plt.plot(
-        x_values, smoothed_log_counts, color="red", label="Smoothed counts"
-    )  # Exponentiate to undo log transform for plotting
-    plt.axvline(x=trough_value, color="r", linestyle="--", label=f"Trough at x={trough_value:.2f}")
-    plt.title("Histogram of node coverages with Smoothed Curve")
-    plt.xlabel("Node Coverage")
-    plt.ylabel("Log of absolute frequency")
-    plt.xlim([0, max(x_values)])
-    plt.legend()
-    plt.savefig(filename)
-    plt.close()
-    return trough_value
-
-
-def get_final_filter_threshold(node_coverages, filename):
-    # Calculate the frequency of each coverage value
-    max_coverage = max(node_coverages)
-    coverages = {i: 0 for i in range(int(round(max_coverage)) + 1)}
-    for cov in node_coverages:
-        if (
-            cov in coverages
-        ):  # This check ensures we only count values within the range we initialized
-            coverages[cov] += 1
-    # Sort the coverage values and their frequencies
-    vals = sorted(coverages.items())
-    x_values = [v[0] for v in vals]
-    y_values = [v[1] for v in vals]
-    # Apply log transformation to the counts, adding 1 to avoid log(0)
-    log_counts = np.log(np.array(y_values) + 1)
-    # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
-    window_length, poly_order = 30, 3  # Example values; need to be chosen based on your data
-    if len(log_counts) < window_length:  # Ensure we have enough data points for the chosen window
-        window_length = (
-            len(log_counts) // 2 * 2 + 1
-        )  # Make the window length the next odd number less than the data length
-    smoothed_log_counts = list(savgol_filter(log_counts, window_length, poly_order))
-    plt.figure(figsize=(10, 6))
-    plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
-    plt.plot(
-        x_values, smoothed_log_counts, color="red", label="Smoothed counts"
-    )  # Exponentiate to undo log transform for plotting
-    plt.title("Histogram of node coverages with Smoothed Curve")
-    plt.xlabel("Node Coverage")
-    plt.ylabel("Log of absolute frequency")
-    plt.xlim([0, max(x_values)])
-    plt.legend()
-    plt.savefig(filename)
-    plt.close()
-
-    peaks, _ = find_peaks(smoothed_log_counts, prominence=0.2)
-    first_peak_index = x_values.index(peaks[0])
-    trough_index = smoothed_log_counts.index(min(smoothed_log_counts[:first_peak_index]))
-    trough_value = x_values[trough_index]
-
-    # Plot the histogram and the trough
-    plt.figure(figsize=(10, 6))
-    plt.bar(x_values, log_counts, label="Counts", color="white", edgecolor="black")
-    plt.plot(
-        x_values, smoothed_log_counts, color="red", label="Smoothed counts"
-    )  # Exponentiate to undo log transform for plotting
-    plt.axvline(x=trough_value, color="r", linestyle="--", label=f"Trough at x={trough_value:.2f}")
-    plt.title("Histogram of node coverages with Smoothed Curve")
-    plt.xlabel("Node Coverage")
-    plt.ylabel("Log of absolute frequency")
-    plt.xlim([0, max(x_values)])
-    plt.legend()
-    plt.savefig(filename)
-    plt.close()
-    return trough_value
-
 
 def plot_log_histogram(distances, filename):
 
@@ -325,7 +204,7 @@ def write_debug_files(
     return raw_graph
 
 
-def plot_unitig_coverages(unitig_coverages, filename):
+def plot_node_coverages(unitig_coverages, filename):
     # Calculate the frequency of each coverage value with bins of width 5
     max_coverage = max(unitig_coverages)
     # Create bins with a step size of 5
@@ -338,20 +217,12 @@ def plot_unitig_coverages(unitig_coverages, filename):
     # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
     window_length, poly_order = 31, 5  # Window length must be odd
     if len(log_counts) < window_length:
-        window_length = max(3, len(log_counts) // 2 * 2 + 1)  # Smallest odd number >= 3
+        window_length = max(3, len(log_counts) // 2 * 2 - 1)  # Smallest odd number >= 3
     smoothed_log_counts = savgol_filter(log_counts, window_length, poly_order)
 
     # Plot histogram
     plt.figure(figsize=(10, 6))
-    plt.bar(
-        x_values,
-        log_counts,
-        width=5,
-        label="Counts",
-        color="white",
-        edgecolor="black",
-        align="center",
-    )
+    plt.bar(x_values, log_counts, width=5, label="Counts", color="white", edgecolor="black", align='center')
     plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
     plt.title("Histogram of mean unitig coverages with Smoothed Curve")
     plt.xlabel("Unitig Coverage")
@@ -362,30 +233,16 @@ def plot_unitig_coverages(unitig_coverages, filename):
     plt.close()
 
     # Identify peaks and troughs
-    peaks, _ = find_peaks(
-        [min(smoothed_log_counts)] + list(smoothed_log_counts),
-        [min(smoothed_log_counts)],
-        prominence=0.1,
-    )
+    peaks, _ = find_peaks([min(smoothed_log_counts)] + list(smoothed_log_counts), [min(smoothed_log_counts)], prominence=0.1)
     peaks = peaks - 1
     first_peak_index = np.where(x_values == x_values[peaks[0]])[0][0]
     second_peak_index = np.where(x_values == x_values[peaks[1]])[0][0]
-    trough_index = (
-        np.argmin(smoothed_log_counts[first_peak_index : second_peak_index + 1]) + first_peak_index
-    )
+    trough_index = np.argmin(smoothed_log_counts[first_peak_index: second_peak_index + 1]) + first_peak_index
     trough_value = x_values[trough_index]
 
     # Plot the histogram and the trough
     plt.figure(figsize=(10, 6))
-    plt.bar(
-        x_values,
-        log_counts,
-        width=5,
-        label="Counts",
-        color="white",
-        edgecolor="black",
-        align="center",
-    )
+    plt.bar(x_values, log_counts, width=5, label="Counts", color="white", edgecolor="black", align='center')
     plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
     plt.axvline(x=trough_value, color="r", linestyle="--", label=f"Trough at x={trough_value:.2f}")
     plt.title("Histogram of node coverages with Smoothed Curve")
@@ -407,7 +264,18 @@ def main() -> None:
         os.mkdir(args.output_dir)
     # import the list of genes of interest
     with open(args.path_to_interesting_genes, "r") as i:
-        genesOfInterest = i.read().splitlines()
+        reference_content = i.read().split(">")[1:]
+    genesOfInterest = set()
+    reference_alleles = {}
+    for allele in reference_content:
+        newline_split = allele.split("\n")
+        assert newline_split[0].count(";") == 1, "Reference FASTA headers can only contain 1 semicolon"
+        gene_name, allele_name = newline_split[0].split(";")
+        genesOfInterest.add(gene_name)
+        sequence = "".join(newline_split[1:])
+        if gene_name not in reference_alleles:
+            reference_alleles[gene_name] = {}
+            reference_alleles[gene_name][allele_name] = sequence
     # import a JSON of genes on reads
     if args.pandoraJSON:
         # output sample information
@@ -466,7 +334,7 @@ def main() -> None:
     graph = build_multiprocessed_graph(
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
-    min_path_coverage = plot_unitig_coverages(
+    min_path_coverage = plot_node_coverages(
         graph.get_all_node_coverages(), os.path.join(args.output_dir, "initial_node_coverages.png")
     )
     # collect the reads that have fewer than k genes
@@ -475,17 +343,7 @@ def main() -> None:
     # filter junk reads
     graph.filter_graph(2, 1)
     new_annotatedReads, new_gene_position_dict, rejected_reads = graph.remove_junk_reads(0.80)
-    # dynamically determine the node threshold for filtering
-    if not args.node_min_coverage:
-        try:
-            node_min_coverage = find_trough(
-                graph.get_all_node_coverages(),
-                os.path.join(args.output_dir, "node_coverages.png"),
-            )
-        except ValueError:
-            node_min_coverage = 5
-    else:
-        node_min_coverage = args.node_min_coverage
+    node_min_coverage = args.node_min_coverage
     sys.stderr.write(
         f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
     )
@@ -578,6 +436,16 @@ def main() -> None:
         node_min_coverage,
         args.edge_min_coverage,
     )
+    subset = {}
+    subset_pos = {}
+    for node in graph.get_nodes_in_component(2):
+        for read in node.get_reads():
+            subset[read] = new_annotatedReads[read]
+            subset_pos[read] = new_gene_position_dict[read]
+    with open("component_2_annotations.json", "w") as o:
+        o.write(json.dumps(subset))
+    with open("component_2_annotation_positions.json", "w") as o:
+        o.write(json.dumps(subset_pos))
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
     clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
@@ -623,10 +491,12 @@ def main() -> None:
             ]
             read_subset[underscore_split[0]] = fastq_data
             assert read_subset[underscore_split[0]]["sequence"] != ""
+        if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name)):
+            os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name))
         write_fastq(
-            os.path.join(output_dir, "AMR_allele_fastqs", allele_name + ".fastq.gz"), read_subset
+            os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"), read_subset
         )
-        return os.path.join(output_dir, "AMR_allele_fastqs", allele_name + ".fastq.gz")
+        return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
 
     files_to_assemble = []
     sys.stderr.write("\nAmira: writing fastqs\n")
@@ -651,13 +521,18 @@ def main() -> None:
         final_clusters_of_interest[allele] = clusters_to_add[allele]
     # run racon to polish the pandora consensus
     sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
-    genes_to_remove = graph.polish_pandora_consensus(
-        files_to_assemble,
-        args.racon_path,
-        pandora_consensus,
-        1,
-        os.path.join(args.output_dir, "AMR_allele_fastqs"),
-    )
+    genes_to_remove = graph.get_alleles(files_to_assemble,
+                                    args.racon_path,
+                                    args.cores,
+                                    os.path.join(args.output_dir, "AMR_allele_fastqs"),
+                                    reference_alleles)
+    # genes_to_remove = graph.polish_pandora_consensus(
+    #     files_to_assemble,
+    #     args.racon_path,
+    #     pandora_consensus,
+    #     1,
+    #     os.path.join(args.output_dir, "AMR_allele_fastqs"),
+    # )
     # remove genes that do not have sufficient mapping coverage
     for g in genes_to_remove:
         if g is not None:
@@ -666,7 +541,6 @@ def main() -> None:
             )
             del final_clusters_of_interest[g[0]]
             shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
-            os.remove(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0] + ".fastq.gz"))
     # write out the clustered reads
     for allele in final_clusters_of_interest:
         new_reads = set()
