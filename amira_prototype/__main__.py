@@ -515,10 +515,13 @@ def main() -> None:
                 final_clusters_of_interest[allele] = clusters_of_interest[component][gene][allele]
     # add the genes from the short reads
     for allele in clusters_to_add:
-        files_to_assemble.append(
-            write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
-        )
-        final_clusters_of_interest[allele] = clusters_to_add[allele]
+        if len(clusters_to_add[allele]) > 4:
+            files_to_assemble.append(
+                write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
+            )
+            final_clusters_of_interest[allele] = clusters_to_add[allele]
+        else:
+            sys.stderr.write(f"Amira: allele {allele} filtered due to an insufficient number of reads.\n")
     # run racon to polish the pandora consensus
     sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
     genes_to_remove = graph.get_alleles(files_to_assemble,
@@ -526,21 +529,14 @@ def main() -> None:
                                     args.cores,
                                     os.path.join(args.output_dir, "AMR_allele_fastqs"),
                                     reference_alleles)
-    # genes_to_remove = graph.polish_pandora_consensus(
-    #     files_to_assemble,
-    #     args.racon_path,
-    #     pandora_consensus,
-    #     1,
-    #     os.path.join(args.output_dir, "AMR_allele_fastqs"),
-    # )
     # remove genes that do not have sufficient mapping coverage
     for g in genes_to_remove:
         if g is not None:
             sys.stderr.write(
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
-            del final_clusters_of_interest[g[0]]
-            shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            #del final_clusters_of_interest[g[0]]
+            #shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
     # write out the clustered reads
     for allele in final_clusters_of_interest:
         new_reads = set()

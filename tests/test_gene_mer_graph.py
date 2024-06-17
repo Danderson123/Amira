@@ -4814,6 +4814,25 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             self.assertEqual(len(k), 3)
             self.assertEqual(len(paths[k]), 2)
 
+    def test_real(self):
+        import json
+        with open("/home/daniel/Documents/GitHub/amira_prototype/component_2_annotations.json") as i:
+            annotations = json.load(i)
+        with open("/home/daniel/Documents/GitHub/amira_prototype/component_2_annotation_positions.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(
+            annotations, 5, positions
+        )
+        fastq_dict = parse_fastq_lines("/home/daniel/Documents/GitHub/thesis_figures/AMR_genotyping_with_resfinder/nanopore_reads/SRR23044220_1.fastq")
+        nodesOfInterest = graph.get_nodes_containing("dfrA17")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        finalAllelesOfInterest = graph.new_split_into_subpaths("dfrA17", paths, fastq_dict)
+        print(finalAllelesOfInterest)
+        fjdjfjf
+
     def test___new_split_into_subpaths_linear(self):
         # setup
         genes1 = [

@@ -2757,10 +2757,11 @@ class GeneMerGraph:
 
     def filter_valid_alleles(self, bam_file_path):
         valid_references = []
-        prev_coverage = 0
+        highest_coverage = 0
+        best_reference = None
         # Open the BAM file
         with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
-            # iterate through the reference alleles
+            # Iterate through the reference alleles
             for reference in bam_file.references:
                 # Total number of positions in the reference covered by at least one read
                 covered_positions = 0
@@ -2772,11 +2773,15 @@ class GeneMerGraph:
                         covered_positions += 1
                 # Calculate the proportion of the reference sequence that is covered
                 proportion_covered = covered_positions / reference_length
-                if proportion_covered > prev_coverage:
-                    prev_coverage = proportion_covered
-                    if proportion_covered >= 0.8:
-                        valid_references.append((reference, proportion_covered))
-        return [valid_references[-1][0]], prev_coverage
+                if proportion_covered > highest_coverage:
+                    highest_coverage = proportion_covered
+                    best_reference = reference
+                if proportion_covered >= 0.8:
+                    valid_references.append((reference, proportion_covered))
+        if best_reference:
+            return [best_reference], highest_coverage
+        else:
+            return None, highest_coverage
 
     def compare_reads_to_references(self, allele_file, output_dir, reference_genes, racon_path):
         # get the allele name
@@ -2809,7 +2814,7 @@ class GeneMerGraph:
             )
         # get the names of the valid alleles
         valid_alleles, max_coverage = self.filter_valid_alleles(os.path.join(outputDir, '02.read.mapped.bam'))
-        if len(valid_alleles) != 0:
+        if valid_alleles is not None:
             valid_allele_sequences = []
             for valid_allele in valid_alleles:
                 valid_allele_sequence = reference_genes[gene_name][valid_allele]
@@ -2824,7 +2829,7 @@ class GeneMerGraph:
             subprocess.run(racon_command, shell=True, check=True)
             return None
         else:
-            return (gene_name, max_coverage)
+            return (allele_name, max_coverage)
 
     def get_alleles(self, readFiles, racon_path, threads, output_dir, reference_genes):
         # batch the read files for multi processing
