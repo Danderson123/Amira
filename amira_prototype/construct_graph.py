@@ -2766,6 +2766,7 @@ class GeneMerGraph:
         valid_references = []
         highest_coverage = 0
         proportion_reference_covered = {}
+        ref_lengths = {}
         # Open the BAM file
         with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
             for read in bam_file.fetch():
@@ -2781,47 +2782,18 @@ class GeneMerGraph:
                 proportion_matching = (matching_bases / total_length) * 100
                 if proportion_matching > proportion_reference_covered[read.reference_name]:
                     proportion_reference_covered[read.reference_name] = proportion_matching
+                    ref_lengths[read.reference_name] = total_length
                 if proportion_matching > highest_coverage:
                     highest_coverage = proportion_matching
         for ref in proportion_reference_covered:
-            if proportion_reference_covered[ref] >= 0.9:
-                valid_references.append((ref, proportion_reference_covered[ref]))
-        valid_references = sorted(valid_references, key=lambda x: x[1], reverse=True)
+            if proportion_reference_covered[ref] >= 90:
+                valid_references.append((ref, proportion_reference_covered[ref], ref_lengths[ref]))
+        valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
+        print(valid_references)
         if len(valid_references) != 0:
             return [valid_references[0][0]], [valid_references[0][1]]
         else:
             return None, highest_coverage
-            # Iterate through the reference alleles
-            # for reference in bam_file.references:
-            #     # Total number of positions in the reference covered by at least one read
-            #     covered_positions = 0
-            #     # Total length of the reference sequence
-            #     reference_length = bam_file.get_reference_length(reference)
-            #     # initialise a start and end count
-            #     start, end = None, None
-            #     # Iterate through each position in the reference sequence
-            #     for pileupcolumn in bam_file.pileup(reference=reference):
-            #         if pileupcolumn.n > 0:  # If there's at least one read covering the position
-            #             covered_positions += 1
-            #             pos = pileupcolumn.reference_pos
-            #             if start is None:
-            #                 start = pos
-            #             end = pos
-            #     # Calculate the proportion of the reference sequence that is covered
-            #     proportion_covered = covered_positions / reference_length
-            #     if proportion_covered > highest_coverage:
-            #         highest_coverage = proportion_covered
-            #         best_reference = reference
-            #         best_positions = (start, end)
-            #     if proportion_covered >= 0.95:
-            #         valid_references.append((reference, proportion_covered, (start, end)))
-        # if len(valid_references) != 0:
-        #     if len(valid_references) > 1:
-        #         if "pandora_consensus" in best_reference:
-        #             return [valid_references[1][0]], [valid_references[1][2]], valid_references[1][1]
-        #     return [best_reference], [best_positions], highest_coverage
-        # else:
-        #     return None, None, highest_coverage
 
     def compare_reads_to_references(self, allele_file, output_dir, reference_genes, racon_path, fastqContent):
         # get the allele name
@@ -2857,7 +2829,7 @@ class GeneMerGraph:
         if valid_alleles is not None:
             valid_allele_sequences = []
             for v in range(len(valid_alleles)):
-                valid_allele = valid_alleles[v][0]
+                valid_allele = valid_alleles[v]
                 # get the original sequence
                 original_sequence = reference_genes[gene_name][valid_allele]
                 # trim the sequence if needed
