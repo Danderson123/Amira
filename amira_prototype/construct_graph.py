@@ -1436,13 +1436,20 @@ class GeneMerGraph:
         new_reads = {}
         new_positions = {}
         rejected_reads = set()
-        for read_id in self.get_readNodes():
-            number_of_nodes = len(self.get_readNodes()[read_id])
+        read_nodes = self.get_readNodes()
+        reads = self.get_reads()
+        gene_positions = self.get_gene_positions()
+        for read_id in read_nodes:
+            nodes = read_nodes[read_id]
+            number_of_nodes = len(nodes)
             expected_filtered_nodes = round(number_of_nodes * (1 - error_rate))
-            number_of_filtered_nodes = self.get_readNodes()[read_id].count(None)
-            if not number_of_filtered_nodes > expected_filtered_nodes:
-                new_reads[read_id] = self.get_reads()[read_id]
-                new_positions[read_id] = self.get_gene_positions()[read_id]
+            number_of_filtered_nodes = 0
+            for n in nodes:
+                if n is None:
+                    number_of_filtered_nodes += 1
+            if number_of_filtered_nodes <= expected_filtered_nodes:
+                new_reads[read_id] = reads[read_id]
+                new_positions[read_id] = gene_positions[read_id]
             else:
                 rejected_reads.add(read_id)
         return new_reads, new_positions, rejected_reads
@@ -2482,16 +2489,16 @@ class GeneMerGraph:
                 else:
                     positions_of_path = self.find_sublist_indices(genes_on_read, reverse_genes_in_path)
                     indices_in_path = rv_indices_in_path
-                assert len(positions_of_path) == 1
-                # iterate through the path indices
-                for path_start, path_end in positions_of_path:
-                    for gene_index in indices_in_path:
-                        assert self.get_reads()[read_id][path_start+gene_index][1:] == geneOfInterest
-                        # get the sequence start and end of the allele on the read
-                        sequence_start, sequence_end = self.get_gene_positions()[read_id][path_start+gene_index]
-                        # add the read to the allele
-                        #gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{max(0, sequence_start - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, sequence_end + 101)}")
-                        gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{sequence_start}_{sequence_end}")
+                if len(positions_of_path) == 1:
+                    # iterate through the path indices
+                    for path_start, path_end in positions_of_path:
+                        for gene_index in indices_in_path:
+                            assert self.get_reads()[read_id][path_start+gene_index][1:] == geneOfInterest
+                            # get the sequence start and end of the allele on the read
+                            sequence_start, sequence_end = self.get_gene_positions()[read_id][path_start+gene_index]
+                            # add the read to the allele
+                            #gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{max(0, sequence_start - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, sequence_end + 101)}")
+                            gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{sequence_start}_{sequence_end}")
         return gene_clusters
 
     def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
@@ -2758,32 +2765,65 @@ class GeneMerGraph:
     def filter_valid_alleles(self, bam_file_path):
         valid_references = []
         highest_coverage = 0
-        best_reference = None
+        proportion_reference_covered = {}
         # Open the BAM file
         with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
-            # Iterate through the reference alleles
-            for reference in bam_file.references:
-                # Total number of positions in the reference covered by at least one read
-                covered_positions = 0
-                # Total length of the reference sequence
-                reference_length = bam_file.get_reference_length(reference)
-                # Iterate through each position in the reference sequence
-                for pileupcolumn in bam_file.pileup(reference=reference):
-                    if pileupcolumn.n > 0:  # If there's at least one read covering the position
-                        covered_positions += 1
-                # Calculate the proportion of the reference sequence that is covered
-                proportion_covered = covered_positions / reference_length
-                if proportion_covered > highest_coverage:
-                    highest_coverage = proportion_covered
-                    best_reference = reference
-                if proportion_covered >= 0.8:
-                    valid_references.append((reference, proportion_covered))
-        if best_reference:
-            return [best_reference], highest_coverage
+            for read in bam_file.fetch():
+                if read.is_unmapped:
+                    continue
+                if read.reference_name not in proportion_reference_covered:
+                    proportion_reference_covered[read.reference_name] = 0
+                matching_bases = 0
+                total_length = bam_file.get_reference_length(read.reference_name)
+                for op, length in read.cigartuples:
+                    if op == 7:
+                        matching_bases += length
+                proportion_matching = (matching_bases / total_length) * 100
+                if proportion_matching > proportion_reference_covered[read.reference_name]:
+                    proportion_reference_covered[read.reference_name] = proportion_matching
+                if proportion_matching > highest_coverage:
+                    highest_coverage = proportion_matching
+        for ref in proportion_reference_covered:
+            if proportion_reference_covered[ref] >= 0.9:
+                valid_references.append((ref, proportion_reference_covered[ref]))
+        valid_references = sorted(valid_references, key=lambda x: x[1], reverse=True)
+        if len(valid_references) != 0:
+            return [valid_references[0][0]], [valid_references[0][1]]
         else:
             return None, highest_coverage
+            # Iterate through the reference alleles
+            # for reference in bam_file.references:
+            #     # Total number of positions in the reference covered by at least one read
+            #     covered_positions = 0
+            #     # Total length of the reference sequence
+            #     reference_length = bam_file.get_reference_length(reference)
+            #     # initialise a start and end count
+            #     start, end = None, None
+            #     # Iterate through each position in the reference sequence
+            #     for pileupcolumn in bam_file.pileup(reference=reference):
+            #         if pileupcolumn.n > 0:  # If there's at least one read covering the position
+            #             covered_positions += 1
+            #             pos = pileupcolumn.reference_pos
+            #             if start is None:
+            #                 start = pos
+            #             end = pos
+            #     # Calculate the proportion of the reference sequence that is covered
+            #     proportion_covered = covered_positions / reference_length
+            #     if proportion_covered > highest_coverage:
+            #         highest_coverage = proportion_covered
+            #         best_reference = reference
+            #         best_positions = (start, end)
+            #     if proportion_covered >= 0.95:
+            #         valid_references.append((reference, proportion_covered, (start, end)))
+        # if len(valid_references) != 0:
+        #     if len(valid_references) > 1:
+        #         if "pandora_consensus" in best_reference:
+        #             return [valid_references[1][0]], [valid_references[1][2]], valid_references[1][1]
+        #     return [best_reference], [best_positions], highest_coverage
+        # else:
+        #     return None, None, highest_coverage
 
-    def compare_reads_to_references(self, allele_file, output_dir, reference_genes, racon_path):
+    def compare_reads_to_references(self, allele_file, output_dir, reference_genes, racon_path, fastqContent):
         # get the allele name
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         # get the gene name
@@ -2798,45 +2838,54 @@ class GeneMerGraph:
         for ref_allele in reference_genes[gene_name]:
             ref_allele_sequences.append(f">{ref_allele}\n{reference_genes[gene_name][ref_allele]}")
             ref_lengths.append(len(reference_genes[gene_name][ref_allele]))
+        #if fastqContent is not None:
+        #    ref_allele_sequences.append(f">{gene_name}_pandora_consensus\n{fastqContent['sequence']}")
+        #    ref_lengths.append(len(fastqContent["sequence"]))
+        #    reference_genes[gene_name][f"{gene_name}_pandora_consensus"] = fastqContent["sequence"]
         with open(os.path.join(outputDir, "01.reference_alleles.fasta"), "w") as outFasta:
             outFasta.write("\n".join(ref_allele_sequences))
         # map the reads to the reference alleles
-        map_command = "minimap2 -a --MD -t 1 -x map-ont "
+        map_command = "minimap2 -a --MD -t 1 -x map-ont --eqx "
         map_command += os.path.join(outputDir, "01.reference_alleles.fasta") + " " + allele_file
         map_command += " > " + os.path.join(outputDir, "02.read.mapped.sam")
         subprocess.run(map_command, shell=True, check=True)
         sort_and_index_command = f"samtools sort {os.path.join(outputDir, '02.read.mapped.sam')} > {os.path.join(outputDir, '02.read.mapped.bam')} "
         sort_and_index_command += f"&& samtools index {os.path.join(outputDir, '02.read.mapped.bam')}"
-        subprocess.run(
-            sort_and_index_command,
-            shell=True,
-            check=True,
-            )
+        subprocess.run(sort_and_index_command, shell=True, check=True)
         # get the names of the valid alleles
         valid_alleles, max_coverage = self.filter_valid_alleles(os.path.join(outputDir, '02.read.mapped.bam'))
         if valid_alleles is not None:
             valid_allele_sequences = []
-            for valid_allele in valid_alleles:
-                valid_allele_sequence = reference_genes[gene_name][valid_allele]
+            for v in range(len(valid_alleles)):
+                valid_allele = valid_alleles[v][0]
+                # get the original sequence
+                original_sequence = reference_genes[gene_name][valid_allele]
+                # trim the sequence if needed
+                valid_allele_sequence = original_sequence
                 valid_allele_sequences.append(f">{valid_allele}\n{valid_allele_sequence}")
             with open(os.path.join(outputDir, "03.closest_reference_allele.fasta"), "w") as outFasta:
-                outFasta.write("\n".join(ref_allele_sequences))
+                outFasta.write("\n".join(valid_allele_sequences))
+            # remap to the closest allele
+            map_command = "minimap2 -a --MD -t 1 -x map-ont "
+            map_command += os.path.join(outputDir, "03.closest_reference_allele.fasta") + " " + allele_file
+            map_command += " > " + os.path.join(outputDir, "04.read.mapped.sam")
+            subprocess.run(map_command, shell=True, check=True)
             # polish the reference alleles
             racon_command = racon_path + " -t 1 -w " + str(max(ref_lengths)) + " "
-            racon_command += allele_file + " " + os.path.join(outputDir, "02.read.mapped.sam") + " "
+            racon_command += allele_file + " " + os.path.join(outputDir, "04.read.mapped.sam") + " "
             racon_command += os.path.join(outputDir, "03.closest_reference_allele.fasta") + " "
-            racon_command += "> " + os.path.join(outputDir, "04.polished_reference_allele.fasta")
+            racon_command += "> " + os.path.join(outputDir, "05.polished_reference_allele.fasta")
             subprocess.run(racon_command, shell=True, check=True)
             return None
         else:
             return (allele_name, max_coverage)
 
-    def get_alleles(self, readFiles, racon_path, threads, output_dir, reference_genes):
+    def get_alleles(self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent):
         # batch the read files for multi processing
         job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
         genes_to_remove = []
         for subset in tqdm(job_list):
             genes_to_remove += Parallel(n_jobs=threads)(
-                delayed(self.compare_reads_to_references)(r, output_dir, reference_genes, racon_path) for r in subset
+                delayed(self.compare_reads_to_references)(r, output_dir, reference_genes, racon_path, fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None)) for r in subset
             )
         return genes_to_remove

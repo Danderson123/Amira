@@ -275,7 +275,7 @@ def main() -> None:
         sequence = "".join(newline_split[1:])
         if gene_name not in reference_alleles:
             reference_alleles[gene_name] = {}
-            reference_alleles[gene_name][allele_name] = sequence
+        reference_alleles[gene_name][allele_name] = sequence
     # import a JSON of genes on reads
     if args.pandoraJSON:
         # output sample information
@@ -436,16 +436,6 @@ def main() -> None:
         node_min_coverage,
         args.edge_min_coverage,
     )
-    subset = {}
-    subset_pos = {}
-    for node in graph.get_nodes_in_component(2):
-        for read in node.get_reads():
-            subset[read] = new_annotatedReads[read]
-            subset_pos[read] = new_gene_position_dict[read]
-    with open("component_2_annotations.json", "w") as o:
-        o.write(json.dumps(subset))
-    with open("component_2_annotation_positions.json", "w") as o:
-        o.write(json.dumps(subset_pos))
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
     clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
@@ -528,14 +518,15 @@ def main() -> None:
                                     args.racon_path,
                                     args.cores,
                                     os.path.join(args.output_dir, "AMR_allele_fastqs"),
-                                    reference_alleles)
+                                    reference_alleles,
+                                    pandora_consensus)
     # remove genes that do not have sufficient mapping coverage
     for g in genes_to_remove:
         if g is not None:
             sys.stderr.write(
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
-            #del final_clusters_of_interest[g[0]]
+            del final_clusters_of_interest[g[0]]
             #shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
     # write out the clustered reads
     for allele in final_clusters_of_interest:
@@ -546,7 +537,6 @@ def main() -> None:
     with open(os.path.join(args.output_dir, "reads_per_amr_gene.json"), "w") as o:
         o.write(json.dumps(final_clusters_of_interest))
     sys.exit(0)
-
 
 if __name__ == "__main__":
     main()
