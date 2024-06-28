@@ -490,7 +490,7 @@ def main() -> None:
 
     files_to_assemble = []
     sys.stderr.write("\nAmira: writing fastqs\n")
-    final_clusters_of_interest = {}
+    supplemented_clusters_of_interest = {}
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
             for allele in clusters_of_interest[component][gene]:
@@ -502,14 +502,14 @@ def main() -> None:
                         allele,
                     )
                 )
-                final_clusters_of_interest[allele] = clusters_of_interest[component][gene][allele]
+                supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][allele]
     # add the genes from the short reads
     for allele in clusters_to_add:
         if len(clusters_to_add[allele]) > 4:
             files_to_assemble.append(
                 write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
             )
-            final_clusters_of_interest[allele] = clusters_to_add[allele]
+            supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
         else:
             sys.stderr.write(f"Amira: allele {allele} filtered due to an insufficient number of reads.\n")
     # run racon to polish the pandora consensus
@@ -526,14 +526,22 @@ def main() -> None:
             sys.stderr.write(
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
-            del final_clusters_of_interest[g[0]]
+            del supplemented_clusters_of_interest[g[0]]
             #shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
     # write out the clustered reads
-    for allele in final_clusters_of_interest:
+    final_clusters_of_interest = {}
+    for allele in supplemented_clusters_of_interest:
+        # get the gene name with the allele name appended
+        with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "05.polished_reference_allele.fasta")) as i:
+            reference_allele_name = i.read().split(" ")[0].replace(">", "")
+        underscore_split = allele.split("_")
+        amira_allele = "_".join(underscore_split[:-1])
+        allele_count = underscore_split[-1]
+        new_name = f"{amira_allele};{reference_allele_name}_{allele_count}"
         new_reads = set()
-        for r in final_clusters_of_interest[allele]:
+        for r in supplemented_clusters_of_interest[allele]:
             new_reads.add(r.split("_")[0])
-        final_clusters_of_interest[allele] = list(new_reads)
+        final_clusters_of_interest[new_name] = list(new_reads)
     with open(os.path.join(args.output_dir, "reads_per_amr_gene.json"), "w") as o:
         o.write(json.dumps(final_clusters_of_interest))
     sys.exit(0)
