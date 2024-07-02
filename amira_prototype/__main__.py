@@ -532,12 +532,13 @@ def main() -> None:
     final_clusters_of_interest = {}
     for allele in supplemented_clusters_of_interest:
         # get the gene name with the allele name appended
-        with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "05.polished_reference_allele.fasta")) as i:
-            reference_allele_name = i.read().split(" ")[0].replace(">", "")
-        underscore_split = allele.split("_")
-        amira_allele = "_".join(underscore_split[:-1])
-        allele_count = underscore_split[-1]
-        new_name = f"{amira_allele};{reference_allele_name}_{allele_count}"
+        if os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "06.final_sequence.fasta")):
+            with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "06.final_sequence.fasta")) as i:
+                reference_allele_name = i.read().split(" ")[0].replace(">", "")
+        else:
+            with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "03.closest_reference.fasta")) as i:
+                reference_allele_name = i.read().split(" ")[0].replace(">", "")
+        new_name = f"{allele};{reference_allele_name}"
         new_reads = set()
         for r in supplemented_clusters_of_interest[allele]:
             new_reads.add(r.split("_")[0])

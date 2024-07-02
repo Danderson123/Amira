@@ -7,6 +7,7 @@ from itertools import product
 import math
 import numpy as np
 import pysam
+import shutil
 import sourmash
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -2762,7 +2763,7 @@ class GeneMerGraph:
             )
         return genes_to_remove
 
-    def filter_valid_alleles(self, bam_file_path):
+    def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []
         highest_coverage = 0
         proportion_reference_covered = {}
@@ -2779,7 +2780,10 @@ class GeneMerGraph:
                 for op, length in read.cigartuples:
                     if op == 7:
                         matching_bases += length
-                proportion_matching = (matching_bases / total_length) * 100
+                if mapping_type == "reads":
+                    proportion_matching = (matching_bases / total_length) * 100
+                if mapping_type == "allele":
+                    proportion_matching = (matching_bases / read.infer_read_length()) * 100
                 if proportion_matching > proportion_reference_covered[read.reference_name]:
                     proportion_reference_covered[read.reference_name] = proportion_matching
                     ref_lengths[read.reference_name] = total_length
@@ -2788,66 +2792,87 @@ class GeneMerGraph:
         for ref in proportion_reference_covered:
             if proportion_reference_covered[ref] >= 90:
                 valid_references.append((ref, proportion_reference_covered[ref], ref_lengths[ref]))
-        valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
-        print(valid_references)
+        if mapping_type == "reads":
+            valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
+        if mapping_type == "allele":
+            valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
         if len(valid_references) != 0:
-            return [valid_references[0][0]], [valid_references[0][1]]
+            return valid_references[0][0], valid_references[0][1]
         else:
             return None, highest_coverage
 
+    def create_output_dir(self, output_dir, allele_name):
+        output_dir = os.path.join(output_dir, allele_name)
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+        return output_dir
+
+    def write_fasta(self, file_path, sequences):
+        with open(file_path, "w") as outFasta:
+            outFasta.write("\n".join(sequences))
+
+    def run_subprocess(self, command):
+        subprocess.run(command, shell=True, check=True)
+
+    def map_reads(self, output_dir, reference_fasta, input_fasta, output_prefix, minimap_opts):
+        sam_file = os.path.join(output_dir, f"{output_prefix}.mapped.sam")
+        bam_file = os.path.join(output_dir, f"{output_prefix}.mapped.bam")
+        map_command = f"minimap2 {minimap_opts} {reference_fasta} {input_fasta} > {sam_file}"
+        self.run_subprocess(map_command)
+        sort_and_index_command = f"samtools sort {sam_file} > {bam_file} && samtools index {bam_file}"
+        self.run_subprocess(sort_and_index_command)
+        return bam_file
+
+    def racon_polish(self, output_dir, racon_path, input_fasta, sam_file, reference_fasta, output_fasta, window_length):
+        racon_command = f"{racon_path} -t 1 -w {window_length} {input_fasta} {sam_file} {reference_fasta} > {output_fasta}"
+        self.run_subprocess(racon_command)
+
+    def prepare_reference_sequences(self, gene_name, reference_genes, output_dir):
+        sequences = [f">{allele}\n{seq}" for allele, seq in reference_genes[gene_name].items()]
+        self.write_fasta(os.path.join(output_dir, "01.reference_alleles.fasta"), sequences)
+        return [len(seq) for seq in reference_genes[gene_name].values()]
+
+    def get_allele_sequence(self, gene_name, allele, reference_genes):
+        return reference_genes[gene_name][allele]
+
+    def racon_one_iteration(self, output_dir, racon_path, read_file, sam_file, sequence_to_polish, polished_sequence, window_size):
+        # run minimap2
+        bam_file = self.map_reads(output_dir, os.path.join(output_dir, sequence_to_polish), read_file,
+                    sam_file.replace(".mapped.sam", ""), "-a --MD -t 1 -x map-ont --eqx")
+        # run racon
+        self.racon_polish(output_dir, racon_path, read_file, os.path.join(output_dir, sam_file),
+                    os.path.join(output_dir, sequence_to_polish), os.path.join(output_dir, polished_sequence),
+                    window_size)
+        # rename the polished sequence
+        shutil.copy(os.path.join(output_dir, polished_sequence), os.path.join(output_dir, sequence_to_polish))
+        return bam_file
+
     def compare_reads_to_references(self, allele_file, output_dir, reference_genes, racon_path, fastqContent):
-        # get the allele name
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
-        # get the gene name
         gene_name = "_".join(allele_name.split("_")[:-1])
-        # make the output dir
-        outputDir = os.path.join(output_dir, allele_name)
-        if not os.path.exists(outputDir):
-            os.mkdir(outputDir)
-        # write the reference alleles
-        ref_allele_sequences = []
-        ref_lengths = []
-        for ref_allele in reference_genes[gene_name]:
-            ref_allele_sequences.append(f">{ref_allele}\n{reference_genes[gene_name][ref_allele]}")
-            ref_lengths.append(len(reference_genes[gene_name][ref_allele]))
-        #if fastqContent is not None:
-        #    ref_allele_sequences.append(f">{gene_name}_pandora_consensus\n{fastqContent['sequence']}")
-        #    ref_lengths.append(len(fastqContent["sequence"]))
-        #    reference_genes[gene_name][f"{gene_name}_pandora_consensus"] = fastqContent["sequence"]
-        with open(os.path.join(outputDir, "01.reference_alleles.fasta"), "w") as outFasta:
-            outFasta.write("\n".join(ref_allele_sequences))
-        # map the reads to the reference alleles
-        map_command = "minimap2 -a --MD -t 1 -x map-ont --eqx "
-        map_command += os.path.join(outputDir, "01.reference_alleles.fasta") + " " + allele_file
-        map_command += " > " + os.path.join(outputDir, "02.read.mapped.sam")
-        subprocess.run(map_command, shell=True, check=True)
-        sort_and_index_command = f"samtools sort {os.path.join(outputDir, '02.read.mapped.sam')} > {os.path.join(outputDir, '02.read.mapped.bam')} "
-        sort_and_index_command += f"&& samtools index {os.path.join(outputDir, '02.read.mapped.bam')}"
-        subprocess.run(sort_and_index_command, shell=True, check=True)
-        # get the names of the valid alleles
-        valid_alleles, max_coverage = self.filter_valid_alleles(os.path.join(outputDir, '02.read.mapped.bam'))
-        if valid_alleles is not None:
-            valid_allele_sequences = []
-            for v in range(len(valid_alleles)):
-                valid_allele = valid_alleles[v]
-                # get the original sequence
-                original_sequence = reference_genes[gene_name][valid_allele]
-                # trim the sequence if needed
-                valid_allele_sequence = original_sequence
-                valid_allele_sequences.append(f">{valid_allele}\n{valid_allele_sequence}")
-            with open(os.path.join(outputDir, "03.closest_reference_allele.fasta"), "w") as outFasta:
-                outFasta.write("\n".join(valid_allele_sequences))
-            # remap to the closest allele
-            map_command = "minimap2 -a --MD -t 1 -x map-ont "
-            map_command += os.path.join(outputDir, "03.closest_reference_allele.fasta") + " " + allele_file
-            map_command += " > " + os.path.join(outputDir, "04.read.mapped.sam")
-            subprocess.run(map_command, shell=True, check=True)
-            # polish the reference alleles
-            racon_command = racon_path + " -t 1 -w " + str(max(ref_lengths)) + " "
-            racon_command += allele_file + " " + os.path.join(outputDir, "04.read.mapped.sam") + " "
-            racon_command += os.path.join(outputDir, "03.closest_reference_allele.fasta") + " "
-            racon_command += "> " + os.path.join(outputDir, "05.polished_reference_allele.fasta")
-            subprocess.run(racon_command, shell=True, check=True)
+        output_dir = self.create_output_dir(output_dir, allele_name)
+
+        ref_lengths = self.prepare_reference_sequences(gene_name, reference_genes, output_dir)
+        bam_file = self.map_reads(output_dir, os.path.join(output_dir, "01.reference_alleles.fasta"), allele_file, "02.read", "-a --MD -t 1 -x map-ont --eqx")
+
+        valid_allele, max_coverage = self.get_closest_allele(bam_file, "reads")
+        if valid_allele:
+            valid_allele_sequence = self.get_allele_sequence(gene_name, valid_allele, reference_genes)
+            self.write_fasta(os.path.join(output_dir, "03.sequence_to_polish.fasta"), [f">{valid_allele}\n{valid_allele_sequence}"])
+
+
+            for _ in range(5):
+                self.racon_one_iteration(output_dir, racon_path, allele_file, "02.read.mapped.sam",
+                        "03.sequence_to_polish.fasta", "04.polished_sequence.fasta",
+                        str(len(valid_allele_sequence)))
+
+            bam_file = self.map_reads(output_dir, os.path.join(output_dir, "01.reference_alleles.fasta"),
+                        os.path.join(output_dir, "04.polished_sequence.fasta"),
+                        "05.read", "-a --MD -t 1 -x asm20 --eqx")
+            closest_allele, max_coverage = self.get_closest_allele(bam_file, "allele")
+            with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+                final_allele_sequence = "".join(i.read().split("\n")[1:])
+            self.write_fasta(os.path.join(output_dir, "06.final_sequence.fasta"), [f">{closest_allele}\n{final_allele_sequence}"])
             return None
         else:
             return (allele_name, max_coverage)
