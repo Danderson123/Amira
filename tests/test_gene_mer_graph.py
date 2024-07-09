@@ -7,6 +7,7 @@ from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
 from amira_prototype.construct_unitig import parse_fastq_lines
 
+
 class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___init_empty_GeneMerGraph(self):
         # setup
@@ -4786,7 +4787,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "+gene4",
             "-gene10",
             "+gene11",
-            "-gene12"
+            "-gene12",
         ]
         genes2 = [
             "-gene2",

@@ -71,17 +71,21 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
         gene_name = "+" + strandlessGene
     return gene_name, strandlessGene
 
+
 def remove_poorly_mapped_genes(pandora_consensus, zero_coverage_threshold, genesOfInterest):
     # iterate through the read regions
     zero_coverage_base_proportion = []
     genes_to_delete = []
     for gene in pandora_consensus:
-        zero_coverage_proportion = pandora_consensus[gene]["quality"].count("!") / len(pandora_consensus[gene]["quality"])
+        zero_coverage_proportion = pandora_consensus[gene]["quality"].count("!") / len(
+            pandora_consensus[gene]["quality"]
+        )
         zero_coverage_base_proportion.append(zero_coverage_proportion)
         if zero_coverage_proportion > zero_coverage_threshold and gene not in genesOfInterest:
             genes_to_delete.append(gene)
     for gene in genes_to_delete:
         del pandora_consensus[gene]
+
 
 def convert_pandora_output(
     pandoraSam: str,
@@ -122,8 +126,9 @@ def convert_pandora_output(
             #     <= gene_length_upper_threshold * len(pandora_consensus[strandlessGene]["sequence"])
             #     or strandlessGene in genesOfInterest
             # ):
-            if strandlessGene in genesOfInterest or (strandlessGene in pandora_consensus and
-                gene_length_lower_threshold * len(pandora_consensus[strandlessGene]["sequence"])
+            if strandlessGene in genesOfInterest or (
+                strandlessGene in pandora_consensus
+                and gene_length_lower_threshold * len(pandora_consensus[strandlessGene]["sequence"])
                 <= regionLength
                 <= gene_length_upper_threshold * len(pandora_consensus[strandlessGene]["sequence"])
             ):

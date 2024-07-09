@@ -26,7 +26,9 @@ def get_options() -> argparse.Namespace:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--pandoraSam", dest="pandoraSam", help="Pandora map SAM file path.")
     group.add_argument("--pandoraJSON", dest="pandoraJSON", help="Pandora map JSON file path.")
-    group.add_argument("--gene-positions", dest="gene_positions", help="Gene position JSON file path.")
+    group.add_argument(
+        "--gene-positions", dest="gene_positions", help="Gene position JSON file path."
+    )
     parser.add_argument(
         "--pandoraConsensus",
         dest="pandoraConsensus",
@@ -128,6 +130,7 @@ def get_options() -> argparse.Namespace:
     args = parser.parse_args()
     return args
 
+
 def plot_log_histogram(distances, filename):
 
     # distances = random.sample(distances, 10000)
@@ -223,7 +226,15 @@ def plot_node_coverages(unitig_coverages, filename):
 
     # Plot histogram
     plt.figure(figsize=(10, 6))
-    plt.bar(x_values, log_counts, width=5, label="Counts", color="white", edgecolor="black", align='center')
+    plt.bar(
+        x_values,
+        log_counts,
+        width=5,
+        label="Counts",
+        color="white",
+        edgecolor="black",
+        align="center",
+    )
     plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
     plt.title("Histogram of mean unitig coverages with Smoothed Curve")
     plt.xlabel("Unitig Coverage")
@@ -234,16 +245,30 @@ def plot_node_coverages(unitig_coverages, filename):
     plt.close()
 
     # Identify peaks and troughs
-    peaks, _ = find_peaks([min(smoothed_log_counts)] + list(smoothed_log_counts), [min(smoothed_log_counts)], prominence=0.1)
+    peaks, _ = find_peaks(
+        [min(smoothed_log_counts)] + list(smoothed_log_counts),
+        [min(smoothed_log_counts)],
+        prominence=0.1,
+    )
     peaks = peaks - 1
     first_peak_index = np.where(x_values == x_values[peaks[0]])[0][0]
     second_peak_index = np.where(x_values == x_values[peaks[1]])[0][0]
-    trough_index = np.argmin(smoothed_log_counts[first_peak_index: second_peak_index + 1]) + first_peak_index
+    trough_index = (
+        np.argmin(smoothed_log_counts[first_peak_index : second_peak_index + 1]) + first_peak_index
+    )
     trough_value = x_values[trough_index]
 
     # Plot the histogram and the trough
     plt.figure(figsize=(10, 6))
-    plt.bar(x_values, log_counts, width=5, label="Counts", color="white", edgecolor="black", align='center')
+    plt.bar(
+        x_values,
+        log_counts,
+        width=5,
+        label="Counts",
+        color="white",
+        edgecolor="black",
+        align="center",
+    )
     plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
     plt.axvline(x=trough_value, color="r", linestyle="--", label=f"Trough at x={trough_value:.2f}")
     plt.title("Histogram of node coverages with Smoothed Curve")
@@ -270,7 +295,9 @@ def main() -> None:
     reference_alleles = {}
     for allele in reference_content:
         newline_split = allele.split("\n")
-        assert newline_split[0].count(";") == 1, "Reference FASTA headers can only contain 1 semicolon"
+        assert (
+            newline_split[0].count(";") == 1
+        ), "Reference FASTA headers can only contain 1 semicolon"
         gene_name, allele_name = newline_split[0].split(";")
         genesOfInterest.add(gene_name)
         sequence = "".join(newline_split[1:])
@@ -337,7 +364,8 @@ def main() -> None:
     )
     try:
         min_path_coverage = plot_node_coverages(
-            graph.get_all_node_coverages(), os.path.join(args.output_dir, "initial_node_coverages.png")
+            graph.get_all_node_coverages(),
+            os.path.join(args.output_dir, "initial_node_coverages.png"),
         )
     except:
         min_path_coverage = 10
@@ -488,7 +516,8 @@ def main() -> None:
         if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name)):
             os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name))
         write_fastq(
-            os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"), read_subset
+            os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"),
+            read_subset,
         )
         return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
 
@@ -507,7 +536,9 @@ def main() -> None:
                             allele,
                         )
                     )
-                    supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][allele]
+                    supplemented_clusters_of_interest[allele] = clusters_of_interest[component][
+                        gene
+                    ][allele]
     # add the genes from the short reads
     for allele in clusters_to_add:
         if len(clusters_to_add[allele]) > 4:
@@ -516,15 +547,19 @@ def main() -> None:
             )
             supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
         else:
-            sys.stderr.write(f"Amira: allele {allele} filtered due to an insufficient number of reads.\n")
+            sys.stderr.write(
+                f"Amira: allele {allele} filtered due to an insufficient number of reads.\n"
+            )
     # run racon to polish the pandora consensus
     sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
-    genes_to_remove = graph.get_alleles(files_to_assemble,
-                                    args.racon_path,
-                                    args.cores,
-                                    os.path.join(args.output_dir, "AMR_allele_fastqs"),
-                                    reference_alleles,
-                                    pandora_consensus)
+    genes_to_remove = graph.get_alleles(
+        files_to_assemble,
+        args.racon_path,
+        args.cores,
+        os.path.join(args.output_dir, "AMR_allele_fastqs"),
+        reference_alleles,
+        pandora_consensus,
+    )
     # remove genes that do not have sufficient mapping coverage
     for g in genes_to_remove:
         if g is not None:
@@ -532,16 +567,26 @@ def main() -> None:
                 f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
             )
             del supplemented_clusters_of_interest[g[0]]
-            #shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            # shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
     # write out the clustered reads
     final_clusters_of_interest = {}
     for allele in supplemented_clusters_of_interest:
         # get the gene name with the allele name appended
-        if os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "06.final_sequence.fasta")):
-            with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "06.final_sequence.fasta")) as i:
+        if os.path.exists(
+            os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "06.final_sequence.fasta")
+        ):
+            with open(
+                os.path.join(
+                    args.output_dir, "AMR_allele_fastqs", allele, "06.final_sequence.fasta"
+                )
+            ) as i:
                 reference_allele_name = i.read().split(" ")[0].replace(">", "")
         else:
-            with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "03.closest_reference.fasta")) as i:
+            with open(
+                os.path.join(
+                    args.output_dir, "AMR_allele_fastqs", allele, "03.closest_reference.fasta"
+                )
+            ) as i:
                 reference_allele_name = i.read().split(" ")[0].replace(">", "")
         if "\n" in reference_allele_name:
             reference_allele_name = reference_allele_name.split("\n")[0]
@@ -553,6 +598,7 @@ def main() -> None:
     with open(os.path.join(args.output_dir, "reads_per_amr_gene.json"), "w") as o:
         o.write(json.dumps(final_clusters_of_interest))
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

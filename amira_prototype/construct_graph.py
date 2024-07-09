@@ -1,13 +1,14 @@
+import math
 import os
+import shutil
 import statistics
 import subprocess
 import sys
 from collections import Counter, deque
 from itertools import product
-import math
+
 import numpy as np
 import pysam
-import shutil
 import sourmash
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -17,7 +18,6 @@ from amira_prototype.construct_gene import convert_int_strand_to_string
 from amira_prototype.construct_gene_mer import GeneMer
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
-from amira_prototype.construct_unitig import Unitig
 
 sys.setrecursionlimit(50000)
 
@@ -25,6 +25,7 @@ sys.setrecursionlimit(50000)
 def build_graph(read_dict, kmer_size, gene_positions=None):
     graph = GeneMerGraph(read_dict, kmer_size, gene_positions)
     return graph
+
 
 def merge_nodes(sub_graphs, fastq_data=None):
     reference_graph = sub_graphs[0]
@@ -43,7 +44,9 @@ def merge_nodes(sub_graphs, fastq_data=None):
                 # get the node object
                 node_in_subgraph = graph.get_node_by_hash(node_hashes_on_read[i])
                 # add the node to the reference graph
-                node_in_reference = reference_graph.add_node(node_in_subgraph.get_geneMer(), node_in_subgraph.get_reads())
+                node_in_reference = reference_graph.add_node(
+                    node_in_subgraph.get_geneMer(), node_in_subgraph.get_reads()
+                )
                 # add to the minhash
                 if fastq_data is not None:
                     if node_in_reference.get_minhash() is None:
@@ -52,8 +55,14 @@ def merge_nodes(sub_graphs, fastq_data=None):
                 # increment the node coverage
                 node_in_reference.increment_node_coverage()
                 # add the node to the read in the reference graph
-                reference_graph.add_node_to_read(node_in_reference, read_id, node_directions_on_read[i], node_positions_on_read[i])
+                reference_graph.add_node_to_read(
+                    node_in_reference,
+                    read_id,
+                    node_directions_on_read[i],
+                    node_positions_on_read[i],
+                )
     return reference_graph
+
 
 def merge_edges(sub_graphs, reference_graph):
     for graph in sub_graphs[1:]:
@@ -62,8 +71,12 @@ def merge_edges(sub_graphs, reference_graph):
                 # get the edge object in the subgraph
                 edge_in_subgraph = graph.get_edge_by_hash(edge_hash)
                 # change the source and target node to those in the reference graph
-                reference_source_node = edge_in_subgraph.set_sourceNode(reference_graph.get_node_by_hash(edge_in_subgraph.get_sourceNode().__hash__()))
-                reference_target_node = edge_in_subgraph.set_targetNode(reference_graph.get_node_by_hash(edge_in_subgraph.get_targetNode().__hash__()))
+                reference_source_node = edge_in_subgraph.set_sourceNode(
+                    reference_graph.get_node_by_hash(edge_in_subgraph.get_sourceNode().__hash__())
+                )
+                edge_in_subgraph.set_targetNode(
+                    reference_graph.get_node_by_hash(edge_in_subgraph.get_targetNode().__hash__())
+                )
                 # add the edge to the node
                 reference_graph.add_edge_to_node(reference_source_node, edge_in_subgraph)
                 # add the edge object to the graph
@@ -74,6 +87,7 @@ def merge_edges(sub_graphs, reference_graph):
                 # extend the coverage
                 reference_edge.extend_edge_coverage(reference_edge.get_edge_coverage())
 
+
 def merge_reads(sub_graphs, reference_graph):
     for graph in sub_graphs[1:]:
         for read in graph.get_reads():
@@ -81,9 +95,14 @@ def merge_reads(sub_graphs, reference_graph):
             if reference_graph.get_gene_positions() is not None:
                 reference_graph.get_gene_positions()[read] = graph.get_gene_positions()[read]
         for read in graph.get_short_read_annotations():
-            reference_graph.get_short_read_annotations()[read] = graph.get_short_read_annotations()[read]
+            reference_graph.get_short_read_annotations()[read] = graph.get_short_read_annotations()[
+                read
+            ]
             if graph.get_gene_positions() is not None:
-                reference_graph.get_short_read_gene_positions()[read] = graph.get_short_read_gene_positions()[read]
+                reference_graph.get_short_read_gene_positions()[
+                    read
+                ] = graph.get_short_read_gene_positions()[read]
+
 
 def merge_graphs(sub_graphs):
     # merge the nodes
@@ -94,6 +113,7 @@ def merge_graphs(sub_graphs):
     merge_reads(sub_graphs, reference_graph)
     reference_graph.assign_component_ids()
     return reference_graph
+
 
 class GeneMerGraph:
     def __init__(self, readDict, kmerSize, gene_positions=None):
@@ -478,7 +498,7 @@ class GeneMerGraph:
         """remove an edge from all graph edges and the node edges"""
         # check that the edge exists in the graph
         # assert edgeHash in self.get_edges(), "This edge is not in the graph"
-        if not edgeHash in self.get_edges():
+        if edgeHash not in self.get_edges():
             return
         # get the edge object from all graph edges by hash
         edge = self.get_edges()[edgeHash]
@@ -699,10 +719,10 @@ class GeneMerGraph:
                     newAnnotations += self.get_reverse_gene_mer_genes(sourceNode)
             fw_genes = self.get_gene_mer_genes(targetNode)
             bw_genes = self.get_reverse_gene_mer_genes(targetNode)
-            if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]:
+            if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1 :]:
                 newAnnotations.append(fw_genes[-1])
             else:
-                assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]
+                assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1 :]
                 newAnnotations.append(bw_genes[-1])
             # if edge.get_targetNodeDirection() == 1:
             #     newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
@@ -1282,7 +1302,8 @@ class GeneMerGraph:
                     d_nodes = [n[0] for n in d_path] if d_path else []
                     d_directions = [n[1] for n in d_path] if d_path else []
 
-                    # Combine the paths, excluding the last node of the upstream and the first node of the downstream
+                    # Combine the paths
+                    # excludes the last node of the upstream and the first node of the downstream
                     combined_path = (
                         (u_nodes[:-1] if u_nodes else [])
                         + corrected_path
@@ -1344,8 +1365,8 @@ class GeneMerGraph:
                 coverage = path_mean_coverage
             else:
                 pass
-        #print("\n", nodes_on_read)
-        #print(replacementDict)
+        # print("\n", nodes_on_read)
+        # print(replacementDict)
         # align the new and old lists of genes
         alignment = self.needleman_wunsch(closest, self.get_reads()[read_id])
         # modify the gene positions
@@ -1463,9 +1484,9 @@ class GeneMerGraph:
         return valid_reads
 
     def needleman_wunsch(self, x, y):
-        #print(x)
-        #print(y, "\n")
-        #if len(x) != 0 and len(y) != 0:
+        # print(x)
+        # print(y, "\n")
+        # if len(x) != 0 and len(y) != 0:
         #    assert x[0] == y[0] and x[-1] == y[-1]
         N, M = len(x), len(y)
         # Scoring function: returns 1 if elements are equal, 0 otherwise
@@ -1598,8 +1619,8 @@ class GeneMerGraph:
                 last_index == len(self.get_readNodePositions()[read_id]) - 1
             ), self.get_readNodePositions()[read_id]
             end_pos = len(entire_read_sequence) - 1
-        #print(self.get_readNodePositions()[read_id])
-        #print(len(entire_read_sequence), "\n")
+        # print(self.get_readNodePositions()[read_id])
+        # print(len(entire_read_sequence), "\n")
         assert start_pos >= 0
         assert end_pos < len(entire_read_sequence)
         read_sequence = entire_read_sequence[start_pos : end_pos + 1]
@@ -1651,7 +1672,8 @@ class GeneMerGraph:
             return None
         else:
             return None
-#            raise ValueError("Forward and reverse path alignments are equally distant.")
+
+    #            raise ValueError("Forward and reverse path alignments are equally distant.")
 
     def correct_genes_on_read(
         self,
@@ -1793,14 +1815,20 @@ class GeneMerGraph:
             if alignment is None:
                 continue
             # get the alignment columns for the first and last elements shared with the list of genes
-            alignment_subset, first_shared_read_index, last_shared_read_index, = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
+            (
+                alignment_subset,
+                first_shared_read_index,
+                last_shared_read_index,
+            ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
             # Correct the read using the alignment subset
             if len(alignment_subset) != 0:
                 # add the read to the corrected reads dictionary
                 if not read_id in corrected_reads:
                     corrected_reads[read_id] = set()
                 # get the gene-mers in the low coverage path
-                gene_mers_on_lcp = self.get_gene_mer_strings([col[1] for col in alignment_subset if col[1] != "*"])
+                gene_mers_on_lcp = self.get_gene_mer_strings(
+                    [col[1] for col in alignment_subset if col[1] != "*"]
+                )
                 # skip the correction if the path we are correcting comes from a previous correction
                 if len(corrected_reads[read_id].intersection(gene_mers_on_lcp)) > 0:
                     continue
@@ -1821,7 +1849,9 @@ class GeneMerGraph:
                     fastq_data,
                 )
                 # get the k-mers in the high coverage path
-                gene_mers_on_hcp = self.get_gene_mer_strings([col[0] for col in alignment_subset if col[0] != "*"])
+                gene_mers_on_hcp = self.get_gene_mer_strings(
+                    [col[0] for col in alignment_subset if col[0] != "*"]
+                )
                 # add the gene-mers to those we have corrected to for this read to prevent correcting a correct path
                 corrected_reads[read_id].update(gene_mers_on_hcp)
                 # check that the number of genes and number of gene positions are equal
@@ -1841,7 +1871,15 @@ class GeneMerGraph:
         INDEL_count = self.count_indels_in_alignment(fw_alignment)
         return fw_alignment, rv_alignment, SNP_count, INDEL_count
 
-    def correct_bubble_paths(self, bubbles, fastq_data, path_minimizers, genesOfInterest, min_path_coverage, threshold=0.80):
+    def correct_bubble_paths(
+        self,
+        bubbles,
+        fastq_data,
+        path_minimizers,
+        genesOfInterest,
+        min_path_coverage,
+        threshold=0.80,
+    ):
         corrected_reads = {}
         # iterate through the path terminals
         path_coverages = []
@@ -1876,13 +1914,19 @@ class GeneMerGraph:
                             # see if this is the final round of correction
                             if path_minimizers is None:
                                 # if not, only correct paths with a mean coverage < 15
-                                #if lower_coverage >= min_path_coverage:
+                                # if lower_coverage >= min_path_coverage:
                                 #    continue
-                                if all(self.get_node_by_hash(n).get_node_coverage() >= min_path_coverage for n in lower_coverage_path):
+                                if all(
+                                    self.get_node_by_hash(n).get_node_coverage()
+                                    >= min_path_coverage
+                                    for n in lower_coverage_path
+                                ):
                                     continue
                             else:
                                 # if so, get the minimizers of the lower coverage path
-                                low_coverage_minimizers = path_minimizers[tuple(lower_coverage_path)]
+                                low_coverage_minimizers = path_minimizers[
+                                    tuple(lower_coverage_path)
+                                ]
                             # get the genes in the lower coverage path
                             lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
                             # get the k-mers in the low coverage path
@@ -1892,7 +1936,9 @@ class GeneMerGraph:
                                 # take a slice of the list of Genes from index i to i + kmerSize
                                 gene_mer = lower_coverage_genes[i : i + self.get_kmerSize()]
                                 gene_mers.append(tuple(gene_mer))
-                                reverse_gene_mers.append(tuple(self.reverse_list_of_genes(gene_mer)))
+                                reverse_gene_mers.append(
+                                    tuple(self.reverse_list_of_genes(gene_mer))
+                                )
                             # make counters for the gene-mer tuples
                             fw_counter = Counter(gene_mers)
                             bw_counter = Counter(reverse_gene_mers)
@@ -1909,15 +1955,23 @@ class GeneMerGraph:
                                     correct_path = True
                             else:
                                 # see how similar the paths are based on their minimizers
-                                containment = max([
-                                        len(high_coverage_minimizers & low_coverage_minimizers) / len(low_coverage_minimizers),
-                                        len(high_coverage_minimizers & low_coverage_minimizers) / len(high_coverage_minimizers)])
+                                containment = max(
+                                    [
+                                        len(high_coverage_minimizers & low_coverage_minimizers)
+                                        / len(low_coverage_minimizers),
+                                        len(high_coverage_minimizers & low_coverage_minimizers)
+                                        / len(high_coverage_minimizers),
+                                    ]
+                                )
                                 # if the containment is greater than the threshold then correct the path
                                 if containment > threshold:
                                     correct_path = True
                             if correct_path is True:
                                 # make sure that we do not delete AMR genes
-                                if any(c[1][1:] in genesOfInterest and c[1][1:] != c[0][1:] for c in fw_alignment):
+                                if any(
+                                    c[1][1:] in genesOfInterest and c[1][1:] != c[0][1:]
+                                    for c in fw_alignment
+                                ):
                                     continue
                                 # correct the lower coverage path to the higher coverage path
                                 corrected_reads = self.correct_low_coverage_path(
@@ -1927,11 +1981,13 @@ class GeneMerGraph:
                                     fw_alignment,
                                     rv_alignment,
                                     fastq_data,
-                                    corrected_reads
+                                    corrected_reads,
                                 )
         return path_coverages
 
-    def split_into_contiguous_chunks(self, shared_read_indices_with_lcp, shared_read_indices_with_hcp):
+    def split_into_contiguous_chunks(
+        self, shared_read_indices_with_lcp, shared_read_indices_with_hcp
+    ):
         if not shared_read_indices_with_lcp:
             return []
         # Initialize the list of chunks with the first number
@@ -1944,7 +2000,10 @@ class GeneMerGraph:
                 current_chunk.append(shared_read_indices_with_lcp[i])
             else:
                 if shared_read_indices_with_lcp[i] - 1 in shared_read_indices_with_hcp:
-                    current_chunk += [shared_read_indices_with_lcp[i] - 1, shared_read_indices_with_lcp[i]]
+                    current_chunk += [
+                        shared_read_indices_with_lcp[i] - 1,
+                        shared_read_indices_with_lcp[i],
+                    ]
                 else:
                     chunks.append(current_chunk)
                     current_chunk = [shared_read_indices_with_lcp[i]]
@@ -1958,7 +2017,7 @@ class GeneMerGraph:
         # Loop through the main list from start to the point where checking for the sublist still makes sense
         for i in range(len(main_list) - sublist_length + 1):
             # Check if the slice of main_list starting at i matches the sublist
-            if main_list[i:i + sublist_length] == sublist:
+            if main_list[i : i + sublist_length] == sublist:
                 # Append the start and stop indices to the results
                 indices.append((i, i + sublist_length - 1))
         return indices
@@ -1992,11 +2051,19 @@ class GeneMerGraph:
         higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
         # get the indices of all genes on the read that are shared with the alignment
         genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
-        shared_read_indices_with_lcp = [i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_lower_coverage_path]
+        shared_read_indices_with_lcp = [
+            i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_lower_coverage_path
+        ]
         genes_in_higher_coverage_path = [a[0] for a in alignment if not a[0] == "*"]
-        shared_read_indices_with_hcp = [i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_higher_coverage_path]
+        shared_read_indices_with_hcp = [
+            i
+            for i in range(len(genes_on_read))
+            if genes_on_read[i] in genes_in_higher_coverage_path
+        ]
         # split the shared gene indices into contiguous chunks
-        read_chunks = self.split_into_contiguous_chunks(shared_read_indices_with_lcp, shared_read_indices_with_hcp)
+        read_chunks = self.split_into_contiguous_chunks(
+            shared_read_indices_with_lcp, shared_read_indices_with_hcp
+        )
         if not len(read_chunks) == 0:
             if len(read_chunks) > 1 and all(len(c) == 1 for c in read_chunks):
                 return [], None, None
@@ -2006,25 +2073,59 @@ class GeneMerGraph:
                 # get all possible sublist combinations
                 sublist_combinations = self.all_sublist_combinations(chunk)
                 # filter out the sublists that are not found in the path
-                valid_sublists = [s for s in sublist_combinations if self.is_sublist(genes_in_lower_coverage_path, [genes_on_read[i] for i in s if genes_on_read[i] in genes_in_lower_coverage_path and genes_on_read[i] not in genes_in_higher_coverage_path])]
+                valid_sublists = [
+                    s
+                    for s in sublist_combinations
+                    if self.is_sublist(
+                        genes_in_lower_coverage_path,
+                        [
+                            genes_on_read[i]
+                            for i in s
+                            if genes_on_read[i] in genes_in_lower_coverage_path
+                            and genes_on_read[i] not in genes_in_higher_coverage_path
+                        ],
+                    )
+                ]
                 # get the locations of the sublists in the path
-                sublist_positions = [(s, self.find_sublist_indices(genes_in_lower_coverage_path, [genes_on_read[i] for i in s if genes_on_read[i] in genes_in_lower_coverage_path])) for s in valid_sublists]
+                sublist_positions = [
+                    (
+                        s,
+                        self.find_sublist_indices(
+                            genes_in_lower_coverage_path,
+                            [
+                                genes_on_read[i]
+                                for i in s
+                                if genes_on_read[i] in genes_in_lower_coverage_path
+                            ],
+                        ),
+                    )
+                    for s in valid_sublists
+                ]
                 # filter sublists that do not occur in the lower coverage path
                 filtered_sublist_positions = [t for t in sublist_positions if len(t[1]) != 0]
                 # sort the sublist positions by length
-                sorted_sublist_positions = sorted(filtered_sublist_positions, key=lambda x: max([s[1] - s[0] for s in x[1]]), reverse=True)
+                sorted_sublist_positions = sorted(
+                    filtered_sublist_positions,
+                    key=lambda x: max([s[1] - s[0] for s in x[1]]),
+                    reverse=True,
+                )
                 # choose the longest sublist match as the true subset
                 if len(chunk) > len(current_chunk):
                     current_chunk = chunk
                     current_sorted_sublist_positions = sorted_sublist_positions
             if len(current_sorted_sublist_positions[0][1]) == 1:
-                alignment_indices = [lower_mapping[i] for i in list(current_sorted_sublist_positions[0][1][0])]
-                return alignment[alignment_indices[0]: alignment_indices[-1] + 1], current_sorted_sublist_positions[0][0][0], current_sorted_sublist_positions[0][0][-1]
+                alignment_indices = [
+                    lower_mapping[i] for i in list(current_sorted_sublist_positions[0][1][0])
+                ]
+                return (
+                    alignment[alignment_indices[0] : alignment_indices[-1] + 1],
+                    current_sorted_sublist_positions[0][0][0],
+                    current_sorted_sublist_positions[0][0][-1],
+                )
             else:
                 return [], None, None
         else:
             return [], None, None
-
 
     def mp_get_all_paths_between_junctions_in_component(
         self, potential_bubble_starts_component, max_distance, cores
@@ -2037,7 +2138,9 @@ class GeneMerGraph:
             for stop_hash, stop_direction in potential_bubble_starts_component:
                 if start_hash == stop_hash:
                     continue
-                pair_tuple = tuple(sorted([(start_hash, start_direction), (stop_hash, stop_direction)]))
+                pair_tuple = tuple(
+                    sorted([(start_hash, start_direction), (stop_hash, stop_direction)])
+                )
                 pairs_to_process.add(pair_tuple)
 
         def find_paths_between_pairs(batch, max_distance):
@@ -2068,8 +2171,8 @@ class GeneMerGraph:
         pairs_to_process = list(pairs_to_process)
         batches = [pairs_to_process[i::cores] for i in range(cores)]
         all_paths = Parallel(n_jobs=cores)(
-                delayed(find_paths_between_pairs)(batch, max_distance) for batch in tqdm(batches)
-            )
+            delayed(find_paths_between_pairs)(batch, max_distance) for batch in tqdm(batches)
+        )
         for batch_result in all_paths:
             unique_paths.update(batch_result)
         return unique_paths
@@ -2157,7 +2260,7 @@ class GeneMerGraph:
                 # iterate through the positions
                 for p in positions:
                     # add the sequence to the minhash object
-                    minhash.add_sequence(entire_read_sequence[p[0]: p[1] + 1], force=True)
+                    minhash.add_sequence(entire_read_sequence[p[0] : p[1] + 1], force=True)
             node_minhashes[node_hash] = minhash
 
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
@@ -2178,19 +2281,15 @@ class GeneMerGraph:
         keys = list(node_minhashes.keys())
         batches = [set(keys[i::cores]) for i in range(cores)]
         Parallel(n_jobs=cores, prefer="threads")(
-                delayed(self.get_minhash_of_nodes)(
-                        batch,
-                        node_minhashes,
-                        fastq_data) for batch in batches
-                )
+            delayed(self.get_minhash_of_nodes)(batch, node_minhashes, fastq_data)
+            for batch in batches
+        )
         keys = list(path_minimizers.keys())
         batches = [set(keys[i::cores]) for i in range(cores)]
         Parallel(n_jobs=cores, prefer="threads")(
-                delayed(self.get_minhash_of_path)(
-                        batch,
-                        path_minimizers,
-                        node_minhashes) for batch in batches
-                )
+            delayed(self.get_minhash_of_path)(batch, path_minimizers, node_minhashes)
+            for batch in batches
+        )
         assert not any(v is None for v in path_minimizers.values())
         return path_minimizers
 
@@ -2208,7 +2307,7 @@ class GeneMerGraph:
                 counts[nearest_tenth] += 1
                 path_coverages.append(p[1])
         # get the highest count
-        sorted_counts = sorted([(k, v) for k,v in counts.items()], key=lambda x: x[0])
+        sorted_counts = sorted([(k, v) for k, v in counts.items()], key=lambda x: x[0])
         highest_count = max([x[1] for x in sorted_counts])
         # get the threshold
         previous_coverage = 10
@@ -2217,8 +2316,9 @@ class GeneMerGraph:
                 return previous_coverage
             previous_coverage = coverage
 
-
-    def correct_low_coverage_paths(self, fastq_data, genesOfInterest, cores, min_path_coverage, use_minimizers=False):
+    def correct_low_coverage_paths(
+        self, fastq_data, genesOfInterest, cores, min_path_coverage, use_minimizers=False
+    ):
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
         # get the potential start nodes
@@ -2242,16 +2342,24 @@ class GeneMerGraph:
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # get a minhash object for each path
             if use_minimizers:
-                path_minimizers = self.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, cores)
+                path_minimizers = self.get_minhashes_for_paths(
+                    sorted_filtered_paths, fastq_data, cores
+                )
             else:
                 path_minimizers = None
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # dynamically determine the minimum path coverage
-            #if min_path_coverage is None:
+            # if min_path_coverage is None:
             #    min_path_coverage = self.calculate_minimum_path_threshold(sorted_filtered_paths)
             # clean the paths
-            path_coverages += self.correct_bubble_paths(sorted_filtered_paths, fastq_data, path_minimizers, genesOfInterest, min_path_coverage)
+            path_coverages += self.correct_bubble_paths(
+                sorted_filtered_paths,
+                fastq_data,
+                path_minimizers,
+                genesOfInterest,
+                min_path_coverage,
+            )
         return self.get_reads(), self.get_gene_positions(), path_coverages, min_path_coverage
 
     def identify_potential_bubble_starts(self):
@@ -2444,9 +2552,9 @@ class GeneMerGraph:
                     if start is not None and end is None:
                         end = i
                         # slice the nodes on the read to those between the first and last anchor
-                        this_block = nodes_on_read[start:end + 1]
+                        this_block = nodes_on_read[start : end + 1]
                         if all(path_node in amr_nodes for path_node in this_block):
-                            amr_blocks.append(nodes_on_read[start:end + 1])
+                            amr_blocks.append(nodes_on_read[start : end + 1])
                         start, end = None, None
                     # set start to the index of the first anchor
                     if start is None:
@@ -2495,7 +2603,14 @@ class GeneMerGraph:
         to_delete = set()
         for p1 in paths:
             for p2 in paths:
-                if p1 != p2 and (self.is_sublist(list(p2), list(p1)) or self.is_sublist(list(p2), list(reversed(list(p1))))) and len(paths[p2]) > 3:
+                if (
+                    p1 != p2
+                    and (
+                        self.is_sublist(list(p2), list(p1))
+                        or self.is_sublist(list(p2), list(reversed(list(p1))))
+                    )
+                    and len(paths[p2]) > 3
+                ):
                     to_delete.add(p1)
         for p in to_delete:
             del paths[p]
@@ -2534,7 +2649,10 @@ class GeneMerGraph:
         to_delete = set()
         for p1 in paths:
             for p2 in paths:
-                if p1 != p2 and (self.is_sublist(list(p2), list(p1)) or self.is_sublist(list(p2), list(reversed(list(p1))))):
+                if p1 != p2 and (
+                    self.is_sublist(list(p2), list(p1))
+                    or self.is_sublist(list(p2), list(reversed(list(p1))))
+                ):
                     to_delete.add(p1)
         for p in to_delete:
             del paths[p]
@@ -2556,13 +2674,15 @@ class GeneMerGraph:
                 if n in amr_nodes:
                     if this_block:  # Continue current block
                         this_block.append(n)
-                    elif i > 0 and nodes_on_read[i-1] not in amr_nodes:  # Start a new block if preceded by a non-AMR node
+                    elif (
+                        i > 0 and nodes_on_read[i - 1] not in amr_nodes
+                    ):  # Start a new block if preceded by a non-AMR node
                         this_block.append(n)
                         block_valid = False  # Initially block is not valid until ended properly
                 else:
                     if this_block:
                         # Check if block ends properly with a non-AMR node
-                        if nodes_on_read[i-1] in amr_nodes:
+                        if nodes_on_read[i - 1] in amr_nodes:
                             block_valid = True
                         if block_valid:  # Only append if the block ends with a non-AMR node
                             amr_blocks.append(this_block)
@@ -2573,10 +2693,16 @@ class GeneMerGraph:
             if this_block:
                 this_node = self.get_node_by_hash(nodes_on_read[i])
                 # Condition for no forward neighbors
-                if i == len(nodes_on_read) - 1 and (len(self.get_forward_neighbors(this_node)) == 0 or len(self.get_backward_neighbors(this_node)) == 0):
+                if i == len(nodes_on_read) - 1 and (
+                    len(self.get_forward_neighbors(this_node)) == 0
+                    or len(self.get_backward_neighbors(this_node)) == 0
+                ):
                     block_valid = True
                 # Condition for no backward neighbors
-                if i == 0 and (len(self.get_forward_neighbors(this_node)) == 0 or len(self.get_backward_neighbors(this_node)) == 0):
+                if i == 0 and (
+                    len(self.get_forward_neighbors(this_node)) == 0
+                    or len(self.get_backward_neighbors(this_node)) == 0
+                ):
                     block_valid = True
                 if block_valid:
                     amr_blocks.append(this_block)
@@ -2596,7 +2722,10 @@ class GeneMerGraph:
         to_delete = set()
         for p1 in paths:
             for p2 in paths:
-                if p1 != p2 and (self.is_sublist(list(p2), list(p1)) or self.is_sublist(list(p2), list(reversed(list(p1))))):
+                if p1 != p2 and (
+                    self.is_sublist(list(p2), list(p1))
+                    or self.is_sublist(list(p2), list(reversed(list(p1))))
+                ):
                     to_delete.add(p1)
         for p in to_delete:
             del paths[p]
@@ -2618,12 +2747,14 @@ class GeneMerGraph:
             for g in range(len(genes_in_path)):
                 if genes_in_path[g][1:] == geneOfInterest:
                     fw_indices_in_path[g] = f"{geneOfInterest}_{allele_count}"
-                    rv_indices_in_path[len(genes_in_path) - g -1] = f"{geneOfInterest}_{allele_count}"
+                    rv_indices_in_path[len(genes_in_path) - g - 1] = (
+                        f"{geneOfInterest}_{allele_count}"
+                    )
                     # add the allele to the cluster dictionary
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     allele_count += 1
             # iterate through the reads in this path
-            for read_id in pathsOfinterest[path]:#self.collect_reads_in_path(list(path)):
+            for read_id in pathsOfinterest[path]:  # self.collect_reads_in_path(list(path)):
                 # get the genes on the read
                 genes_on_read = self.get_reads()[read_id]
                 # get the positions of the path on the read
@@ -2631,7 +2762,9 @@ class GeneMerGraph:
                     positions_of_path = self.find_sublist_indices(genes_on_read, genes_in_path)
                     indices_in_path = fw_indices_in_path
                 elif self.is_sublist(genes_on_read, reverse_genes_in_path):
-                    positions_of_path = self.find_sublist_indices(genes_on_read, reverse_genes_in_path)
+                    positions_of_path = self.find_sublist_indices(
+                        genes_on_read, reverse_genes_in_path
+                    )
                     indices_in_path = rv_indices_in_path
                 else:
                     continue
@@ -2639,12 +2772,19 @@ class GeneMerGraph:
                     # iterate through the path indices
                     for path_start, path_end in positions_of_path:
                         for gene_index in indices_in_path:
-                            assert self.get_reads()[read_id][path_start+gene_index][1:] == geneOfInterest
+                            assert (
+                                self.get_reads()[read_id][path_start + gene_index][1:]
+                                == geneOfInterest
+                            )
                             # get the sequence start and end of the allele on the read
-                            sequence_start, sequence_end = self.get_gene_positions()[read_id][path_start+gene_index]
+                            sequence_start, sequence_end = self.get_gene_positions()[read_id][
+                                path_start + gene_index
+                            ]
                             # add the read to the allele
-                            #gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{max(0, sequence_start - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, sequence_end + 101)}")
-                            gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{sequence_start}_{sequence_end}")
+                            # gene_clusters[indices_in_path[gene_index]].append(f"{read_id}_{max(0, sequence_start - 100)}_{min(len(fastq_content[read_id]['sequence']) - 1, sequence_end + 101)}")
+                            gene_clusters[indices_in_path[gene_index]].append(
+                                f"{read_id}_{sequence_start}_{sequence_end}"
+                            )
         return gene_clusters
 
     def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
@@ -2656,7 +2796,7 @@ class GeneMerGraph:
                 # split the read identifier
                 read, start, end = read_id.split("_")
                 # get the sequence of the path
-                read_sequence = fastq_dict[read]["sequence"][int(start): int(end)+1]
+                read_sequence = fastq_dict[read]["sequence"][int(start) : int(end) + 1]
                 # add the sequence to the minhash object
                 minhash.add_sequence(read_sequence, force=True)
             path_minhashes[path] = minhash
@@ -2711,8 +2851,10 @@ class GeneMerGraph:
             for j in range(i + 1, len(pathsOfInterest)):
                 p2 = list(pathsOfInterest.keys())[j]
                 # Calculate Jaccard containment in both directions and take the maximum
-                jaccard_containment = max(minhash_for_paths[p1].contained_by(minhash_for_paths[p2]),
-                                        minhash_for_paths[p2].contained_by(minhash_for_paths[p1]))
+                jaccard_containment = max(
+                    minhash_for_paths[p1].contained_by(minhash_for_paths[p2]),
+                    minhash_for_paths[p2].contained_by(minhash_for_paths[p1]),
+                )
                 if jaccard_containment >= threshold:
                     cluster_pairs[p1].add(p2)
                     # Ensure bidirectional association
@@ -2775,9 +2917,13 @@ class GeneMerGraph:
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # get the paths containing this gene
-                pathsOfInterest = self.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+                pathsOfInterest = self.new_get_paths_for_gene(
+                    reads, anchor_nodes, nodeHashesOfInterest
+                )
                 # split the paths into subpaths
-                finalAllelesOfInterest = self.new_split_into_subpaths(geneOfInterest, pathsOfInterest, fastq_dict)
+                finalAllelesOfInterest = self.new_split_into_subpaths(
+                    geneOfInterest, pathsOfInterest, fastq_dict
+                )
                 # add the component to the clustered reads
                 if component not in clustered_reads:
                     clustered_reads[component] = {}
@@ -2791,12 +2937,19 @@ class GeneMerGraph:
                         allele_counts[gene_name] = 1
                     # add this allele if there are 5 or more reads
                     if len(finalAllelesOfInterest[allele]) > 4:
-                        clustered_reads[component][geneOfInterest][f"{gene_name}_{allele_counts[gene_name]}"] = finalAllelesOfInterest[allele]
+                        clustered_reads[component][geneOfInterest][
+                            f"{gene_name}_{allele_counts[gene_name]}"
+                        ] = finalAllelesOfInterest[allele]
                         allele_counts[gene_name] += 1
                     else:
-                        sys.stderr.write(f"Amira: allele {allele} in component {component} filtered due to an insufficient number of reads.\n")
+                        sys.stderr.write(
+                            f"Amira: allele {allele} in component {component} filtered due to an insufficient number of reads.\n"
+                        )
                 # collect all of the reads containing the gene in the component if no reads were long enough
-                if component in clustered_reads and len(clustered_reads[component][geneOfInterest]) == 0:
+                if (
+                    component in clustered_reads
+                    and len(clustered_reads[component][geneOfInterest]) == 0
+                ):
                     # add the allele
                     if not geneOfInterest in allele_counts:
                         allele_counts[geneOfInterest] = 1
@@ -2813,7 +2966,9 @@ class GeneMerGraph:
                         # get the positions of the gene on each read
                         for i in indices:
                             gene_start, gene_end = self.get_gene_positions()[read_id][i]
-                            clustered_reads[component][geneOfInterest][allele_name].append(f"{read_id}_{gene_start}_{gene_end}")
+                            clustered_reads[component][geneOfInterest][allele_name].append(
+                                f"{read_id}_{gene_start}_{gene_end}"
+                            )
                     allele_counts[geneOfInterest] += 1
         return clustered_reads
 
@@ -2878,7 +3033,9 @@ class GeneMerGraph:
                         + str(len(fastqContent["_".join(gene_name.split("_")[:-1])]["sequence"]))
                         + " "
                     )
-                    racon_command += file + " " + os.path.join(outputDir, "02.read.mapped.sam") + " "
+                    racon_command += (
+                        file + " " + os.path.join(outputDir, "02.read.mapped.sam") + " "
+                    )
                     racon_command += os.path.join(outputDir, "01.pandora.consensus.fasta") + " "
                     racon_command += "> " + os.path.join(outputDir, "03.polished.consensus.fasta")
                     subprocess.run(racon_command, shell=True, check=True)
@@ -2962,11 +3119,22 @@ class GeneMerGraph:
         bam_file = os.path.join(output_dir, f"{output_prefix}.mapped.bam")
         map_command = f"minimap2 {minimap_opts} {reference_fasta} {input_fasta} > {sam_file}"
         self.run_subprocess(map_command)
-        sort_and_index_command = f"samtools sort {sam_file} > {bam_file} && samtools index {bam_file}"
+        sort_and_index_command = (
+            f"samtools sort {sam_file} > {bam_file} && samtools index {bam_file}"
+        )
         self.run_subprocess(sort_and_index_command)
         return bam_file
 
-    def racon_polish(self, output_dir, racon_path, input_fasta, sam_file, reference_fasta, output_fasta, window_length):
+    def racon_polish(
+        self,
+        output_dir,
+        racon_path,
+        input_fasta,
+        sam_file,
+        reference_fasta,
+        output_fasta,
+        window_length,
+    ):
         racon_command = f"{racon_path} -t 1 -w {window_length} {input_fasta} {sam_file} {reference_fasta} > {output_fasta}"
         self.run_subprocess(racon_command)
 
@@ -2978,54 +3146,111 @@ class GeneMerGraph:
     def get_allele_sequence(self, gene_name, allele, reference_genes):
         return reference_genes[gene_name][allele]
 
-    def racon_one_iteration(self, output_dir, racon_path, read_file, sam_file, sequence_to_polish, polished_sequence, window_size):
+    def racon_one_iteration(
+        self,
+        output_dir,
+        racon_path,
+        read_file,
+        sam_file,
+        sequence_to_polish,
+        polished_sequence,
+        window_size,
+    ):
         # run minimap2
-        bam_file = self.map_reads(output_dir, os.path.join(output_dir, sequence_to_polish), read_file,
-                    sam_file.replace(".mapped.sam", ""), "-a --MD -t 1 -x map-ont --eqx")
+        bam_file = self.map_reads(
+            output_dir,
+            os.path.join(output_dir, sequence_to_polish),
+            read_file,
+            sam_file.replace(".mapped.sam", ""),
+            "-a --MD -t 1 -x map-ont --eqx",
+        )
         # run racon
-        self.racon_polish(output_dir, racon_path, read_file, os.path.join(output_dir, sam_file),
-                    os.path.join(output_dir, sequence_to_polish), os.path.join(output_dir, polished_sequence),
-                    window_size)
+        self.racon_polish(
+            output_dir,
+            racon_path,
+            read_file,
+            os.path.join(output_dir, sam_file),
+            os.path.join(output_dir, sequence_to_polish),
+            os.path.join(output_dir, polished_sequence),
+            window_size,
+        )
         # rename the polished sequence
-        shutil.copy(os.path.join(output_dir, polished_sequence), os.path.join(output_dir, sequence_to_polish))
+        shutil.copy(
+            os.path.join(output_dir, polished_sequence),
+            os.path.join(output_dir, sequence_to_polish),
+        )
         return bam_file
 
-    def compare_reads_to_references(self, allele_file, output_dir, reference_genes, racon_path, fastqContent):
+    def compare_reads_to_references(
+        self, allele_file, output_dir, reference_genes, racon_path, fastqContent
+    ):
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         gene_name = "_".join(allele_name.split("_")[:-1])
         output_dir = self.create_output_dir(output_dir, allele_name)
 
         ref_lengths = self.prepare_reference_sequences(gene_name, reference_genes, output_dir)
-        bam_file = self.map_reads(output_dir, os.path.join(output_dir, "01.reference_alleles.fasta"), allele_file, "02.read", "-a --MD -t 1 -x map-ont --eqx")
+        bam_file = self.map_reads(
+            output_dir,
+            os.path.join(output_dir, "01.reference_alleles.fasta"),
+            allele_file,
+            "02.read",
+            "-a --MD -t 1 -x map-ont --eqx",
+        )
 
         valid_allele, max_coverage = self.get_closest_allele(bam_file, "reads")
         if valid_allele:
-            valid_allele_sequence = self.get_allele_sequence(gene_name, valid_allele, reference_genes)
-            self.write_fasta(os.path.join(output_dir, "03.sequence_to_polish.fasta"), [f">{valid_allele}\n{valid_allele_sequence}"])
-
+            valid_allele_sequence = self.get_allele_sequence(
+                gene_name, valid_allele, reference_genes
+            )
+            self.write_fasta(
+                os.path.join(output_dir, "03.sequence_to_polish.fasta"),
+                [f">{valid_allele}\n{valid_allele_sequence}"],
+            )
 
             for _ in range(5):
-                self.racon_one_iteration(output_dir, racon_path, allele_file, "02.read.mapped.sam",
-                        "03.sequence_to_polish.fasta", "04.polished_sequence.fasta",
-                        str(len(valid_allele_sequence)))
+                self.racon_one_iteration(
+                    output_dir,
+                    racon_path,
+                    allele_file,
+                    "02.read.mapped.sam",
+                    "03.sequence_to_polish.fasta",
+                    "04.polished_sequence.fasta",
+                    str(len(valid_allele_sequence)),
+                )
 
-            bam_file = self.map_reads(output_dir, os.path.join(output_dir, "01.reference_alleles.fasta"),
-                        os.path.join(output_dir, "04.polished_sequence.fasta"),
-                        "05.read", "-a --MD -t 1 -x asm20 --eqx")
+            bam_file = self.map_reads(
+                output_dir,
+                os.path.join(output_dir, "01.reference_alleles.fasta"),
+                os.path.join(output_dir, "04.polished_sequence.fasta"),
+                "05.read",
+                "-a --MD -t 1 -x asm20 --eqx",
+            )
             closest_allele, max_coverage = self.get_closest_allele(bam_file, "allele")
             with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
                 final_allele_sequence = "".join(i.read().split("\n")[1:])
-            self.write_fasta(os.path.join(output_dir, "06.final_sequence.fasta"), [f">{closest_allele}\n{final_allele_sequence}"])
+            self.write_fasta(
+                os.path.join(output_dir, "06.final_sequence.fasta"),
+                [f">{closest_allele}\n{final_allele_sequence}"],
+            )
             return None
         else:
             return (allele_name, max_coverage)
 
-    def get_alleles(self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent):
+    def get_alleles(
+        self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent
+    ):
         # batch the read files for multi processing
         job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
         genes_to_remove = []
         for subset in tqdm(job_list):
             genes_to_remove += Parallel(n_jobs=threads)(
-                delayed(self.compare_reads_to_references)(r, output_dir, reference_genes, racon_path, fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None)) for r in subset
+                delayed(self.compare_reads_to_references)(
+                    r,
+                    output_dir,
+                    reference_genes,
+                    racon_path,
+                    fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
+                )
+                for r in subset
             )
         return genes_to_remove
