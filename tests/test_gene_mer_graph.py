@@ -3395,7 +3395,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes2, "read3": genes1, "read4": genes2}, 3
         )
-        graph.generate_gml("tests", 3, 1, 1)
         for geneOfInterest in set(["gene4", "gene17"]):
             # get the graph nodes containing this gene
             nodeOfInterest = graph.get_nodes_containing(geneOfInterest)
@@ -5111,6 +5110,3 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_indices = graph.find_sublist_indices(["1", "1", "1", "1", "1"], ["1", "1", "1"])
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
-
-    # def test___correct_reads(self):
-    #     assert None
