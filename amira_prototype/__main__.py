@@ -24,8 +24,9 @@ def get_options() -> argparse.Namespace:
     """define args from the command line"""
     parser = argparse.ArgumentParser(description="Build a prototype gene de Bruijn graph.")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--pandoraSam", dest="pandoraSam", help="Pandora map SAM file path")
-    group.add_argument("--pandoraJSON", dest="pandoraJSON", help="Pandora map JSON file path")
+    group.add_argument("--pandoraSam", dest="pandoraSam", help="Pandora map SAM file path.")
+    group.add_argument("--pandoraJSON", dest="pandoraJSON", help="Pandora map JSON file path.")
+    group.add_argument("--gene-positions", dest="gene_positions", help="Gene position JSON file path.")
     parser.add_argument(
         "--pandoraConsensus",
         dest="pandoraConsensus",
@@ -217,7 +218,7 @@ def plot_node_coverages(unitig_coverages, filename):
     # Smooth the log-transformed histogram counts using a Savitzky-Golay filter
     window_length, poly_order = 31, 5  # Window length must be odd
     if len(log_counts) < window_length:
-        window_length = max(3, len(log_counts) // 2 * 2 - 1)  # Smallest odd number >= 3
+        window_length = max(5, len(log_counts) // 2 * 2 - 1)  # Smallest odd number >= 3
     smoothed_log_counts = savgol_filter(log_counts, window_length, poly_order)
 
     # Plot histogram
@@ -334,9 +335,12 @@ def main() -> None:
     graph = build_multiprocessed_graph(
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
-    min_path_coverage = plot_node_coverages(
-        graph.get_all_node_coverages(), os.path.join(args.output_dir, "initial_node_coverages.png")
-    )
+    try:
+        min_path_coverage = plot_node_coverages(
+            graph.get_all_node_coverages(), os.path.join(args.output_dir, "initial_node_coverages.png")
+        )
+    except:
+        min_path_coverage = 10
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
     short_read_gene_positions = graph.get_short_read_gene_positions()
@@ -494,15 +498,16 @@ def main() -> None:
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
             for allele in clusters_of_interest[component][gene]:
-                files_to_assemble.append(
-                    write_allele_fastq(
-                        clusters_of_interest[component][gene][allele],
-                        fastq_content,
-                        args.output_dir,
-                        allele,
+                if len(clusters_of_interest[component][gene][allele]) > 4:
+                    files_to_assemble.append(
+                        write_allele_fastq(
+                            clusters_of_interest[component][gene][allele],
+                            fastq_content,
+                            args.output_dir,
+                            allele,
+                        )
                     )
-                )
-                supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][allele]
+                    supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][allele]
     # add the genes from the short reads
     for allele in clusters_to_add:
         if len(clusters_to_add[allele]) > 4:
@@ -538,6 +543,8 @@ def main() -> None:
         else:
             with open(os.path.join(args.output_dir, "AMR_allele_fastqs", allele, "03.closest_reference.fasta")) as i:
                 reference_allele_name = i.read().split(" ")[0].replace(">", "")
+        if "\n" in reference_allele_name:
+            reference_allele_name = reference_allele_name.split("\n")[0]
         new_name = f"{allele};{reference_allele_name}"
         new_reads = set()
         for r in supplemented_clusters_of_interest[allele]:

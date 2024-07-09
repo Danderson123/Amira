@@ -2427,7 +2427,7 @@ class GeneMerGraph:
                             clustered_reads[path_tuple].add(read_id)
         return clustered_reads
 
-    def new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
+    def old_old_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
         paths = {}
         # iterate through the reads
         for read in tqdm(reads):
@@ -2452,13 +2452,156 @@ class GeneMerGraph:
                     if start is None:
                         start = i
             for path in amr_blocks:
-                # if there is more than one node in the path
+                # if there is more than one anchor node in the path
                 if len(path) > 1:
                     # get the canonical path
                     path = tuple(sorted([path, list(reversed(path))])[0])
                     if path not in paths:
                         paths[path] = set()
                     paths[path].add(f"{read}")
+        return paths
+
+    def new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
+        paths = {}
+        # Iterate through the reads
+        for read in tqdm(reads):
+            # Get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read]
+            # List to store AMR blocks
+            amr_blocks = []
+            this_block = []
+
+            # Iterate through the nodes on the read
+            for i, n in enumerate(nodes_on_read):
+                if n in amr_nodes:
+                    this_block.append(n)
+                else:
+                    if len(this_block) != 0:
+                        amr_blocks.append(this_block)
+                        this_block = []  # Reset current block
+            if len(this_block) != 0:
+                amr_blocks.append(this_block)
+            # if read == "SRR23044204.14449.1":
+            #     print(amr_blocks)
+            #     djdjdj
+            # Process each block to generate paths
+            for path in amr_blocks:
+                if len(path) > 1:  # Process only if there is more than one node in the path
+                    # Get the canonical path
+                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
+                    if canonical_path not in paths:
+                        paths[canonical_path] = set()
+                    paths[canonical_path].add(read)
+        to_delete = set()
+        for p1 in paths:
+            for p2 in paths:
+                if p1 != p2 and (self.is_sublist(list(p2), list(p1)) or self.is_sublist(list(p2), list(reversed(list(p1))))) and len(paths[p2]) > 3:
+                    to_delete.add(p1)
+        for p in to_delete:
+            del paths[p]
+        return paths
+
+    def working_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
+        paths = {}
+        # Iterate through the reads
+        for read in tqdm(reads):
+            # Get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read]
+            # List to store AMR blocks
+            amr_blocks = []
+            this_block = []
+            # Iterate through the nodes on the read
+            for i, n in enumerate(nodes_on_read):
+                if n in amr_nodes:
+                    this_block.append(n)
+                else:
+                    if this_block:
+                        # Check if block ends properly with a non-AMR node
+                        amr_blocks.append(this_block)
+                        this_block = []  # Reset current block
+
+            # Check for the last block validity conditions
+            if this_block:
+                amr_blocks.append(this_block)
+            # Process each block to generate paths
+            for path in amr_blocks:
+                if len(path) > 1:  # Process only if there is more than one node in the path
+                    # Get the canonical path
+                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
+                    if canonical_path not in paths:
+                        paths[canonical_path] = set()
+                    paths[canonical_path].add(read)
+        to_delete = set()
+        for p1 in paths:
+            for p2 in paths:
+                if p1 != p2 and (self.is_sublist(list(p2), list(p1)) or self.is_sublist(list(p2), list(reversed(list(p1))))):
+                    to_delete.add(p1)
+        for p in to_delete:
+            del paths[p]
+        return paths
+
+    def test_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
+        paths = {}
+        # Iterate through the reads
+        for read in tqdm(reads):
+            # Get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read]
+            # List to store AMR blocks
+            amr_blocks = []
+            this_block = []
+            # Flag to indicate if the current block is valid
+            block_valid = False
+            # Iterate through the nodes on the read
+            for i, n in enumerate(nodes_on_read):
+                if n in amr_nodes:
+                    if this_block:  # Continue current block
+                        this_block.append(n)
+                    elif i > 0 and nodes_on_read[i-1] not in amr_nodes:  # Start a new block if preceded by a non-AMR node
+                        this_block.append(n)
+                        block_valid = False  # Initially block is not valid until ended properly
+                else:
+                    if this_block:
+                        # Check if block ends properly with a non-AMR node
+                        if nodes_on_read[i-1] in amr_nodes:
+                            block_valid = True
+                        if block_valid:  # Only append if the block ends with a non-AMR node
+                            amr_blocks.append(this_block)
+                        this_block = []  # Reset current block
+                        block_valid = False  # Reset block validity
+
+            # Check for the last block validity conditions
+            if this_block:
+                this_node = self.get_node_by_hash(nodes_on_read[i])
+                # Condition for no forward neighbors
+                if i == len(nodes_on_read) - 1 and (len(self.get_forward_neighbors(this_node)) == 0 or len(self.get_backward_neighbors(this_node)) == 0):
+                    block_valid = True
+                # Condition for no backward neighbors
+                if i == 0 and (len(self.get_forward_neighbors(this_node)) == 0 or len(self.get_backward_neighbors(this_node)) == 0):
+                    block_valid = True
+                if block_valid:
+                    amr_blocks.append(this_block)
+            if read == "SRR23044219.47475":
+                print(nodes_on_read)
+                print([n for n in nodes_on_read if n in amr_nodes])
+                print(amr_blocks)
+                ddjjdjd
+            # Process each block to generate paths
+            for path in amr_blocks:
+                if len(path) > 1:  # Process only if there is more than one node in the path
+                    # Get the canonical path
+                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
+                    if canonical_path not in paths:
+                        paths[canonical_path] = set()
+                    paths[canonical_path].add(read)
+        to_delete = set()
+        for p1 in paths:
+            for p2 in paths:
+                if p1 != p2 and (self.is_sublist(list(p2), list(p1)) or self.is_sublist(list(p2), list(reversed(list(p1))))):
+                    to_delete.add(p1)
+        for p in to_delete:
+            del paths[p]
+        for p in paths:
+            print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in list(p)], "\n")
         return paths
 
     def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest, fastq_content):
@@ -2480,16 +2623,18 @@ class GeneMerGraph:
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     allele_count += 1
             # iterate through the reads in this path
-            for read_id in pathsOfinterest[path]:
+            for read_id in pathsOfinterest[path]:#self.collect_reads_in_path(list(path)):
                 # get the genes on the read
                 genes_on_read = self.get_reads()[read_id]
                 # get the positions of the path on the read
                 if self.is_sublist(genes_on_read, genes_in_path):
                     positions_of_path = self.find_sublist_indices(genes_on_read, genes_in_path)
                     indices_in_path = fw_indices_in_path
-                else:
+                elif self.is_sublist(genes_on_read, reverse_genes_in_path):
                     positions_of_path = self.find_sublist_indices(genes_on_read, reverse_genes_in_path)
                     indices_in_path = rv_indices_in_path
+                else:
+                    continue
                 if len(positions_of_path) == 1:
                     # iterate through the path indices
                     for path_start, path_end in positions_of_path:
@@ -2633,8 +2778,6 @@ class GeneMerGraph:
                 pathsOfInterest = self.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
                 # split the paths into subpaths
                 finalAllelesOfInterest = self.new_split_into_subpaths(geneOfInterest, pathsOfInterest, fastq_dict)
-                if geneOfInterest == "dfrA17":
-                    print(len(reads), len(nodeHashesOfInterest), len(anchor_nodes), len(pathsOfInterest), len(finalAllelesOfInterest))
                 # add the component to the clustered reads
                 if component not in clustered_reads:
                     clustered_reads[component] = {}
