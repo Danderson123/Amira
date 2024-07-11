@@ -8,9 +8,11 @@ from collections import Counter, deque
 from itertools import product
 
 import numpy as np
+import pandas as pd
 import pysam
 import sourmash
 from joblib import Parallel, delayed
+import json
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
@@ -3063,7 +3065,7 @@ class GeneMerGraph:
             )
         return genes_to_remove
 
-    def get_closest_allele(self, bam_file_path, mapping_type):
+    def get_closest_allele_old(self, bam_file_path, mapping_type):
         valid_references = []
         highest_coverage = 0
         proportion_reference_covered = {}
@@ -3100,6 +3102,54 @@ class GeneMerGraph:
             return valid_references[0][0], valid_references[0][1]
         else:
             return None, highest_coverage
+
+    def get_closest_allele(self, bam_file_path, mapping_type):
+        valid_references = []
+        ref_covered = {}
+        ref_matching = {}
+        ref_lengths = {}
+        unique_reads = set()
+        # Open the BAM file
+        with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
+            for read in bam_file.fetch():
+                # check if the read is mapped
+                if read.is_unmapped:
+                    continue
+                # add the read name to a set
+                unique_reads.add(read.query_name)
+                # get the length of the reference
+                total_length = bam_file.get_reference_length(read.reference_name)
+                # add the reference to the coverage dictionary
+                if read.reference_name not in ref_covered:
+                    ref_covered[read.reference_name] = 0
+                    ref_matching[read.reference_name] = 0
+                    ref_lengths[read.reference_name] = total_length
+                # get the proportion of bases matching the reference
+                matching_bases = 0
+                for op, length in read.cigartuples:
+                    if op == 7:
+                        matching_bases += length
+                if mapping_type == "reads":
+                    prop_matching = (matching_bases / total_length) * 100
+                if mapping_type == "allele":
+                    prop_matching = (matching_bases / read.infer_read_length()) * 100
+                # get the proportion of the reference covered by the query
+                prop_covered =  read.query_alignment_length / total_length
+                # add the stats to the dictionaries
+                if prop_matching > ref_matching[read.reference_name]:
+                    ref_matching[read.reference_name] = prop_matching
+                if prop_covered > ref_covered[read.reference_name]:
+                    ref_covered[read.reference_name] = prop_covered
+        for ref in ref_matching:
+            valid_references.append((ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref]))
+        if mapping_type == "reads":
+            valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
+        if mapping_type == "allele":
+            valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
+        if len(valid_references) != 0:
+            return valid_references, unique_reads
+        else:
+            raise ValueError("No valid references were found.")
 
     def create_output_dir(self, output_dir, allele_name):
         output_dir = os.path.join(output_dir, allele_name)
@@ -3182,7 +3232,7 @@ class GeneMerGraph:
         return bam_file
 
     def compare_reads_to_references(
-        self, allele_file, output_dir, reference_genes, racon_path, fastqContent
+        self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes
     ):
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         gene_name = "_".join(allele_name.split("_")[:-1])
@@ -3197,60 +3247,73 @@ class GeneMerGraph:
             "-a --MD -t 1 -x map-ont --eqx",
         )
 
-        valid_allele, max_coverage = self.get_closest_allele(bam_file, "reads")
-        if valid_allele:
-            valid_allele_sequence = self.get_allele_sequence(
-                gene_name, valid_allele, reference_genes
-            )
-            self.write_fasta(
-                os.path.join(output_dir, "03.sequence_to_polish.fasta"),
-                [f">{valid_allele}\n{valid_allele_sequence}"],
-            )
+        valid_references, unique_reads = self.get_closest_allele(bam_file, "reads")
+        valid_allele, match_proportion, match_length, coverage_proportion = valid_references[0]
+        valid_allele_sequence = self.get_allele_sequence(
+            gene_name, valid_allele, reference_genes
+        )
+        self.write_fasta(
+            os.path.join(output_dir, "03.sequence_to_polish.fasta"),
+            [f">{valid_allele}\n{valid_allele_sequence}"],
+        )
 
-            for _ in range(5):
-                self.racon_one_iteration(
-                    output_dir,
-                    racon_path,
-                    allele_file,
-                    "02.read.mapped.sam",
-                    "03.sequence_to_polish.fasta",
-                    "04.polished_sequence.fasta",
-                    str(len(valid_allele_sequence)),
-                )
-
-            bam_file = self.map_reads(
+        for _ in range(5):
+            self.racon_one_iteration(
                 output_dir,
-                os.path.join(output_dir, "01.reference_alleles.fasta"),
-                os.path.join(output_dir, "04.polished_sequence.fasta"),
-                "05.read",
-                "-a --MD -t 1 -x asm20 --eqx",
+                racon_path,
+                allele_file,
+                "02.read.mapped.sam",
+                "03.sequence_to_polish.fasta",
+                "04.polished_sequence.fasta",
+                str(len(valid_allele_sequence)),
             )
-            closest_allele, max_coverage = self.get_closest_allele(bam_file, "allele")
-            with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
-                final_allele_sequence = "".join(i.read().split("\n")[1:])
-            self.write_fasta(
-                os.path.join(output_dir, "06.final_sequence.fasta"),
-                [f">{closest_allele}\n{final_allele_sequence}"],
-            )
-            return None
-        else:
-            return (allele_name, max_coverage)
+
+        bam_file = self.map_reads(
+            output_dir,
+            os.path.join(output_dir, "01.reference_alleles.fasta"),
+            os.path.join(output_dir, "04.polished_sequence.fasta"),
+            "05.read",
+            "-a --MD -t 1 -x asm20 --eqx",
+        )
+        valid_references, _ = self.get_closest_allele(bam_file, "allele")
+        closest_allele, match_proportion, match_length, coverage_proportion = valid_references[0]
+        with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+            final_allele_sequence = "".join(i.read().split("\n")[1:])
+        self.write_fasta(
+            os.path.join(output_dir, "06.final_sequence.fasta"),
+            [f">{closest_allele}\n{final_allele_sequence}"],
+        )
+        return {
+            "Gene name": closest_allele.split(".NG_")[0],
+            "Sequence name": phenotypes[closest_allele],
+            "Closest reference": "NG_" + closest_allele.split(".NG_")[1],
+            "Reference length": match_length,
+            "Identity (%)": round(match_proportion, 1),
+            "Coverage (%)": round(coverage_proportion * 100, 1),
+            "Amira allele": allele_name,
+            "Number of reads": len(unique_reads)
+        }
 
     def get_alleles(
-        self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent
+        self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent, phenotypes_path
     ):
+        # import the phenotypes
+        with open(phenotypes_path) as i:
+            phenotypes = json.load(i)
         # batch the read files for multi processing
         job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
-        genes_to_remove = []
+        gene_data = []
         for subset in tqdm(job_list):
-            genes_to_remove += Parallel(n_jobs=threads)(
+            gene_data += Parallel(n_jobs=threads)(
                 delayed(self.compare_reads_to_references)(
                     r,
                     output_dir,
                     reference_genes,
                     racon_path,
                     fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
+                    phenotypes
                 )
                 for r in subset
             )
-        return genes_to_remove
+        return pd.DataFrame(gene_data)
+

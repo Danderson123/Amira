@@ -7,6 +7,7 @@ import sys
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from joblib import Parallel, delayed
 from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
@@ -91,6 +92,12 @@ def get_options() -> argparse.Namespace:
         "--gene-path",
         dest="path_to_interesting_genes",
         help="Path to a multi_FASTA file of the AMR gene alleles of interest.",
+        required=True,
+    )
+    parser.add_argument(
+        "--phenotypes",
+        dest="phenotypes",
+        help="Path to a JSON of phenotypes for each AMR allele.",
         required=True,
     )
     parser.add_argument(
@@ -552,22 +559,34 @@ def main() -> None:
             )
     # run racon to polish the pandora consensus
     sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
-    genes_to_remove = graph.get_alleles(
+    result_df = graph.get_alleles(
         files_to_assemble,
         args.racon_path,
         args.cores,
         os.path.join(args.output_dir, "AMR_allele_fastqs"),
         reference_alleles,
         pandora_consensus,
+        args.phenotypes
     )
     # remove genes that do not have sufficient mapping coverage
-    for g in genes_to_remove:
-        if g is not None:
+    alleles_to_delete = []
+    for index, row in result_df.iterrows():
+        if row["Identity (%)"] < 0.9:
             sys.stderr.write(
-                f"\nAmira: allele {g[0]} removed due to insufficient coverage ({g[1]}).\n"
+                f"\nAmira: allele {row['Amira allele']} removed due to insufficient similarity ({row['Identity (%)']}).\n"
             )
-            del supplemented_clusters_of_interest[g[0]]
-            # shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", g[0]))
+            alleles_to_delete.append(row['Amira allele'])
+        else:
+            if row["Coverage (%)"] < 0.9:
+                sys.stderr.write(
+                    f"\nAmira: allele {row['Amira allele']} removed due to insufficient coverage ({row['Coverage (%)']}).\n"
+                )
+                alleles_to_delete.append(row['Amira allele'])
+    # remove genes as necessary
+    for amira_allele in alleles_to_delete:
+        del supplemented_clusters_of_interest[amira_allele]
+        result_df = result_df[result_df['Amira allele'] != amira_allele]
+        # shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", amira_allele))
     # write out the clustered reads
     final_clusters_of_interest = {}
     for allele in supplemented_clusters_of_interest:
@@ -597,6 +616,9 @@ def main() -> None:
         final_clusters_of_interest[new_name] = list(new_reads)
     with open(os.path.join(args.output_dir, "reads_per_amr_gene.json"), "w") as o:
         o.write(json.dumps(final_clusters_of_interest))
+    # write the result tsv
+    result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
+    # make the result table
     sys.exit(0)
 
 
