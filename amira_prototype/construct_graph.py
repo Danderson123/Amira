@@ -1971,7 +1971,7 @@ class GeneMerGraph:
                             if correct_path is True:
                                 # make sure that we do not delete AMR genes
                                 if any(
-                                    c[1][1:] in genesOfInterest and c[1][1:] != c[0][1:]
+                                    c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest#c[1][1:] != c[0][1:]
                                     for c in fw_alignment
                                 ):
                                     continue
@@ -2537,40 +2537,6 @@ class GeneMerGraph:
                             clustered_reads[path_tuple].add(read_id)
         return clustered_reads
 
-    def old_old_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
-        paths = {}
-        # iterate through the reads
-        for read in tqdm(reads):
-            # get the nodes on the read
-            nodes_on_read = self.get_readNodes()[read]
-            # initialise the start and end indices
-            start, end = None, None
-            # iterate through the nodes on the read
-            amr_blocks = []
-            for i, n in enumerate(nodes_on_read):
-                # check if the current node is an anchor node
-                if n in anchor_nodes:
-                    # set end to the index of the last anchor
-                    if start is not None and end is None:
-                        end = i
-                        # slice the nodes on the read to those between the first and last anchor
-                        this_block = nodes_on_read[start : end + 1]
-                        if all(path_node in amr_nodes for path_node in this_block):
-                            amr_blocks.append(nodes_on_read[start : end + 1])
-                        start, end = None, None
-                    # set start to the index of the first anchor
-                    if start is None:
-                        start = i
-            for path in amr_blocks:
-                # if there is more than one anchor node in the path
-                if len(path) > 1:
-                    # get the canonical path
-                    path = tuple(sorted([path, list(reversed(path))])[0])
-                    if path not in paths:
-                        paths[path] = set()
-                    paths[path].add(f"{read}")
-        return paths
-
     def new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
         paths = {}
         # Iterate through the reads
@@ -2584,155 +2550,48 @@ class GeneMerGraph:
             # Iterate through the nodes on the read
             for i, n in enumerate(nodes_on_read):
                 if n in amr_nodes:
+                    fw_nodes = self.get_forward_neighbors(self.get_node_by_hash(n))
+                    bw_nodes = self.get_backward_neighbors(self.get_node_by_hash(n))
                     this_block.append(n)
                 else:
                     if len(this_block) != 0:
-                        amr_blocks.append(this_block)
+                        amr_blocks.append((this_block, i - len(this_block) - 1, i))  # Store block with start and end indices
                         this_block = []  # Reset current block
             if len(this_block) != 0:
-                amr_blocks.append(this_block)
-            # if read == "SRR23044204.14449.1":
-            #     print(amr_blocks)
-            #     djdjdj
+                amr_blocks.append((this_block, len(nodes_on_read) - len(this_block) - 1, len(nodes_on_read)))  # Store last block with indices
             # Process each block to generate paths
-            for path in amr_blocks:
-                if len(path) > 1:  # Process only if there is more than one node in the path
-                    # Get the canonical path
-                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
-                    if canonical_path not in paths:
-                        paths[canonical_path] = set()
-                    paths[canonical_path].add(read)
-        to_delete = set()
-        for p1 in paths:
-            for p2 in paths:
-                if (
-                    p1 != p2
-                    and (
-                        self.is_sublist(list(p2), list(p1))
-                        or self.is_sublist(list(p2), list(reversed(list(p1))))
-                    )
-                    and len(paths[p2]) > 3
-                ):
-                    to_delete.add(p1)
-        for p in to_delete:
-            del paths[p]
-        return paths
-
-    def working_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
-        paths = {}
-        # Iterate through the reads
-        for read in tqdm(reads):
-            # Get the nodes on the read
-            nodes_on_read = self.get_readNodes()[read]
-            # List to store AMR blocks
-            amr_blocks = []
-            this_block = []
-            # Iterate through the nodes on the read
-            for i, n in enumerate(nodes_on_read):
-                if n in amr_nodes:
-                    this_block.append(n)
+            for path, start_idx, end_idx in amr_blocks:
+                # Check if the block is flanked by non-AMR nodes
+                if start_idx >= 0 and end_idx < len(nodes_on_read):
+                    if nodes_on_read[start_idx] not in amr_nodes and nodes_on_read[end_idx] not in amr_nodes:
+                        if len(path) > 1:  # Process only if there is more than one node in the path
+                            path = [nodes_on_read[start_idx]] + path + [nodes_on_read[end_idx]]
+                            # Get the canonical path
+                            canonical_path = tuple(sorted((path, list(reversed(path))))[0])
+                            if canonical_path not in paths:
+                                paths[canonical_path] = set()
+                            paths[canonical_path].add(read)
                 else:
-                    if this_block:
-                        # Check if block ends properly with a non-AMR node
-                        amr_blocks.append(this_block)
-                        this_block = []  # Reset current block
-
-            # Check for the last block validity conditions
-            if this_block:
-                amr_blocks.append(this_block)
-            # Process each block to generate paths
-            for path in amr_blocks:
-                if len(path) > 1:  # Process only if there is more than one node in the path
-                    # Get the canonical path
-                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
-                    if canonical_path not in paths:
-                        paths[canonical_path] = set()
-                    paths[canonical_path].add(read)
-        to_delete = set()
-        for p1 in paths:
-            for p2 in paths:
-                if p1 != p2 and (
-                    self.is_sublist(list(p2), list(p1))
-                    or self.is_sublist(list(p2), list(reversed(list(p1))))
-                ):
-                    to_delete.add(p1)
-        for p in to_delete:
-            del paths[p]
-        return paths
-
-    def test_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
-        paths = {}
-        # Iterate through the reads
-        for read in tqdm(reads):
-            # Get the nodes on the read
-            nodes_on_read = self.get_readNodes()[read]
-            # List to store AMR blocks
-            amr_blocks = []
-            this_block = []
-            # Flag to indicate if the current block is valid
-            block_valid = False
-            # Iterate through the nodes on the read
-            for i, n in enumerate(nodes_on_read):
-                if n in amr_nodes:
-                    if this_block:  # Continue current block
-                        this_block.append(n)
-                    elif (
-                        i > 0 and nodes_on_read[i - 1] not in amr_nodes
-                    ):  # Start a new block if preceded by a non-AMR node
-                        this_block.append(n)
-                        block_valid = False  # Initially block is not valid until ended properly
-                else:
-                    if this_block:
-                        # Check if block ends properly with a non-AMR node
-                        if nodes_on_read[i - 1] in amr_nodes:
-                            block_valid = True
-                        if block_valid:  # Only append if the block ends with a non-AMR node
-                            amr_blocks.append(this_block)
-                        this_block = []  # Reset current block
-                        block_valid = False  # Reset block validity
-
-            # Check for the last block validity conditions
-            if this_block:
-                this_node = self.get_node_by_hash(nodes_on_read[i])
-                # Condition for no forward neighbors
-                if i == len(nodes_on_read) - 1 and (
-                    len(self.get_forward_neighbors(this_node)) == 0
-                    or len(self.get_backward_neighbors(this_node)) == 0
-                ):
-                    block_valid = True
-                # Condition for no backward neighbors
-                if i == 0 and (
-                    len(self.get_forward_neighbors(this_node)) == 0
-                    or len(self.get_backward_neighbors(this_node)) == 0
-                ):
-                    block_valid = True
-                if block_valid:
-                    amr_blocks.append(this_block)
-            if read == "SRR23044219.47475":
-                print(nodes_on_read)
-                print([n for n in nodes_on_read if n in amr_nodes])
-                print(amr_blocks)
-                ddjjdjd
-            # Process each block to generate paths
-            for path in amr_blocks:
-                if len(path) > 1:  # Process only if there is more than one node in the path
-                    # Get the canonical path
-                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
-                    if canonical_path not in paths:
-                        paths[canonical_path] = set()
-                    paths[canonical_path].add(read)
-        to_delete = set()
-        for p1 in paths:
-            for p2 in paths:
-                if p1 != p2 and (
-                    self.is_sublist(list(p2), list(p1))
-                    or self.is_sublist(list(p2), list(reversed(list(p1))))
-                ):
-                    to_delete.add(p1)
-        for p in to_delete:
-            del paths[p]
-        for p in paths:
-            print([self.get_gene_mer_label(self.get_node_by_hash(n)) for n in list(p)], "\n")
+                    fw_nodes = [n for n in self.get_all_neighbor_hashes(self.get_node_by_hash(path[-1]))]
+                    bw_nodes = [n for n in self.get_all_neighbor_hashes(self.get_node_by_hash(path[0]))]
+                    start_idx = max(start_idx, 0)
+                    end_idx = min(end_idx, len(nodes_on_read) - 1)
+                    valid = False
+                    if len(path) == 1 and len(set(fw_nodes + bw_nodes)) == 0:
+                        valid = True
+                    if len(path) > 1:
+                        if (nodes_on_read[start_idx] not in amr_nodes and len(fw_nodes) < 2) or (nodes_on_read[end_idx] not in amr_nodes and len(bw_nodes) < 2):
+                            valid = True
+                    if valid is True:
+                        if nodes_on_read[start_idx] not in amr_nodes:
+                            path = [nodes_on_read[start_idx]] + path
+                        if nodes_on_read[end_idx] not in amr_nodes:
+                            path = path + [nodes_on_read[end_idx]]
+                        # Get the canonical path
+                        canonical_path = tuple(sorted((path, list(reversed(path))))[0])
+                        if canonical_path not in paths:
+                            paths[canonical_path] = set()
+                        paths[canonical_path].add(read)
         return paths
 
     def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest, fastq_content):
@@ -2756,7 +2615,7 @@ class GeneMerGraph:
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     allele_count += 1
             # iterate through the reads in this path
-            for read_id in pathsOfinterest[path]:  # self.collect_reads_in_path(list(path)):
+            for read_id in pathsOfinterest[path]:
                 # get the genes on the read
                 genes_on_read = self.get_reads()[read_id]
                 # get the positions of the path on the read
@@ -3105,6 +2964,7 @@ class GeneMerGraph:
 
     def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []
+        invalid_references = []
         ref_covered = {}
         ref_matching = {}
         ref_lengths = {}
@@ -3134,22 +2994,26 @@ class GeneMerGraph:
                 if mapping_type == "allele":
                     prop_matching = (matching_bases / read.infer_read_length()) * 100
                 # get the proportion of the reference covered by the query
-                prop_covered =  read.query_alignment_length / total_length
+                prop_covered = read.query_alignment_length / total_length
                 # add the stats to the dictionaries
                 if prop_matching > ref_matching[read.reference_name]:
                     ref_matching[read.reference_name] = prop_matching
                 if prop_covered > ref_covered[read.reference_name]:
                     ref_covered[read.reference_name] = prop_covered
         for ref in ref_matching:
-            valid_references.append((ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref]))
+            if ref_covered[ref] >= 0.9:
+                valid_references.append((ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref]))
+            else:
+                invalid_references.append((ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref]))
         if mapping_type == "reads":
             valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
         if mapping_type == "allele":
             valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
         if len(valid_references) != 0:
-            return valid_references, unique_reads
+            return True, valid_references, unique_reads
         else:
-            raise ValueError("No valid references were found.")
+            invalid_references = sorted(invalid_references, key=lambda x: (x[2], x[1]), reverse=True)
+            return False, invalid_references, unique_reads
 
     def create_output_dir(self, output_dir, allele_name):
         output_dir = os.path.join(output_dir, allele_name)
@@ -3247,52 +3111,76 @@ class GeneMerGraph:
             "-a --MD -t 1 -x map-ont --eqx",
         )
 
-        valid_references, unique_reads = self.get_closest_allele(bam_file, "reads")
-        valid_allele, match_proportion, match_length, coverage_proportion = valid_references[0]
-        valid_allele_sequence = self.get_allele_sequence(
-            gene_name, valid_allele, reference_genes
-        )
-        self.write_fasta(
-            os.path.join(output_dir, "03.sequence_to_polish.fasta"),
-            [f">{valid_allele}\n{valid_allele_sequence}"],
-        )
-
-        for _ in range(5):
-            self.racon_one_iteration(
-                output_dir,
-                racon_path,
-                allele_file,
-                "02.read.mapped.sam",
-                "03.sequence_to_polish.fasta",
-                "04.polished_sequence.fasta",
-                str(len(valid_allele_sequence)),
+        validity, references, unique_reads = self.get_closest_allele(bam_file, "reads")
+        if validity is True:
+            valid_allele, match_proportion, match_length, coverage_proportion = references[0]
+            valid_allele_sequence = self.get_allele_sequence(
+                gene_name, valid_allele, reference_genes
             )
+            self.write_fasta(
+                os.path.join(output_dir, "03.sequence_to_polish.fasta"),
+                [f">{valid_allele}\n{valid_allele_sequence}"],
+            )
+            for _ in range(5):
+                self.racon_one_iteration(
+                    output_dir,
+                    racon_path,
+                    allele_file,
+                    "02.read.mapped.sam",
+                    "03.sequence_to_polish.fasta",
+                    "04.polished_sequence.fasta",
+                    str(len(valid_allele_sequence)),
+                )
 
-        bam_file = self.map_reads(
-            output_dir,
-            os.path.join(output_dir, "01.reference_alleles.fasta"),
-            os.path.join(output_dir, "04.polished_sequence.fasta"),
-            "05.read",
-            "-a --MD -t 1 -x asm20 --eqx",
-        )
-        valid_references, _ = self.get_closest_allele(bam_file, "allele")
-        closest_allele, match_proportion, match_length, coverage_proportion = valid_references[0]
-        with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
-            final_allele_sequence = "".join(i.read().split("\n")[1:])
-        self.write_fasta(
-            os.path.join(output_dir, "06.final_sequence.fasta"),
-            [f">{closest_allele}\n{final_allele_sequence}"],
-        )
-        return {
-            "Gene name": closest_allele.split(".NG_")[0],
-            "Sequence name": phenotypes[closest_allele],
-            "Closest reference": "NG_" + closest_allele.split(".NG_")[1],
-            "Reference length": match_length,
-            "Identity (%)": round(match_proportion, 1),
-            "Coverage (%)": round(coverage_proportion * 100, 1),
-            "Amira allele": allele_name,
-            "Number of reads": len(unique_reads)
-        }
+            bam_file = self.map_reads(
+                output_dir,
+                os.path.join(output_dir, "01.reference_alleles.fasta"),
+                os.path.join(output_dir, "04.polished_sequence.fasta"),
+                "05.read",
+                "-a --MD -t 1 -x asm20 --eqx",
+            )
+            validity, references, _ = self.get_closest_allele(bam_file, "allele")
+            closest_allele, match_proportion, match_length, coverage_proportion = references[0]
+            with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+                final_allele_sequence = "".join(i.read().split("\n")[1:])
+            self.write_fasta(
+                os.path.join(output_dir, "06.final_sequence.fasta"),
+                [f">{closest_allele}\n{final_allele_sequence}"],
+            )
+            return {
+                "Gene name": closest_allele.split(".NG_")[0],
+                "Sequence name": phenotypes[closest_allele],
+                "Closest reference": "NG_" + closest_allele.split(".NG_")[1],
+                "Reference length": match_length,
+                "Identity (%)": round(match_proportion, 1),
+                "Coverage (%)": round(coverage_proportion * 100, 1),
+                "Amira allele": allele_name,
+                "Number of reads": len(unique_reads)
+            }
+        else:
+            if len(references) != 0:
+                invalid_allele, match_proportion, match_length, coverage_proportion = references[0]
+                return {
+                    "Gene name": invalid_allele.split(".NG_")[0],
+                    "Sequence name": phenotypes[invalid_allele],
+                    "Closest reference": "NG_" + invalid_allele.split(".NG_")[1],
+                    "Reference length": match_length,
+                    "Identity (%)": round(match_proportion, 1),
+                    "Coverage (%)": round(coverage_proportion * 100, 1),
+                    "Amira allele": allele_name,
+                    "Number of reads": len(unique_reads)
+                }
+            else:
+                return {
+                    "Gene name": "",
+                    "Sequence name": "",
+                    "Closest reference": "",
+                    "Reference length": 0,
+                    "Identity (%)": 0,
+                    "Coverage (%)": 0,
+                    "Amira allele": allele_name,
+                    "Number of reads": len(unique_reads)
+                }
 
     def get_alleles(
         self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent, phenotypes_path
@@ -3315,5 +3203,6 @@ class GeneMerGraph:
                 )
                 for r in subset
             )
+        gene_data = sorted(gene_data, key=lambda x: x["Gene name"])
         return pd.DataFrame(gene_data)
 

@@ -57,14 +57,14 @@ def get_options() -> argparse.Namespace:
         "-n",
         dest="node_min_coverage",
         type=int,
-        default=None,
+        default=3,
         help="Minimum threshold for gene-mer coverage.",
     )
     parser.add_argument(
         "-e",
         dest="edge_min_coverage",
         type=int,
-        default=1,
+        default=3,
         help="Minimum threshold for edge coverage between gene-mers.",
     )
     parser.add_argument(
@@ -442,9 +442,14 @@ def main() -> None:
         )
     # merge paths that are very similar in terms of minimizers
     sys.stderr.write("\n\tAmira: using minimizers to correct high coverage paths\n")
-    # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
+    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
+    )
+    new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
+            graph.correct_low_coverage_paths(
+                fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
+            )
     )
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
@@ -518,8 +523,8 @@ def main() -> None:
                     [len(fastq_data["quality"]) - 1, int(underscore_split[2]) + 250]
                 )
             ]
-            read_subset[underscore_split[0]] = fastq_data
-            assert read_subset[underscore_split[0]]["sequence"] != ""
+            if fastq_data["sequence"] != "":
+                read_subset[underscore_split[0]] = fastq_data
         if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name)):
             os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name))
         write_fastq(
@@ -571,13 +576,13 @@ def main() -> None:
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     for index, row in result_df.iterrows():
-        if row["Identity (%)"] < 0.9:
+        if row["Identity (%)"] < 90:
             sys.stderr.write(
                 f"\nAmira: allele {row['Amira allele']} removed due to insufficient similarity ({row['Identity (%)']}).\n"
             )
             alleles_to_delete.append(row['Amira allele'])
         else:
-            if row["Coverage (%)"] < 0.9:
+            if row["Coverage (%)"] < 90:
                 sys.stderr.write(
                     f"\nAmira: allele {row['Amira allele']} removed due to insufficient coverage ({row['Coverage (%)']}).\n"
                 )
@@ -603,7 +608,7 @@ def main() -> None:
         else:
             with open(
                 os.path.join(
-                    args.output_dir, "AMR_allele_fastqs", allele, "03.closest_reference.fasta"
+                    args.output_dir, "AMR_allele_fastqs", allele, "03.sequence_to_polish.fasta"
                 )
             ) as i:
                 reference_allele_name = i.read().split(" ")[0].replace(">", "")

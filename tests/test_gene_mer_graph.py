@@ -5,7 +5,7 @@ from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
-from amira_prototype.construct_unitig import parse_fastq_lines
+from amira_prototype.construct_unitig import parse_fastq
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -4647,6 +4647,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes3}, 3
         )
+        graph.generate_gml("tests/test", 3, 1,1)
         nodesOfInterest = graph.get_nodes_containing("gene4")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
@@ -4656,7 +4657,28 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(k), 4)
+            self.assertEqual(len(k), 5)
+            self.assertEqual(len(paths[k]), 2)
+
+    def test___get_paths_for_gene_singleton(self):
+        # setup
+        genes1 = [
+            "+gene7",
+            "-gene4",
+            "-gene13",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene7")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(paths), 1)
+        for k in paths:
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_branching_path(self):
@@ -4811,7 +4833,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertEqual(len(k), 3)
+            self.assertEqual(len(k), 5)
             self.assertEqual(len(paths[k]), 2)
 
     def test___new_split_into_subpaths_linear(self):
@@ -5111,3 +5133,17 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_indices = graph.find_sublist_indices(["1", "1", "1", "1", "1"], ["1", "1", "1"])
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
+
+    # def test___real(self):
+    #     # setup
+    #     import json
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+    #         calls = json.load(i)
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+    #         positions = json.load(i)
+    #     graph = GeneMerGraph(calls, 3, positions)
+    #     graph.generate_gml("test/test", 3, 1, 1)
+    #     fastq_content = parse_fastq("/home/daniel/Documents/GitHub/thesis_figures/AMR_genotyping_with_resfinder/nanopore_reads/SRR23044216_1.fastq")
+    #     clusters_of_interest = graph.new_assign_reads_to_genes({"aph3Ib"}, fastq_content)
+    #     print(clusters_of_interest)
+    #     assert None
