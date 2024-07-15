@@ -2592,6 +2592,8 @@ class GeneMerGraph:
                         if canonical_path not in paths:
                             paths[canonical_path] = set()
                         paths[canonical_path].add(read)
+        for p in paths:
+            print(self.get_genes_in_unitig(p))
         return paths
 
     def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest, fastq_content):
@@ -2754,9 +2756,17 @@ class GeneMerGraph:
         merged_clusters = self.merge_read_clusters(merged_paths, pathsOfInterest)
         return merged_clusters
 
+    def calculate_mean_node_coverage(self):
+        # get a list of all node coverages
+        all_node_coverages = self.get_all_node_coverages()
+        # return the mean of the node covewrages
+        return statistics.mean(all_node_coverages)
+
     def new_assign_reads_to_genes(self, listOfGenes, fastq_dict):
+        # initialise dictionaries to track the alleles
         clustered_reads = {}
         allele_counts = {}
+        copy_numbers = {}
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
@@ -2923,44 +2933,6 @@ class GeneMerGraph:
                 delayed(run_racon)(r, fastqContent) for r in subset
             )
         return genes_to_remove
-
-    def get_closest_allele_old(self, bam_file_path, mapping_type):
-        valid_references = []
-        highest_coverage = 0
-        proportion_reference_covered = {}
-        ref_lengths = {}
-        # Open the BAM file
-        with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
-            for read in bam_file.fetch():
-                if read.is_unmapped:
-                    continue
-                if read.reference_name not in proportion_reference_covered:
-                    proportion_reference_covered[read.reference_name] = 0
-                matching_bases = 0
-                total_length = bam_file.get_reference_length(read.reference_name)
-                for op, length in read.cigartuples:
-                    if op == 7:
-                        matching_bases += length
-                if mapping_type == "reads":
-                    proportion_matching = (matching_bases / total_length) * 100
-                if mapping_type == "allele":
-                    proportion_matching = (matching_bases / read.infer_read_length()) * 100
-                if proportion_matching > proportion_reference_covered[read.reference_name]:
-                    proportion_reference_covered[read.reference_name] = proportion_matching
-                    ref_lengths[read.reference_name] = total_length
-                if proportion_matching > highest_coverage:
-                    highest_coverage = proportion_matching
-        for ref in proportion_reference_covered:
-            if proportion_reference_covered[ref] >= 90:
-                valid_references.append((ref, proportion_reference_covered[ref], ref_lengths[ref]))
-        if mapping_type == "reads":
-            valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
-        if mapping_type == "allele":
-            valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
-        if len(valid_references) != 0:
-            return valid_references[0][0], valid_references[0][1]
-        else:
-            return None, highest_coverage
 
     def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []

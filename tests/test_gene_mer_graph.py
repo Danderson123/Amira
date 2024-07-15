@@ -4580,15 +4580,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         expected_new_positions = [(0, 5), (6, 20), (11, 15), (16, 20), (21, 25), (25, 34)]
         self.assertEqual(actual_new_positions, expected_new_positions)
 
-    # def test___correct_gene_positions_on_read(self):
-    #     assert None
-
-    # def test___correct_bubble_paths(self):
-    #     assert None
-
-    # def test___get_all_paths_between_junctions_in_component(self):
-    #     assert None
-
     def test___get_paths_for_gene_linear_path(self):
         # setup
         genes1 = [
@@ -4647,7 +4638,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes3}, 3
         )
-        graph.generate_gml("tests/test", 3, 1,1)
         nodesOfInterest = graph.get_nodes_containing("gene4")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
@@ -4658,6 +4648,47 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(len(paths), 1)
         for k in paths:
             self.assertEqual(len(k), 5)
+            self.assertEqual(len(paths[k]), 2)
+
+    def test___get_paths_for_gene_linear_path_contained(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8"
+        ]
+        genes2 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8"
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
+        )
+        graph.generate_gml("tests/test", 3, 1,1)
+        nodesOfInterest = graph.get_nodes_containing("gene4")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(paths), 2)
+        for k in paths:
+            self.assertTrue(len(k) == 5 or len(k) == 8)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_singleton(self):
@@ -4680,6 +4711,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(len(paths), 1)
         for k in paths:
             self.assertEqual(len(paths[k]), 2)
+
 
     def test___get_paths_for_gene_branching_path(self):
         # setup
