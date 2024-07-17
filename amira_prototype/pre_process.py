@@ -105,7 +105,6 @@ def convert_pandora_output(
     # iterate through the read regions
     read_tracking = {}
     distances = {}
-    proportion_gene_length = []
     for read in pandora_sam_content.fetch():
         # convert the cigarsting to a Cigar object
         cigar = read.cigartuples
@@ -120,12 +119,6 @@ def convert_pandora_output(
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
             # exclude genes that do not have a pandora consensus
-            # if strandlessGene in pandora_consensus and (
-            #     gene_length_lower_threshold * len(pandora_consensus[strandlessGene]["sequence"])
-            #     <= regionLength
-            #     <= gene_length_upper_threshold * len(pandora_consensus[strandlessGene]["sequence"])
-            #     or strandlessGene in genesOfInterest
-            # ):
             if strandlessGene in genesOfInterest or (
                 strandlessGene in pandora_consensus
                 and gene_length_lower_threshold * len(pandora_consensus[strandlessGene]["sequence"])

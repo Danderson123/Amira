@@ -6,7 +6,6 @@ import sys
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from joblib import Parallel, delayed
 from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
@@ -137,38 +136,6 @@ def get_options() -> argparse.Namespace:
     return args
 
 
-def plot_log_histogram(distances, filename):
-
-    # distances = random.sample(distances, 10000)
-    # Calculate histogram data (counts and bin edges) without plotting
-    counts, bin_edges = np.histogram(
-        distances, bins=len(distances) - 1
-    )  # Adjust bin count as needed
-    # Calculate the log of counts to plot, adding 1 to avoid log(0)
-    log_counts = np.log(counts + 1)
-    # Calculate bin centers from bin edges for bar placement
-    bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-    # Create the bar plot
-    plt.figure(figsize=(10, 6))  # Optional: Adjust figure size
-    # Plot bars with bin centers as x values and logged counts as heights
-    plt.bar(
-        bin_centers,
-        log_counts,
-        align="center",
-        width=np.diff(bin_edges),
-        color="white",
-        edgecolor="black",
-    )
-    plt.xlim([0, 200])
-    # Set plot title and labels
-    plt.title("Histogram of distances between genes")
-    plt.xlabel("Distance")
-    plt.ylabel("Log of absolute frequency")
-    # Save the plot as a PNG file
-    plt.savefig(filename, dpi=300)  # Adjust dpi for higher resolution if needed
-    plt.close()
-
-
 def build_multiprocessed_graph(annotatedReads, geneMer_size, cores, gene_positions=None):
     batches = [set(list(annotatedReads.keys())[i::cores]) for i in range(cores)]
     if gene_positions is not None:
@@ -200,14 +167,9 @@ def write_debug_files(
 ) -> GeneMerGraph:
     sys.stderr.write("\nAmira: building pre-correction gene-mer graph\n")
     raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, cores)
-    # raw_graph = GeneMerGraph(annotatedReads, geneMer_size)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
         node.color_node(genesOfInterest)
-    #  import json
-
-    #    with open(os.path.join(output_dir, "gene_calls_with_gene_filtering.json"), "w") as o:
-    #       o.write(json.dumps(annotatedReads))
     raw_graph.generate_gml(
         os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
     )
@@ -410,7 +372,7 @@ def main() -> None:
             graph.get_all_node_coverages(),
             os.path.join(args.output_dir, "initial_node_coverages.png"),
         )
-    except:
+    except ValueError:
         min_path_coverage = 10
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
@@ -502,7 +464,7 @@ def main() -> None:
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
-    # remove low coverage componentscluster_copy_numbers
+    # remove low coverage components
     graph.remove_low_coverage_components(5)
     # color nodes in the graph if --debug is used
     if args.debug:
@@ -603,21 +565,20 @@ def main() -> None:
     alleles_to_delete = []
     for index, row in result_df.iterrows():
         if row["Identity (%)"] < 90:
-            sys.stderr.write(
-                f"\nAmira: allele {row['Amira allele']} removed due to insufficient similarity ({row['Identity (%)']}).\n"
-            )
+            message = f"\nAmira: allele {row['Amira allele']} removed "
+            message += f"due to insufficient similarity ({row['Identity (%)']}).\n"
+            sys.stderr.write(message)
             alleles_to_delete.append(row["Amira allele"])
         else:
             if row["Coverage (%)"] < 90:
-                sys.stderr.write(
-                    f"\nAmira: allele {row['Amira allele']} removed due to insufficient coverage ({row['Coverage (%)']}).\n"
-                )
+                message = f"\nAmira: allele {row['Amira allele']} removed "
+                message += f"due to insufficient coverage ({row['Coverage (%)']}).\n"
+                sys.stderr.write(message)
                 alleles_to_delete.append(row["Amira allele"])
     # remove genes as necessary
     for amira_allele in alleles_to_delete:
         del supplemented_clusters_of_interest[amira_allele]
         result_df = result_df[result_df["Amira allele"] != amira_allele]
-        # shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", amira_allele))
     # write out the clustered reads
     final_clusters_of_interest = {}
     for allele in supplemented_clusters_of_interest:
