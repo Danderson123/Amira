@@ -4652,16 +4652,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___get_paths_for_gene_linear_path_contained(self):
         # setup
-        genes1 = [
-            "+gene1",
-            "-gene2",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "-gene6",
-            "+gene7",
-            "-gene8"
-        ]
+        genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
         genes2 = [
             "+gene1",
             "-gene2",
@@ -4673,7 +4664,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "+gene5",
             "-gene6",
             "+gene7",
-            "-gene8"
+            "-gene8",
         ]
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
@@ -4692,8 +4683,52 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___get_paths_for_gene_terminate_at_junction(self):
         # setup
-        genes1 = ["-trbC", "-trbB", "-group_1081", "-group_6156", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "-group_5175", "+group_5625"]
-        genes2 = ["-alkB", "-ada", "-apbE", "-ompC", "+sugE", "-blc", "-blaCMY54NG_0488491", "+rcsD", "+rcsB", "-rcsC", "+atoS", "+atoC", "+atoD", "+atoA", "+atoE", "+atoB", "-yfaP", "-yfaQ"]
+        genes1 = [
+            "-trbC",
+            "-trbB",
+            "-group_1081",
+            "-group_6156",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "-group_5175",
+            "+group_5625",
+        ]
+        genes2 = [
+            "-alkB",
+            "-ada",
+            "-apbE",
+            "-ompC",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+rcsD",
+            "+rcsB",
+            "-rcsC",
+            "+atoS",
+            "+atoC",
+            "+atoD",
+            "+atoA",
+            "+atoE",
+            "+atoB",
+            "-yfaP",
+            "-yfaQ",
+        ]
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
@@ -4711,14 +4746,59 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___get_paths_for_gene_terminate_and_start_at_junction(self):
         # setup
-        genes1 = ["-trbC", "-trbB", "-group_1081", "-group_6156", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-group_5175", "+group_5625"]
-        genes2 = ["-alkB", "-ada", "-apbE", "-ompC", "+sugE", "-blc", "-blaCMY54NG_0488491", "+rcsD", "+rcsB", "-rcsC", "+atoS", "+atoC", "+atoD", "+atoA", "+atoE", "+atoB", "-yfaP", "-yfaQ"]
+        genes1 = [
+            "-trbC",
+            "-trbB",
+            "-group_1081",
+            "-group_6156",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+sugE",
+            "-blc",
+            "-group_5175",
+            "+group_5625",
+        ]
+        genes2 = [
+            "-alkB",
+            "-ada",
+            "-apbE",
+            "-ompC",
+            "+sugE",
+            "-blc",
+            "-blaCMY54NG_0488491",
+            "+rcsD",
+            "+rcsB",
+            "-rcsC",
+            "+atoS",
+            "+atoC",
+            "+atoD",
+            "+atoA",
+            "+atoE",
+            "+atoB",
+            "-yfaP",
+            "-yfaQ",
+        ]
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
         nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        graph.generate_gml("tests/test", 3, 1, 1)
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
@@ -4736,9 +4816,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "-gene4",
             "-gene13",
         ]
-        graph = GeneMerGraph(
-            {"read1": genes1, "read2": genes1}, 3
-        )
+        graph = GeneMerGraph({"read1": genes1, "read2": genes1}, 3)
         nodesOfInterest = graph.get_nodes_containing("gene7")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
@@ -4749,7 +4827,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(len(paths), 1)
         for k in paths:
             self.assertEqual(len(paths[k]), 2)
-
 
     def test___get_paths_for_gene_branching_path(self):
         # setup
@@ -4941,14 +5018,18 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths, path_coverages = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, path_coverages = graph.new_get_paths_for_gene(
+            reads, anchor_nodes, nodeHashesOfInterest
+        )
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
         }
         # execution
-        actual_final_paths, _ = graph.new_split_into_subpaths("gene5", paths, fastq_content, path_coverages)
+        actual_final_paths, _ = graph.new_split_into_subpaths(
+            "gene5", paths, fastq_content, path_coverages
+        )
         # assertion
         self.assertEqual(len(actual_final_paths), 2)
         for k in actual_final_paths:
@@ -5007,14 +5088,18 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths, path_coverages = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, path_coverages = graph.new_get_paths_for_gene(
+            reads, anchor_nodes, nodeHashesOfInterest
+        )
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
         }
         # execution
-        actual_final_paths, _ = graph.new_split_into_subpaths("gene5", paths, fastq_content, path_coverages)
+        actual_final_paths, _ = graph.new_split_into_subpaths(
+            "gene5", paths, fastq_content, path_coverages
+        )
         # assertion
         self.assertEqual(len(actual_final_paths), 3)
         for k in actual_final_paths:

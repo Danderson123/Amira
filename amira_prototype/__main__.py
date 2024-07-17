@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import shutil
 import sys
 
 import matplotlib
@@ -288,6 +287,7 @@ def plot_node_coverages(unitig_coverages, filename):
 
     return trough_value
 
+
 def estimate_copy_number(amira_allele, copy_numbers_per_component, additional_copy_numbers):
     copy_numbers = {}
     for component in copy_numbers_per_component:
@@ -297,6 +297,7 @@ def estimate_copy_number(amira_allele, copy_numbers_per_component, additional_co
     if amira_allele in copy_numbers:
         return copy_numbers[amira_allele]
     return additional_copy_numbers[amira_allele]
+
 
 def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name):
     read_subset = {}
@@ -322,6 +323,7 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
         read_subset,
     )
     return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
+
 
 def main() -> None:
     # get command line options
@@ -481,9 +483,9 @@ def main() -> None:
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
     new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
-            graph.correct_low_coverage_paths(
-                fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
-            )
+        graph.correct_low_coverage_paths(
+            fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
+        )
     )
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
@@ -516,7 +518,9 @@ def main() -> None:
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
-    clusters_of_interest, cluster_copy_numbers = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
+    clusters_of_interest, cluster_copy_numbers = graph.new_assign_reads_to_genes(
+        sample_genesOfInterest, fastq_content
+    )
     # get the unique genes we have found
     found_genes_of_interest = set()
     # iterate through the components
@@ -539,7 +543,9 @@ def main() -> None:
                 gene_end = short_read_gene_positions[read_id][g][1]
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
     for amira_allele in clusters_to_add:
-        cluster_copy_numbers_to_add[amira_allele] = len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
+        cluster_copy_numbers_to_add[amira_allele] = (
+            len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
+        )
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
@@ -583,11 +589,16 @@ def main() -> None:
         reference_alleles,
         pandora_consensus,
         args.phenotypes,
-        args.debug
+        args.debug,
     )
 
     # get the copy number estimates of each allele
-    result_df["Approximate copy number"] = result_df.apply(lambda row: estimate_copy_number(row["Amira allele"], cluster_copy_numbers, cluster_copy_numbers_to_add), axis=1)
+    result_df["Approximate copy number"] = result_df.apply(
+        lambda row: estimate_copy_number(
+            row["Amira allele"], cluster_copy_numbers, cluster_copy_numbers_to_add
+        ),
+        axis=1,
+    )
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     for index, row in result_df.iterrows():
@@ -595,17 +606,17 @@ def main() -> None:
             sys.stderr.write(
                 f"\nAmira: allele {row['Amira allele']} removed due to insufficient similarity ({row['Identity (%)']}).\n"
             )
-            alleles_to_delete.append(row['Amira allele'])
+            alleles_to_delete.append(row["Amira allele"])
         else:
             if row["Coverage (%)"] < 90:
                 sys.stderr.write(
                     f"\nAmira: allele {row['Amira allele']} removed due to insufficient coverage ({row['Coverage (%)']}).\n"
                 )
-                alleles_to_delete.append(row['Amira allele'])
+                alleles_to_delete.append(row["Amira allele"])
     # remove genes as necessary
     for amira_allele in alleles_to_delete:
         del supplemented_clusters_of_interest[amira_allele]
-        result_df = result_df[result_df['Amira allele'] != amira_allele]
+        result_df = result_df[result_df["Amira allele"] != amira_allele]
         # shutil.rmtree(os.path.join(args.output_dir, "AMR_allele_fastqs", amira_allele))
     # write out the clustered reads
     final_clusters_of_interest = {}

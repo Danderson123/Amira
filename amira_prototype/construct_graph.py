@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import shutil
@@ -12,7 +13,6 @@ import pandas as pd
 import pysam
 import sourmash
 from joblib import Parallel, delayed
-import json
 from tqdm import tqdm
 
 from amira_prototype.construct_edge import Edge
@@ -1970,7 +1970,8 @@ class GeneMerGraph:
                             if correct_path is True:
                                 # make sure that we do not delete AMR genes
                                 if any(
-                                    c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest#c[1][1:] != c[0][1:]
+                                    c[1][1:] in genesOfInterest
+                                    and c[0][1:] not in genesOfInterest  # c[1][1:] != c[0][1:]
                                     for c in fw_alignment
                                 ):
                                     continue
@@ -2552,38 +2553,72 @@ class GeneMerGraph:
                     this_block.append(n)
                     if len(this_block) > 1:
                         try:
-                            sourceToTarget, targetToSource = self.get_edges_between_nodes(self.get_node_by_hash(this_block[-2]), self.get_node_by_hash(this_block[-1]))
+                            sourceToTarget, targetToSource = self.get_edges_between_nodes(
+                                self.get_node_by_hash(this_block[-2]),
+                                self.get_node_by_hash(this_block[-1]),
+                            )
                         except AssertionError:
                             this_block.pop()  # Remove the non-adjacent node
                             if len(this_block) > 1:
                                 amr_blocks.append(this_block)
                             this_block = [n]
-                            continue                        # get the edge direction
+                            continue  # get the edge direction
                         if sourceToTarget.get_targetNodeDirection() == 1:
-                            next_amr_nodes = [nxt.__hash__() for nxt in self.get_forward_neighbors(sourceToTarget.get_targetNode()) if nxt.__hash__() in amr_nodes]
+                            next_amr_nodes = [
+                                nxt.__hash__()
+                                for nxt in self.get_forward_neighbors(
+                                    sourceToTarget.get_targetNode()
+                                )
+                                if nxt.__hash__() in amr_nodes
+                            ]
                         else:
-                            next_amr_nodes = [nxt.__hash__() for nxt in self.get_backward_neighbors(sourceToTarget.get_targetNode()) if nxt.__hash__() in amr_nodes]
-                        if i < len(nodes_on_read) - 2 and nodes_on_read[i+1] not in amr_nodes:
+                            next_amr_nodes = [
+                                nxt.__hash__()
+                                for nxt in self.get_backward_neighbors(
+                                    sourceToTarget.get_targetNode()
+                                )
+                                if nxt.__hash__() in amr_nodes
+                            ]
+                        if i < len(nodes_on_read) - 2 and nodes_on_read[i + 1] not in amr_nodes:
                             next_amr_nodes = []
                         if len(next_amr_nodes) == 0:
                             try:
-                                sourceToTarget, targetToSource = self.get_edges_between_nodes(self.get_node_by_hash(this_block[1]), self.get_node_by_hash(this_block[0]))
+                                sourceToTarget, targetToSource = self.get_edges_between_nodes(
+                                    self.get_node_by_hash(this_block[1]),
+                                    self.get_node_by_hash(this_block[0]),
+                                )
                             except AssertionError:
                                 if len(this_block) > 1:
                                     amr_blocks.append(this_block)
                                 this_block = [n]
                                 continue
                             if sourceToTarget.get_targetNodeDirection() == 1:
-                                previous_amr_nodes = [nxt.__hash__() for nxt in self.get_forward_neighbors(sourceToTarget.get_targetNode()) if nxt.__hash__() in amr_nodes]
+                                previous_amr_nodes = [
+                                    nxt.__hash__()
+                                    for nxt in self.get_forward_neighbors(
+                                        sourceToTarget.get_targetNode()
+                                    )
+                                    if nxt.__hash__() in amr_nodes
+                                ]
                             else:
-                                previous_amr_nodes = [nxt.__hash__() for nxt in self.get_backward_neighbors(sourceToTarget.get_targetNode()) if nxt.__hash__() in amr_nodes]
+                                previous_amr_nodes = [
+                                    nxt.__hash__()
+                                    for nxt in self.get_backward_neighbors(
+                                        sourceToTarget.get_targetNode()
+                                    )
+                                    if nxt.__hash__() in amr_nodes
+                                ]
                             if nodes_on_read.index(this_block[0]) != 0:
                                 previous_amr_nodes = []
                             if len(previous_amr_nodes) == 0:
                                 amr_blocks.append(this_block)
                                 this_block = []
             # Process reads with single nodes that are AMR nodes
-            if len(nodes_on_read) == 1 and nodes_on_read[0] in amr_nodes and len(self.get_all_neighbor_hashes(self.get_node_by_hash(nodes_on_read[0]))) == 0:
+            if (
+                len(nodes_on_read) == 1
+                and nodes_on_read[0] in amr_nodes
+                and len(self.get_all_neighbor_hashes(self.get_node_by_hash(nodes_on_read[0]))) == 0
+            ):
                 amr_blocks.append([nodes_on_read[0]])
             for path in amr_blocks:
                 if len(path) > 0:  # Process if there is at least one node in the path
@@ -2594,7 +2629,10 @@ class GeneMerGraph:
                     paths[canonical_path].add(read)
                     # collect the coverages of the nodes in the path
                     if canonical_path not in path_coverages:
-                        path_coverages[canonical_path] = [self.get_node_by_hash(h).get_node_coverage() for h in list(canonical_path)]
+                        path_coverages[canonical_path] = [
+                            self.get_node_by_hash(h).get_node_coverage()
+                            for h in list(canonical_path)
+                        ]
         # we need a step to add paths that have not been captured by the previous step
         # path_union = set()
         # missing_nodes = set()
@@ -2608,7 +2646,6 @@ class GeneMerGraph:
         #     print(self.get_genes_in_unitig(list(p)))
         # djdjdjdj
         return paths, path_coverages
-
 
     def working_new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
         paths = {}
@@ -2628,15 +2665,22 @@ class GeneMerGraph:
                     this_block.append(n)
                 else:
                     if len(this_block) != 0:
-                        amr_blocks.append((this_block, i - len(this_block) - 1, i))  # Store block with start and end indices
+                        amr_blocks.append(
+                            (this_block, i - len(this_block) - 1, i)
+                        )  # Store block with start and end indices
                         this_block = []  # Reset current block
             if len(this_block) != 0:
-                amr_blocks.append((this_block, len(nodes_on_read) - len(this_block) - 1, len(nodes_on_read)))  # Store last block with indices
+                amr_blocks.append(
+                    (this_block, len(nodes_on_read) - len(this_block) - 1, len(nodes_on_read))
+                )  # Store last block with indices
             # Process each block to generate paths
             for path, start_idx, end_idx in amr_blocks:
                 # Check if the block is flanked by non-AMR nodes
                 if start_idx >= 0 and end_idx < len(nodes_on_read):
-                    if nodes_on_read[start_idx] not in amr_nodes and nodes_on_read[end_idx] not in amr_nodes:
+                    if (
+                        nodes_on_read[start_idx] not in amr_nodes
+                        and nodes_on_read[end_idx] not in amr_nodes
+                    ):
                         if len(path) > 1:  # Process only if there is more than one node in the path
                             path = [nodes_on_read[start_idx]] + path + [nodes_on_read[end_idx]]
                             # Get the canonical path
@@ -2645,15 +2689,21 @@ class GeneMerGraph:
                                 paths[canonical_path] = set()
                             paths[canonical_path].add(read)
                 else:
-                    fw_nodes = [n for n in self.get_all_neighbor_hashes(self.get_node_by_hash(path[-1]))]
-                    bw_nodes = [n for n in self.get_all_neighbor_hashes(self.get_node_by_hash(path[0]))]
+                    fw_nodes = [
+                        n for n in self.get_all_neighbor_hashes(self.get_node_by_hash(path[-1]))
+                    ]
+                    bw_nodes = [
+                        n for n in self.get_all_neighbor_hashes(self.get_node_by_hash(path[0]))
+                    ]
                     start_idx = max(start_idx, 0)
                     end_idx = min(end_idx, len(nodes_on_read) - 1)
                     valid = False
                     if len(path) == 1 and len(set(fw_nodes + bw_nodes)) == 0:
                         valid = True
                     if len(path) > 1:
-                        if (nodes_on_read[start_idx] not in amr_nodes and len(fw_nodes) < 2) or (nodes_on_read[end_idx] not in amr_nodes and len(bw_nodes) < 2):
+                        if (nodes_on_read[start_idx] not in amr_nodes and len(fw_nodes) < 2) or (
+                            nodes_on_read[end_idx] not in amr_nodes and len(bw_nodes) < 2
+                        ):
                             valid = True
                     if valid is True:
                         if nodes_on_read[start_idx] not in amr_nodes:
@@ -2669,7 +2719,9 @@ class GeneMerGraph:
             print(self.get_genes_in_unitig(p))
         return paths
 
-    def new_split_into_subpaths(self, geneOfInterest, pathsOfinterest, fastq_content, path_coverages):
+    def new_split_into_subpaths(
+        self, geneOfInterest, pathsOfinterest, fastq_content, path_coverages
+    ):
         allele_count = 1
         gene_clusters = {}
         copy_numbers = {}
@@ -2725,7 +2777,9 @@ class GeneMerGraph:
                                 f"{read_id}_{sequence_start}_{sequence_end}"
                             )
                             # estimate the copy number of the allele
-                            copy_numbers[indices_in_path[gene_index]] = max(1.0, min(path_coverages[path]) / mean_node_coverage)
+                            copy_numbers[indices_in_path[gene_index]] = max(
+                                1.0, min(path_coverages[path]) / mean_node_coverage
+                            )
         return gene_clusters, copy_numbers
 
     def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
@@ -2912,7 +2966,15 @@ class GeneMerGraph:
                         allele_counts[geneOfInterest] = 1
                     allele_name = f"{geneOfInterest}_{allele_counts[geneOfInterest]}"
                     clustered_reads[component][geneOfInterest][allele_name] = []
-                    cluster_copy_numbers[component][geneOfInterest][allele_name] = max(1.0, min([self.get_node_by_hash(h).get_node_coverage() for h in nodeHashesOfInterest]))
+                    cluster_copy_numbers[component][geneOfInterest][allele_name] = max(
+                        1.0,
+                        min(
+                            [
+                                self.get_node_by_hash(h).get_node_coverage()
+                                for h in nodeHashesOfInterest
+                            ]
+                        ),
+                    )
                     # get the reads
                     reads = self.collect_reads_in_path(nodeHashesOfInterest)
                     # get the positions of all occurrences of the AMR gene
@@ -3061,9 +3123,13 @@ class GeneMerGraph:
                     ref_covered[read.reference_name] = prop_covered
         for ref in ref_matching:
             if ref_covered[ref] >= 0.9:
-                valid_references.append((ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref]))
+                valid_references.append(
+                    (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref])
+                )
             else:
-                invalid_references.append((ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref]))
+                invalid_references.append(
+                    (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref])
+                )
         if mapping_type == "reads":
             valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
         if mapping_type == "allele":
@@ -3071,7 +3137,9 @@ class GeneMerGraph:
         if len(valid_references) != 0:
             return True, valid_references, unique_reads
         else:
-            invalid_references = sorted(invalid_references, key=lambda x: (x[2], x[1]), reverse=True)
+            invalid_references = sorted(
+                invalid_references, key=lambda x: (x[2], x[1]), reverse=True
+            )
             return False, invalid_references, unique_reads
 
     def create_output_dir(self, output_dir, allele_name):
@@ -3157,22 +3225,27 @@ class GeneMerGraph:
     def get_ref_allele_pileups(self, bam_file, output_dir):
         read_depths = []
         # Open the BAM file
-        with pysam.AlignmentFile(bam_file, "rb") as bam_file:
+        with pysam.AlignmentFile(bam_file, "rb") as bam:
             # Iterate over each reference (chromosome/contig)
-            for ref in bam_file.references:
-                # Get the length of the reference
-                ref_length = bam_file.get_reference_length(ref)
+            for ref in bam.references:
+                ref_length = bam.get_reference_length(ref)
                 # Initialize a list to store read depths for each position
                 depth_list = [0] * ref_length
                 # Fetch all reads mapped to this reference
-                for pileup_column in bam_file.pileup(ref):
-                    # pileup_column.pos gives the position in the reference (0-based)
-                    # pileup_column.n gives the number of reads covering this position
-                    depth_list[pileup_column.pos] = pileup_column.n
-                # Store the depth list in the dictionary
-                read_depths.append(f">{ref}\n{','.join(depth_list)}")
-        with open(os.path.join(output_dir, "reference_allele_coverages.txt"), "w") as o:
-            o.write("\n".join(read_depths))
+                for read in bam.fetch(ref):
+                    if read.is_unmapped:
+                        continue
+                    # Iterate over the aligned positions of the read
+                    for pos in read.get_reference_positions():
+                        if pos < ref_length:
+                            depth_list[pos] += 1
+                # Convert the depth list to a string format
+                depth_list_str = ",".join(map(str, depth_list))
+                read_depths.append(f">{ref}\n{depth_list_str}")
+        # Write the read depths to the output file
+        output_file_path = os.path.join(output_dir, "reference_allele_coverages.txt")
+        with open(output_file_path, "w") as output_file:
+            output_file.write("\n".join(read_depths))
 
     def compare_reads_to_references(
         self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes, debug
@@ -3235,7 +3308,7 @@ class GeneMerGraph:
                 "Identity (%)": round(match_proportion, 1),
                 "Coverage (%)": round(coverage_proportion * 100, 1),
                 "Amira allele": allele_name,
-                "Number of reads": len(unique_reads)
+                "Number of reads": len(unique_reads),
             }
         else:
             if len(references) != 0:
@@ -3248,7 +3321,7 @@ class GeneMerGraph:
                     "Identity (%)": round(match_proportion, 1),
                     "Coverage (%)": round(coverage_proportion * 100, 1),
                     "Amira allele": allele_name,
-                    "Number of reads": len(unique_reads)
+                    "Number of reads": len(unique_reads),
                 }
             else:
                 return {
@@ -3259,11 +3332,19 @@ class GeneMerGraph:
                     "Identity (%)": 0,
                     "Coverage (%)": 0,
                     "Amira allele": allele_name,
-                    "Number of reads": len(unique_reads)
+                    "Number of reads": len(unique_reads),
                 }
 
     def get_alleles(
-        self, readFiles, racon_path, threads, output_dir, reference_genes, fastqContent, phenotypes_path, debug
+        self,
+        readFiles,
+        racon_path,
+        threads,
+        output_dir,
+        reference_genes,
+        fastqContent,
+        phenotypes_path,
+        debug,
     ):
         # import the phenotypes
         with open(phenotypes_path) as i:
@@ -3280,10 +3361,9 @@ class GeneMerGraph:
                     racon_path,
                     fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
                     phenotypes,
-                    debug
+                    debug,
                 )
                 for r in subset
             )
         gene_data = sorted(gene_data, key=lambda x: x["Gene name"])
         return pd.DataFrame(gene_data)
-
