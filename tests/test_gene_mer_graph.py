@@ -4608,7 +4608,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
@@ -4643,11 +4643,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(k), 5)
+            self.assertEqual(len(k), 4)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_linear_path_contained(self):
@@ -4678,17 +4678,55 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
-        graph.generate_gml("tests/test", 3, 1,1)
         nodesOfInterest = graph.get_nodes_containing("gene4")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 5 or len(k) == 8)
+            self.assertTrue(len(k) == 3 or len(k) == 6)
+            self.assertEqual(len(paths[k]), 2)
+
+    def test___get_paths_for_gene_terminate_at_junction(self):
+        # setup
+        genes1 = ["-trbC", "-trbB", "-group_1081", "-group_6156", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "-group_5175", "+group_5625"]
+        genes2 = ["-alkB", "-ada", "-apbE", "-ompC", "+sugE", "-blc", "-blaCMY54NG_0488491", "+rcsD", "+rcsB", "-rcsC", "+atoS", "+atoC", "+atoD", "+atoA", "+atoE", "+atoB", "-yfaP", "-yfaQ"]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(paths), 2)
+        for k in paths:
+            self.assertTrue(len(k) == 3 or len(k) == 18)
+            self.assertEqual(len(paths[k]), 2)
+
+    def test___get_paths_for_gene_terminate_and_start_at_junction(self):
+        # setup
+        genes1 = ["-trbC", "-trbB", "-group_1081", "-group_6156", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-blaCMY54NG_0488491", "+sugE", "-blc", "-group_5175", "+group_5625"]
+        genes2 = ["-alkB", "-ada", "-apbE", "-ompC", "+sugE", "-blc", "-blaCMY54NG_0488491", "+rcsD", "+rcsB", "-rcsC", "+atoS", "+atoC", "+atoD", "+atoA", "+atoE", "+atoB", "-yfaP", "-yfaQ"]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        graph.generate_gml("tests/test", 3, 1, 1)
+        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        # assertion
+        self.assertEqual(len(paths), 2)
+        for k in paths:
+            self.assertTrue(len(k) == 3 or len(k) == 18)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_singleton(self):
@@ -4706,7 +4744,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
@@ -4754,7 +4792,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
@@ -4820,7 +4858,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 3)
         for k in paths:
@@ -4861,11 +4899,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertEqual(len(k), 5)
+            self.assertEqual(len(k), 3)
             self.assertEqual(len(paths[k]), 2)
 
     def test___new_split_into_subpaths_linear(self):
@@ -4903,14 +4941,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, path_coverages = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
         }
         # execution
-        actual_final_paths = graph.new_split_into_subpaths("gene5", paths, fastq_content)
+        actual_final_paths, _ = graph.new_split_into_subpaths("gene5", paths, fastq_content, path_coverages)
         # assertion
         self.assertEqual(len(actual_final_paths), 2)
         for k in actual_final_paths:
@@ -4969,14 +5007,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
+        paths, path_coverages = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest)
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
         }
         # execution
-        actual_final_paths = graph.new_split_into_subpaths("gene5", paths, fastq_content)
+        actual_final_paths, _ = graph.new_split_into_subpaths("gene5", paths, fastq_content, path_coverages)
         # assertion
         self.assertEqual(len(actual_final_paths), 3)
         for k in actual_final_paths:
@@ -5167,7 +5205,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
 
     # def test___real(self):
-    #     # setup
+    #     setup
     #     import json
     #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
     #         calls = json.load(i)
@@ -5175,7 +5213,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     #         positions = json.load(i)
     #     graph = GeneMerGraph(calls, 3, positions)
     #     graph.generate_gml("test/test", 3, 1, 1)
-    #     fastq_content = parse_fastq("/home/daniel/Documents/GitHub/thesis_figures/AMR_genotyping_with_resfinder/nanopore_reads/SRR23044216_1.fastq")
-    #     clusters_of_interest = graph.new_assign_reads_to_genes({"aph3Ib"}, fastq_content)
-    #     print(clusters_of_interest)
+    #     fastq_content = parse_fastq("/home/daniel/Documents/GitHub/thesis_figures/AMR_genotyping_with_resfinder/nanopore_reads/SRR23044224_1.fastq")
+    #     clusters_of_interest, cluster_copy_numbers = graph.new_assign_reads_to_genes({"blaCTXM110NG_0489052"}, fastq_content)
+    #     print(cluster_copy_numbers)
+    #     print(graph.get_mean_node_coverage())
     #     assert None

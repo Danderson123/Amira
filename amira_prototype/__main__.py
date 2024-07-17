@@ -288,6 +288,40 @@ def plot_node_coverages(unitig_coverages, filename):
 
     return trough_value
 
+def estimate_copy_number(amira_allele, copy_numbers_per_component, additional_copy_numbers):
+    copy_numbers = {}
+    for component in copy_numbers_per_component:
+        for gene in copy_numbers_per_component[component]:
+            for allele in copy_numbers_per_component[component][gene]:
+                copy_numbers[allele] = round(copy_numbers_per_component[component][gene][allele], 2)
+    if amira_allele in copy_numbers:
+        return copy_numbers[amira_allele]
+    return additional_copy_numbers[amira_allele]
+
+def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name):
+    read_subset = {}
+    for r in reads_for_allele:
+        underscore_split = r.split("_")
+        fastq_data = fastq_content[underscore_split[0]].copy()
+        fastq_data["sequence"] = fastq_data["sequence"][
+            max([0, int(underscore_split[1]) - 250]) : min(
+                [len(fastq_data["sequence"]) - 1, int(underscore_split[2]) + 250]
+            )
+        ]
+        fastq_data["quality"] = fastq_data["quality"][
+            max([0, int(underscore_split[1]) - 250]) : min(
+                [len(fastq_data["quality"]) - 1, int(underscore_split[2]) + 250]
+            )
+        ]
+        if fastq_data["sequence"] != "":
+            read_subset[underscore_split[0]] = fastq_data
+    if not os.path.exists(os.path.join(output_dir, "AMR_allele_fastqs", allele_name)):
+        os.mkdir(os.path.join(output_dir, "AMR_allele_fastqs", allele_name))
+    write_fastq(
+        os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"),
+        read_subset,
+    )
+    return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
 
 def main() -> None:
     # get command line options
@@ -466,7 +500,7 @@ def main() -> None:
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
-    # remove low coverage components
+    # remove low coverage componentscluster_copy_numbers
     graph.remove_low_coverage_components(5)
     # color nodes in the graph if --debug is used
     if args.debug:
@@ -482,7 +516,7 @@ def main() -> None:
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
-    clusters_of_interest = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
+    clusters_of_interest, cluster_copy_numbers = graph.new_assign_reads_to_genes(sample_genesOfInterest, fastq_content)
     # get the unique genes we have found
     found_genes_of_interest = set()
     # iterate through the components
@@ -491,6 +525,7 @@ def main() -> None:
             found_genes_of_interest.add(gene)
     # add AMR alleles that have come from the reads shorter than k
     clusters_to_add = {}
+    cluster_copy_numbers_to_add = {}
     for read_id in short_reads:
         for g in range(len(short_reads[read_id])):
             strandless_gene = short_reads[read_id][g][1:]
@@ -503,36 +538,12 @@ def main() -> None:
                 gene_start = short_read_gene_positions[read_id][g][0]
                 gene_end = short_read_gene_positions[read_id][g][1]
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
+    for amira_allele in clusters_to_add:
+        cluster_copy_numbers_to_add[amira_allele] = len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
     # subset the fastq data based on the cluster assignments
-
-    def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name):
-        read_subset = {}
-        for r in reads_for_allele:
-            underscore_split = r.split("_")
-            fastq_data = fastq_content[underscore_split[0]].copy()
-            fastq_data["sequence"] = fastq_data["sequence"][
-                max([0, int(underscore_split[1]) - 250]) : min(
-                    [len(fastq_data["sequence"]) - 1, int(underscore_split[2]) + 250]
-                )
-            ]
-            fastq_data["quality"] = fastq_data["quality"][
-                max([0, int(underscore_split[1]) - 250]) : min(
-                    [len(fastq_data["quality"]) - 1, int(underscore_split[2]) + 250]
-                )
-            ]
-            if fastq_data["sequence"] != "":
-                read_subset[underscore_split[0]] = fastq_data
-        if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name)):
-            os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs", allele_name))
-        write_fastq(
-            os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"),
-            read_subset,
-        )
-        return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
-
     files_to_assemble = []
     sys.stderr.write("\nAmira: writing fastqs\n")
     supplemented_clusters_of_interest = {}
@@ -571,8 +582,12 @@ def main() -> None:
         os.path.join(args.output_dir, "AMR_allele_fastqs"),
         reference_alleles,
         pandora_consensus,
-        args.phenotypes
+        args.phenotypes,
+        args.debug
     )
+
+    # get the copy number estimates of each allele
+    result_df["Approximate copy number"] = result_df.apply(lambda row: estimate_copy_number(row["Amira allele"], cluster_copy_numbers, cluster_copy_numbers_to_add), axis=1)
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     for index, row in result_df.iterrows():
