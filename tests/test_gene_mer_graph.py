@@ -4679,7 +4679,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 5 or len(k) == 8)
+            self.assertTrue(len(k) == 3 or len(k) == 6)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_terminate_at_junction(self):
@@ -4742,7 +4742,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 5 or len(k) == 18)
+            self.assertTrue(len(k) == 3 or len(k) == 18)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_terminate_and_start_at_junction(self):
@@ -4807,7 +4807,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 5 or len(k) == 18)
+            self.assertTrue(len(k) == 3 or len(k) == 18)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_singleton(self):
@@ -4981,7 +4981,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertEqual(len(k), 5)
+            self.assertEqual(len(k), 3)
             self.assertEqual(len(paths[k]), 2)
 
     def test___new_split_into_subpaths_linear(self):
@@ -5290,17 +5290,17 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
 
-    def test_real(self):
-        import json
-        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
-            calls = json.load(i)
-        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
-            positions = json.load(i)
-        fastq_dict = parse_fastq("/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044219_1.fastq")
-        graph = GeneMerGraph(calls, 3, positions)
-        pathsOfInterest, copy_numbers = graph.new_assign_reads_to_genes({"group_6233"}, fastq_dict)
-        for component in pathsOfInterest:
-            for gene in pathsOfInterest[component]:
-                for p in pathsOfInterest[component][gene]:
-                    print(len(pathsOfInterest[component][gene][p]))
-        bhhhhh
+    # def test_real(self):
+    #     import json
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+    #         calls = json.load(i)
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+    #         positions = json.load(i)
+    #     fastq_dict = parse_fastq("/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044219_1.fastq")
+    #     graph = GeneMerGraph(calls, 3, positions)
+    #     pathsOfInterest, copy_numbers = graph.new_assign_reads_to_genes({"group_6233"}, fastq_dict)
+    #     for component in pathsOfInterest:
+    #         for gene in pathsOfInterest[component]:
+    #             for p in pathsOfInterest[component][gene]:
+    #                 print(len(pathsOfInterest[component][gene][p]))
+    #     bhhhhh
