@@ -1089,7 +1089,7 @@ class GeneMerGraph:
             ]
             if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
                 nodeAnchors.add(node_hash)
-            if len(backwardAMRNodes) > 1 or len(forwardAMRNodes) > 1:
+            if len(self.get_backward_neighbors(node)) > 1 or len(self.get_forward_neighbors(node)) > 1:
                 nodeJunctions.add(node_hash)
         return nodeAnchors, nodeJunctions
 
@@ -2459,17 +2459,6 @@ class GeneMerGraph:
         replacement = {"A": "T", "T": "A", "C": "G", "G": "C"}
         return "".join([replacement[b] for b in reversed_seq])
 
-    def get_paths_for_gene(self, geneOfInterest):
-        # get the graph nodes containing this gene
-        nodeOfInterest = self.get_nodes_containing(geneOfInterest)
-        # get the node hashes containing this gene
-        nodeHashesOfInterest = [n.__hash__() for n in nodeOfInterest]
-        # get the nodes that contain this gene but are at the end of a path
-        anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
-        # get all of the possible paths for these nodes
-        paths = self.all_paths_for_subgraph(nodeHashesOfInterest, anchor_nodes)
-        return paths, nodeHashesOfInterest, junction_nodes
-
     def split_into_subpaths(self, paths, geneOfInterest):
         for pair in paths:
             for p in range(len(paths[pair])):
@@ -2524,7 +2513,62 @@ class GeneMerGraph:
                             clustered_reads[path_tuple].add(read_id)
         return clustered_reads
 
-    def new_get_paths_for_gene(self, reads, anchor_nodes, amr_nodes):
+    def new_get_paths_for_gene(self, reads, junction_nodes, amr_nodes, path_threshold):
+        paths = {}
+        path_coverages = {}
+        unique_paths = set()
+        # Iterate through the reads
+        for read in tqdm(reads):
+            # Get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read]
+            # List to store AMR blocks
+            this_block = []
+            block_start = None
+            # Iterate through the nodes on the read
+            for i, n in enumerate(nodes_on_read):
+                if n in amr_nodes:
+                    this_block.append(n)
+                    if block_start is None:
+                        block_start = i
+                else:
+                    if len(this_block) != 0:
+                        canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
+                        if canonical_path not in paths:
+                            paths[canonical_path] = set()
+                            path_coverages[canonical_path] = [
+                                                    self.get_node_by_hash(h).get_node_coverage()
+                                                    for h in list(canonical_path)
+                                                    ]
+                        paths[canonical_path].add(read)
+                        this_block = []
+                        block_start = None
+            if this_block:
+                canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
+                if canonical_path not in paths:
+                    paths[canonical_path] = set()
+                    path_coverages[canonical_path] = [
+                                                self.get_node_by_hash(h).get_node_coverage()
+                                                for h in list(canonical_path)
+                                                ]
+                paths[canonical_path].add(read)
+        sorted_paths = sorted(list(paths.keys()), key=len, reverse=True)
+        for i, canonical_path in enumerate(sorted_paths):
+            if len(paths[canonical_path]) >= path_threshold:
+                # Check if this path is a subpath of any other path
+                if not any(self.is_sublist(list(other), list(canonical_path)) or self.is_sublist(list(other), list(reversed(list(canonical_path)))) for j, other in enumerate(unique_paths)):
+                    unique_paths.add(canonical_path)
+        to_delete = []
+        for key in paths:
+            if key not in unique_paths:
+                to_delete.append(key)
+        for key in to_delete:
+            del paths[key]
+            del path_coverages[key]
+        for k in paths:
+            print(self.get_genes_in_unitig(k), len(paths[k]))
+        return paths, path_coverages
+
+    def new_get_paths_for_gene_working(self, reads, anchor_nodes, amr_nodes):
         paths = {}
         path_coverages = {}
         # Iterate through the reads
@@ -2620,15 +2664,6 @@ class GeneMerGraph:
                             self.get_node_by_hash(h).get_node_coverage()
                             for h in list(canonical_path)
                         ]
-        # we need a step to add paths that have not been captured by the previous step
-        # path_union = set()
-        # missing_nodes = set()
-        # for p in paths:
-        #     for n in list(p):
-        #         path_union.add(n)
-        # for n in amr_nodes:
-        #     if n not in path_union:
-        #         missing_nodes.add(n)
         return paths, path_coverages
 
     def new_split_into_subpaths(
@@ -2805,7 +2840,7 @@ class GeneMerGraph:
         # return the mean of the node covewrages
         return statistics.mean(all_node_coverages)
 
-    def new_assign_reads_to_genes(self, listOfGenes, fastq_dict):
+    def new_assign_reads_to_genes(self, listOfGenes, fastq_dict, path_threshold=5):
         # initialise dictionaries to track the alleles
         clustered_reads = {}
         cluster_copy_numbers = {}
@@ -2832,7 +2867,7 @@ class GeneMerGraph:
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # get the paths containing this gene
                 pathsOfInterest, pathCoverages = self.new_get_paths_for_gene(
-                    reads, anchor_nodes, nodeHashesOfInterest
+                    reads, junction_nodes, nodeHashesOfInterest, max(5, self.get_mean_node_coverage() / 10)
                 )
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.new_split_into_subpaths(
@@ -2852,7 +2887,7 @@ class GeneMerGraph:
                     if gene_name not in allele_counts:
                         allele_counts[gene_name] = 1
                     # add this allele if there are 5 or more reads
-                    if len(finalAllelesOfInterest[allele]) > 4:
+                    if len(finalAllelesOfInterest[allele]) >= path_threshold:
                         clustered_reads[component][geneOfInterest][
                             f"{gene_name}_{allele_counts[gene_name]}"
                         ] = finalAllelesOfInterest[allele]
@@ -2901,104 +2936,6 @@ class GeneMerGraph:
                             )
                     allele_counts[geneOfInterest] += 1
         return clustered_reads, cluster_copy_numbers
-
-    def calculate_coverage_proportion(self, bam_file_path, reference_id=None):
-        # Open the BAM file
-        with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
-            # Determine the reference index
-            if reference_id is not None:
-                ref_index = bam_file.get_tid(reference_id)
-            else:
-                ref_index = 0  # Default to the first reference sequence
-            # Total number of positions in the reference covered by at least one read
-            covered_positions = 0
-            # Total length of the reference sequence
-            reference_length = bam_file.lengths[ref_index]
-            # Iterate through each position in the reference sequence
-            for pileupcolumn in bam_file.pileup(reference=reference_id):
-                if pileupcolumn.n > 0:  # If there's at least one read covering the position
-                    covered_positions += 1
-            # Calculate the proportion of the reference sequence that is covered
-            proportion_covered = covered_positions / reference_length
-        return proportion_covered
-
-    def polish_pandora_consensus(self, readFiles, racon_path, fastqContent, threads, output_dir):
-
-        def run_racon(file, fastqContent):
-            # get the gene name
-            gene_name = os.path.basename(file).replace(".fastq.gz", "")
-            # make the output dir
-            outputDir = os.path.join(output_dir, gene_name)
-            if not os.path.exists(outputDir):
-                os.mkdir(outputDir)
-            # make a temp file for each AMR gene consensus sequence
-            if "_".join(gene_name.split("_")[:-1]) in fastqContent:
-                with open(os.path.join(outputDir, "01.pandora.consensus.fasta"), "w") as outFasta:
-                    outFasta.write(
-                        ">"
-                        + gene_name
-                        + "\n"
-                        + fastqContent["_".join(gene_name.split("_")[:-1])]["sequence"]
-                        + "\n"
-                    )
-                # map the reads to the consensus file
-                map_command = "minimap2 -a --MD -t 1 -x map-ont "
-                map_command += os.path.join(outputDir, "01.pandora.consensus.fasta") + " " + file
-                map_command += " > " + os.path.join(outputDir, "02.read.mapped.sam")
-                subprocess.run(map_command, shell=True, check=True)
-                samtools_command = (
-                    f"samtools sort {os.path.join(outputDir, '02.read.mapped.sam')} > "
-                )
-                samtools_command += f"{os.path.join(outputDir, '02.read.mapped.bam')} && "
-                samtools_command += (
-                    f"samtools index {os.path.join(outputDir, '02.read.mapped.bam')}"
-                )
-                subprocess.run(
-                    samtools_command,
-                    shell=True,
-                    check=True,
-                )
-                # check what proportion of the length of the gene has been mapped to
-                cov_proportion = self.calculate_coverage_proportion(
-                    os.path.join(outputDir, "02.read.mapped.bam")
-                )
-                if cov_proportion > 0.8:
-                    # polish the pandora consensus
-                    racon_command = (
-                        racon_path
-                        + " -t 1 -w "
-                        + str(len(fastqContent["_".join(gene_name.split("_")[:-1])]["sequence"]))
-                        + " "
-                    )
-                    racon_command += (
-                        file + " " + os.path.join(outputDir, "02.read.mapped.sam") + " "
-                    )
-                    racon_command += os.path.join(outputDir, "01.pandora.consensus.fasta") + " "
-                    racon_command += "> " + os.path.join(outputDir, "03.polished.consensus.fasta")
-                    subprocess.run(racon_command, shell=True, check=True)
-                    # trim the buffer
-                    with open(os.path.join(outputDir, "03.polished.consensus.fasta"), "r") as i:
-                        racon_seq = i.read()
-                    header = racon_seq.split("\n")[0]
-                    sequence = "\n".join(racon_seq.split("\n")[1:]).replace("N", "")
-                    with open(
-                        os.path.join(outputDir, "04.polished.consensus.trimmed.fasta"), "w"
-                    ) as outTrimmed:
-                        outTrimmed.write(">" + header + "\n" + sequence + "\n")
-                    return None
-                else:
-                    return (gene_name, cov_proportion)
-            else:
-                return (gene_name, 0)
-
-        # iterate through the reads for each unitig
-        job_list = [readFiles[i : i + threads] for i in range(0, len(readFiles), threads)]
-        genes_to_remove = []
-        for subset in tqdm(job_list):
-            genes_to_remove += Parallel(n_jobs=threads)(
-                delayed(run_racon)(r, fastqContent) for r in subset
-            )
-        return genes_to_remove
 
     def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []
@@ -3171,6 +3108,7 @@ class GeneMerGraph:
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         gene_name = "_".join(allele_name.split("_")[:-1])
         output_dir = self.create_output_dir(output_dir, allele_name)
+        ref_lengths = self.prepare_reference_sequences(gene_name, reference_genes, output_dir)
         bam_file = self.map_reads(
             output_dir,
             os.path.join(output_dir, "01.reference_alleles.fasta"),
@@ -3191,22 +3129,34 @@ class GeneMerGraph:
                 [f">{valid_allele}\n{valid_allele_sequence}"],
             )
             for _ in range(5):
-                self.racon_one_iteration(
-                    output_dir,
-                    racon_path,
-                    allele_file,
-                    "02.read.mapped.sam",
-                    "03.sequence_to_polish.fasta",
-                    "04.polished_sequence.fasta",
-                    str(len(valid_allele_sequence)),
-                )
+                try:
+                    self.racon_one_iteration(
+                        output_dir,
+                        racon_path,
+                        allele_file,
+                        "02.read.mapped.sam",
+                        "03.sequence_to_polish.fasta",
+                        "04.polished_sequence.fasta",
+                        str(len(valid_allele_sequence)),
+                    )
+                except:
+                    return {
+                        "Gene name": valid_allele.split(".NG_")[0],
+                        "Sequence name": phenotypes[valid_allele],
+                        "Closest reference": "NG_" + valid_allele.split(".NG_")[1],
+                        "Reference length": match_length,
+                        "Identity (%)": round(100, 1),
+                        "Coverage (%)": round(1 * 100, 1),
+                        "Amira allele": allele_name,
+                        "Number of reads": len(unique_reads),
+                    }
 
             bam_file = self.map_reads(
                 output_dir,
                 os.path.join(output_dir, "01.reference_alleles.fasta"),
                 os.path.join(output_dir, "04.polished_sequence.fasta"),
                 "05.read",
-                "-a --MD -t 1 -x asm20 --eqx",
+                "-a --MD -t 1 --eqx",
             )
             validity, references, _ = self.get_closest_allele(bam_file, "allele")
             closest_allele, match_proportion, match_length, coverage_proportion = references[0]
