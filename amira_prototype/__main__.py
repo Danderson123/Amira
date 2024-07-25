@@ -372,7 +372,7 @@ def main() -> None:
             graph.get_all_node_coverages(),
             os.path.join(args.output_dir, "initial_node_coverages.png"),
         )
-    except ValueError:
+    except ValueError or IndexError:
         min_path_coverage = 10
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
@@ -505,8 +505,8 @@ def main() -> None:
                 gene_end = short_read_gene_positions[read_id][g][1]
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
     for amira_allele in clusters_to_add:
-        cluster_copy_numbers_to_add[amira_allele] = (
-            len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
+        cluster_copy_numbers_to_add[amira_allele] = max(
+            1.0, len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
         )
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):

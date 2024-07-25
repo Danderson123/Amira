@@ -6,7 +6,7 @@ from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
 
-from amira_prototype.construct_unitig import parse_fastq
+# from amira_prototype.construct_unitig import parse_fastq
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -5289,18 +5289,3 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_indices = graph.find_sublist_indices(["1", "1", "1", "1", "1"], ["1", "1", "1"])
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
-
-    # def test_real(self):
-    #     import json
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
-    #         calls = json.load(i)
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
-    #         positions = json.load(i)
-    #     fastq_dict = parse_fastq("/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044219_1.fastq")
-    #     graph = GeneMerGraph(calls, 3, positions)
-    #     pathsOfInterest, copy_numbers = graph.new_assign_reads_to_genes({"group_6233"}, fastq_dict)
-    #     for component in pathsOfInterest:
-    #         for gene in pathsOfInterest[component]:
-    #             for p in pathsOfInterest[component][gene]:
-    #                 print(len(pathsOfInterest[component][gene][p]))
-    #     bhhhhh

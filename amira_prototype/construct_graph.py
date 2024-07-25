@@ -1089,7 +1089,10 @@ class GeneMerGraph:
             ]
             if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
                 nodeAnchors.add(node_hash)
-            if len(self.get_backward_neighbors(node)) > 1 or len(self.get_forward_neighbors(node)) > 1:
+            if (
+                len(self.get_backward_neighbors(node)) > 1
+                or len(self.get_forward_neighbors(node)) > 1
+            ):
                 nodeJunctions.add(node_hash)
         return nodeAnchors, nodeJunctions
 
@@ -2517,6 +2520,111 @@ class GeneMerGraph:
         paths = {}
         path_coverages = {}
         unique_paths = set()
+        for read in tqdm(reads):
+            # Get the nodes on the read
+            nodes_on_read = self.get_readNodes()[read]
+            # Skip reads that do not contain any AMR nodes
+            if len(set(amr_nodes).intersection(nodes_on_read)) == 0:
+                continue
+            if len(nodes_on_read) > 1:
+                # Check if the first and last node are joined to non-AMR nodes
+                first_edge = self.get_edges_between_nodes(
+                    self.get_node_by_hash(nodes_on_read[1]),
+                    self.get_node_by_hash(nodes_on_read[0]),
+                )
+                last_edge = self.get_edges_between_nodes(
+                    self.get_node_by_hash(nodes_on_read[-2]),
+                    self.get_node_by_hash(nodes_on_read[-1]),
+                )
+                # Determine next nodes for the last node on the read
+                if last_edge[0].get_targetNodeDirection() == 1:
+                    next_nodes = [
+                        nxt.__hash__()
+                        for nxt in self.get_forward_neighbors(last_edge[0].get_targetNode())
+                        if nxt.__hash__() in amr_nodes
+                    ]
+                else:
+                    next_nodes = [
+                        nxt.__hash__()
+                        for nxt in self.get_backward_neighbors(last_edge[0].get_targetNode())
+                        if nxt.__hash__() in amr_nodes
+                    ]
+                # Determine previous nodes for the first node on the read
+                if first_edge[0].get_targetNodeDirection() == 1:
+                    previous_nodes = [
+                        nxt.__hash__()
+                        for nxt in self.get_forward_neighbors(first_edge[0].get_targetNode())
+                        if nxt.__hash__() in amr_nodes
+                    ]
+                else:
+                    previous_nodes = [
+                        nxt.__hash__()
+                        for nxt in self.get_backward_neighbors(first_edge[0].get_targetNode())
+                        if nxt.__hash__() in amr_nodes
+                    ]
+                # Process blocks of AMR nodes within the read
+                if len(previous_nodes) == 0 or len(next_nodes) == 0:
+                    this_block = []
+                    for n in nodes_on_read:
+                        if n in amr_nodes:
+                            this_block.append(n)
+                        else:
+                            if len(this_block) != 0:
+                                canonical_path = tuple(
+                                    sorted((this_block, list(reversed(this_block))))[0]
+                                )
+                                if canonical_path not in paths:
+                                    paths[canonical_path] = set()
+                                    path_coverages[canonical_path] = [
+                                        self.get_node_by_hash(h).get_node_coverage()
+                                        for h in list(canonical_path)
+                                    ]
+                                paths[canonical_path].add(read)
+                                this_block = []
+                    if this_block:
+                        canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
+                        if canonical_path not in paths:
+                            paths[canonical_path] = set()
+                            path_coverages[canonical_path] = [
+                                self.get_node_by_hash(h).get_node_coverage()
+                                for h in list(canonical_path)
+                            ]
+                        paths[canonical_path].add(read)
+                        this_block = []
+            else:
+                # Single-node read
+                if len(self.get_all_neighbors(self.get_node_by_hash(nodes_on_read[0]))) == 0:
+                    canonical_path = tuple([nodes_on_read[0]])
+                    if canonical_path not in paths:
+                        paths[canonical_path] = set()
+                        path_coverages[canonical_path] = [
+                            self.get_node_by_hash(h).get_node_coverage()
+                            for h in list(canonical_path)
+                        ]
+                    paths[canonical_path].add(read)
+
+        # Filter and retain unique paths
+        sorted_paths = sorted(list(paths.keys()), key=len, reverse=True)
+        for canonical_path in sorted_paths:
+            if len(paths[canonical_path]) >= path_threshold:
+                if not any(
+                    self.is_sublist(list(other), list(canonical_path))
+                    or self.is_sublist(list(other), list(reversed(list(canonical_path))))
+                    for other in unique_paths
+                ):
+                    unique_paths.add(canonical_path)
+        to_delete = [key for key in paths if key not in unique_paths]
+        for key in to_delete:
+            del paths[key]
+            del path_coverages[key]
+        # for k in paths:
+        #     print(self.get_genes_in_unitig(list(k)), paths[k])
+        return paths, path_coverages
+
+    def new_get_paths_for_gene_working(self, reads, junction_nodes, amr_nodes, path_threshold):
+        paths = {}
+        path_coverages = {}
+        unique_paths = set()
         # Iterate through the reads
         for read in tqdm(reads):
             # Get the nodes on the read
@@ -2536,39 +2644,80 @@ class GeneMerGraph:
                         if canonical_path not in paths:
                             paths[canonical_path] = set()
                             path_coverages[canonical_path] = [
-                                                    self.get_node_by_hash(h).get_node_coverage()
-                                                    for h in list(canonical_path)
-                                                    ]
+                                self.get_node_by_hash(h).get_node_coverage()
+                                for h in list(canonical_path)
+                            ]
                         paths[canonical_path].add(read)
                         this_block = []
                         block_start = None
             if this_block:
                 canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
-                if canonical_path not in paths:
-                    paths[canonical_path] = set()
-                    path_coverages[canonical_path] = [
-                                                self.get_node_by_hash(h).get_node_coverage()
-                                                for h in list(canonical_path)
-                                                ]
-                paths[canonical_path].add(read)
+                if len(this_block) > 1:
+                    sourceToTarget, targetToSource = self.get_edges_between_nodes(
+                        self.get_node_by_hash(this_block[-2]),
+                        self.get_node_by_hash(this_block[-1]),
+                    )
+                    if sourceToTarget.get_targetNodeDirection() == 1:
+                        next_nodes = [
+                            nxt.__hash__()
+                            for nxt in self.get_forward_neighbors(sourceToTarget.get_targetNode())
+                            if nxt.__hash__() in amr_nodes
+                        ]
+                    else:
+                        next_nodes = [
+                            nxt.__hash__()
+                            for nxt in self.get_backward_neighbors(sourceToTarget.get_targetNode())
+                            if nxt.__hash__() in amr_nodes
+                        ]
+                    sourceToTarget, targetToSource = self.get_edges_between_nodes(
+                        self.get_node_by_hash(this_block[1]),
+                        self.get_node_by_hash(this_block[0]),
+                    )
+                    if sourceToTarget.get_targetNodeDirection() == 1:
+                        previous_nodes = [
+                            nxt.__hash__()
+                            for nxt in self.get_forward_neighbors(sourceToTarget.get_targetNode())
+                            if nxt.__hash__() in amr_nodes
+                        ]
+                    else:
+                        previous_nodes = [
+                            nxt.__hash__()
+                            for nxt in self.get_backward_neighbors(sourceToTarget.get_targetNode())
+                            if nxt.__hash__() in amr_nodes
+                        ]
+                else:
+                    next_nodes = []
+                    previous_nodes = []
+                if len(next_nodes) == 0 or len(previous_nodes) == 0:
+                    if canonical_path not in paths:
+                        paths[canonical_path] = set()
+                        path_coverages[canonical_path] = [
+                            self.get_node_by_hash(h).get_node_coverage()
+                            for h in list(canonical_path)
+                        ]
+                    paths[canonical_path].add(read)
         sorted_paths = sorted(list(paths.keys()), key=len, reverse=True)
         for i, canonical_path in enumerate(sorted_paths):
             if len(paths[canonical_path]) >= path_threshold:
                 # Check if this path is a subpath of any other path
-                if not any(self.is_sublist(list(other), list(canonical_path)) or self.is_sublist(list(other), list(reversed(list(canonical_path)))) for j, other in enumerate(unique_paths)):
+                if not any(
+                    self.is_sublist(list(other), list(canonical_path))
+                    or self.is_sublist(list(other), list(reversed(list(canonical_path))))
+                    for j, other in enumerate(unique_paths)
+                ):
                     unique_paths.add(canonical_path)
         to_delete = []
         for key in paths:
             if key not in unique_paths:
                 to_delete.append(key)
+        for k in paths:
+            print(self.get_genes_in_unitig(list(k)), paths[k])
         for key in to_delete:
             del paths[key]
             del path_coverages[key]
-        for k in paths:
-            print(self.get_genes_in_unitig(k), len(paths[k]))
         return paths, path_coverages
 
-    def new_get_paths_for_gene_working(self, reads, anchor_nodes, amr_nodes):
+    def new_get_paths_for_gene_working_old(self, reads, anchor_nodes, amr_nodes):
         paths = {}
         path_coverages = {}
         # Iterate through the reads
@@ -2867,7 +3016,10 @@ class GeneMerGraph:
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # get the paths containing this gene
                 pathsOfInterest, pathCoverages = self.new_get_paths_for_gene(
-                    reads, junction_nodes, nodeHashesOfInterest, max(5, self.get_mean_node_coverage() / 10)
+                    reads,
+                    junction_nodes,
+                    nodeHashesOfInterest,
+                    max(5, self.get_mean_node_coverage() / 10),
                 )
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.new_split_into_subpaths(
@@ -3108,7 +3260,7 @@ class GeneMerGraph:
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         gene_name = "_".join(allele_name.split("_")[:-1])
         output_dir = self.create_output_dir(output_dir, allele_name)
-        ref_lengths = self.prepare_reference_sequences(gene_name, reference_genes, output_dir)
+        self.prepare_reference_sequences(gene_name, reference_genes, output_dir)
         bam_file = self.map_reads(
             output_dir,
             os.path.join(output_dir, "01.reference_alleles.fasta"),
@@ -3141,9 +3293,9 @@ class GeneMerGraph:
                     )
                 except:
                     return {
-                        "Gene name": valid_allele.split(".NG_")[0],
+                        "Gene name": valid_allele.split(".")[0],
                         "Sequence name": phenotypes[valid_allele],
-                        "Closest reference": "NG_" + valid_allele.split(".NG_")[1],
+                        "Closest reference": valid_allele.split(".")[1],
                         "Reference length": match_length,
                         "Identity (%)": round(100, 1),
                         "Coverage (%)": round(1 * 100, 1),
@@ -3167,9 +3319,9 @@ class GeneMerGraph:
                 [f">{closest_allele}\n{final_allele_sequence}"],
             )
             return {
-                "Gene name": closest_allele.split(".NG_")[0],
+                "Gene name": closest_allele.split(".")[0],
                 "Sequence name": phenotypes[closest_allele],
-                "Closest reference": "NG_" + closest_allele.split(".NG_")[1],
+                "Closest reference": closest_allele.split(".")[1],
                 "Reference length": match_length,
                 "Identity (%)": round(match_proportion, 1),
                 "Coverage (%)": round(coverage_proportion * 100, 1),
@@ -3180,9 +3332,9 @@ class GeneMerGraph:
             if len(references) != 0:
                 invalid_allele, match_proportion, match_length, coverage_proportion = references[0]
                 return {
-                    "Gene name": invalid_allele.split(".NG_")[0],
+                    "Gene name": invalid_allele.split(".")[0],
                     "Sequence name": phenotypes[invalid_allele],
-                    "Closest reference": "NG_" + invalid_allele.split(".NG_")[1],
+                    "Closest reference": invalid_allele.split(".")[1],
                     "Reference length": match_length,
                     "Identity (%)": round(match_proportion, 1),
                     "Coverage (%)": round(coverage_proportion * 100, 1),
