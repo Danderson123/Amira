@@ -3324,7 +3324,7 @@ class GeneMerGraph:
                 "Closest reference": closest_allele.split(".")[1],
                 "Reference length": match_length,
                 "Identity (%)": round(match_proportion, 1),
-                "Coverage (%)": round(coverage_proportion * 100, 1),
+                "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Amira allele": allele_name,
                 "Number of reads": len(unique_reads),
             }
@@ -3337,7 +3337,7 @@ class GeneMerGraph:
                     "Closest reference": invalid_allele.split(".")[1],
                     "Reference length": match_length,
                     "Identity (%)": round(match_proportion, 1),
-                    "Coverage (%)": round(coverage_proportion * 100, 1),
+                    "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                     "Amira allele": allele_name,
                     "Number of reads": len(unique_reads),
                 }

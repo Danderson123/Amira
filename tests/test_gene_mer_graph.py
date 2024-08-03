@@ -5289,3 +5289,24 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_indices = graph.find_sublist_indices(["1", "1", "1", "1", "1"], ["1", "1", "1"])
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
+
+    # def test_real(self):
+    #     import json
+    #     call_file = "/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json"
+    # position_file = "/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json"
+    # read_file = "/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044215_1.fastq"
+    #     with open(call_file) as i:
+    #         calls = json.load(i)
+    #     with open(position_file) as i:
+    #         positions = json.load(i)
+    #     fastq_dict = parse_fastq(read_file)
+    #     graph = GeneMerGraph(calls, 5, positions)
+    #     pathsOfInterest, copy_numbers = graph.new_assign_reads_to_genes(
+    #                                             {"group_6227"},
+    #                                              fastq_dict
+    #                                              )
+    #     for component in pathsOfInterest:
+    #         for gene in pathsOfInterest[component]:
+    #             for p in pathsOfInterest[component][gene]:
+    #                 print(len(pathsOfInterest[component][gene][p]))
+    #     bhhhhh
