@@ -2319,7 +2319,7 @@ class GeneMerGraph:
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
         # get the potential start nodes
-        potential_bubble_starts, all_bubble_nodes = self.identify_potential_bubble_starts()
+        potential_bubble_starts = self.identify_potential_bubble_starts()
         # define a maximum distance
         max_distance = self.get_kmerSize() * 3
         # iterate through the components
@@ -2361,23 +2361,18 @@ class GeneMerGraph:
 
     def identify_potential_bubble_starts(self):
         potential_bubble_starts = {}
-        all_bubble_nodes = {}
         for node in self.all_nodes():
             fw_edges = node.get_forward_edge_hashes()  # Forward edges
             bw_edges = node.get_backward_edge_hashes()  # Backward edges
             if len(fw_edges) > 1:  # and len(bw_edges) < 2:
                 if not node.get_component() in potential_bubble_starts:
                     potential_bubble_starts[node.get_component()] = []
-                    all_bubble_nodes[node.get_component()] = set()
                 potential_bubble_starts[node.get_component()].append((node.__hash__(), 1))
-                all_bubble_nodes[node.get_component()].add(node.__hash__())
             if len(bw_edges) > 1:  # and len(fw_edges) < 2:
                 if not node.get_component() in potential_bubble_starts:
                     potential_bubble_starts[node.get_component()] = []
-                    all_bubble_nodes[node.get_component()] = set()
                 potential_bubble_starts[node.get_component()].append((node.__hash__(), -1))
-                all_bubble_nodes[node.get_component()].add(node.__hash__())
-        return potential_bubble_starts, all_bubble_nodes
+        return potential_bubble_starts
 
     def find_potential_paths(self, start, all_bubble_nodes, max_distance):
         start_node, direction = start
@@ -2462,61 +2457,84 @@ class GeneMerGraph:
         replacement = {"A": "T", "T": "A", "C": "G", "G": "C"}
         return "".join([replacement[b] for b in reversed_seq])
 
-    def split_into_subpaths(self, paths, geneOfInterest):
-        for pair in paths:
-            for p in range(len(paths[pair])):
-                path = paths[pair][p]
-                if len(path) > self.get_kmerSize():
-                    # get the list of genes for this unitig
-                    genes = self.get_genes_in_unitig(path)
-                    nodes = list(path)
-                    node_indices_for_each_gene_index = {}
-                    for i in range(len(nodes)):
-                        gene_indices = [j for j in range(i, i + self.get_kmerSize())]
-                        for g in gene_indices:
-                            if genes[g][1:] == geneOfInterest:
-                                if g not in node_indices_for_each_gene_index:
-                                    node_indices_for_each_gene_index[g] = []
-                                node_indices_for_each_gene_index[g].append(i)
-                    new_paths = []
-                    for i in node_indices_for_each_gene_index:
-                        nodes_containing_this_gene = [
-                            nodes[j] for j in node_indices_for_each_gene_index[i]
-                        ]
-                        new_paths.append(nodes_containing_this_gene)
-                    # remove the old path
-                    del paths[pair][p]
-                    # add the new paths
-                    paths[pair] += new_paths
-        return paths
+    def assign_subpaths_to_underlying_paths(self, subpaths):
+        # sort the subpaths from longest to shortest
+        sorted_paths = sorted([k for k in subpaths], key=len, reverse=True)
+        # cluster the sorted paths
+        clustered_sub_paths = {}
+        for p in sorted_paths:
+            list_p = list(p)
+            paths_supported = []
+            for c in clustered_sub_paths:
+                list_c = list(c)
+                if self.is_sublist(list_c, list_p):
+                    paths_supported.append(c)
+            if len(paths_supported) == 0:
+                clustered_sub_paths[p] = subpaths[p]
+            if len(paths_supported) == 1:
+                clustered_sub_paths[paths_supported[0]].update(subpaths[p])
+        return clustered_sub_paths
 
-    def assign_reads_to_paths(self, reads_of_interest, paths, junction_nodes):
-        clustered_reads = {}
-        for read_id in reads_of_interest:
-            # get the nodes on the read
-            nodes_on_read = self.get_readNodes()[read_id]
-            # reversed the nodes on the read
-            reversed_node_on_read = list(reversed(nodes_on_read))
-            # iterate through the paths
-            for pair in paths:
-                for p in paths[pair]:
-                    if not any(n in junction_nodes for n in p):
-                        if len(set(p).intersection(set(nodes_on_read))) > 0:
-                            path_tuple = tuple(p)
-                            if path_tuple not in clustered_reads:
-                                clustered_reads[path_tuple] = set()
-                            clustered_reads[path_tuple].add(read_id)
-                    else:
-                        if self.is_sublist(nodes_on_read, p) or self.is_sublist(
-                            reversed_node_on_read, p
-                        ):
-                            path_tuple = tuple(p)
-                            if path_tuple not in clustered_reads:
-                                clustered_reads[path_tuple] = set()
-                            clustered_reads[path_tuple].add(read_id)
-        return clustered_reads
+    def longest_common_sublist(self, a, b):
+        # Lengths of both lists
+        m, n = len(a), len(b)
+        # Creating a 2D array to store lengths of longest common suffixes of substrings
+        # dp[i][j] will be the length of LCS of a[0 to i-1] and b[0 to j-1]
+        dp = [[0] * (n + 1) for _ in range(m + 1)]
+        # Building the dp array from bottom up
+        for i in range(1, m + 1):
+            for j in range(1, n + 1):
+                if a[i - 1] == b[j - 1]:
+                    dp[i][j] = dp[i - 1][j - 1] + 1
+                else:
+                    dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+        # Now, reconstruct the longest common subsequence from the dp array
+        lcs = []
+        i, j = m, n
+        while i > 0 and j > 0:
+            if a[i - 1] == b[j - 1]:
+                lcs.append(a[i - 1])
+                i -= 1
+                j -= 1
+            elif dp[i - 1][j] >= dp[i][j - 1]:
+                i -= 1
+            else:
+                j -= 1
+        # The lcs list will be in reverse order
+        lcs.reverse()
+        return lcs
 
-    def new_get_paths_for_gene(self, reads, junction_nodes, amr_nodes, path_threshold):
+    def old_check_for_collapsed_paths(self, paths):
+        new_paths = {}
+        new_path_coverages = {}
+        for path in paths:
+            path_list = list(path)
+            upstream_options = {}
+            downstream_options = {}
+            all_options = {}
+            for read in paths[path]:
+                nodes_on_read = self.get_readNodes()[read]
+                if not self.is_sublist(nodes_on_read, path_list):
+                    reversed_read = list(reversed(nodes_on_read))
+                    nodes_on_read = reversed_read
+                if tuple(nodes_on_read) not in all_options:
+                    all_options[tuple(nodes_on_read)] = set()
+                all_options[tuple(nodes_on_read)].add(read)
+            all_clusters = self.assign_subpaths_to_underlying_paths(all_options)
+            new_clusters = {}
+            for c1 in all_clusters:
+                for c2 in all_clusters:
+                    if c1 != c2:
+                        if len(self.longest_common_sublist(list(c1), list(c2))) / min([len(c1), len(c2)]) > 0.5:
+                            new_clusters[tuple(self.longest_common_sublist(list(c1), list(c2)))] = {}
+            print(len(all_clusters), len(new_clusters))
+            for c1 in all_clusters:
+                for c2 in new_clusters:
+                    print(len(self.longest_common_sublist(list(c1), list(c2))), len(self.longest_common_sublist(list(c1), list(c2))) / min([len(c1), len(c2)]))
+            dddd
+        return new_paths, new_path_coverages
+
+    def current_get_paths_for_gene(self, reads, amr_nodes, path_threshold):
         paths = {}
         path_coverages = {}
         unique_paths = set()
@@ -2617,212 +2635,104 @@ class GeneMerGraph:
         for key in to_delete:
             del paths[key]
             del path_coverages[key]
-        # for k in paths:
-        #     print(self.get_genes_in_unitig(list(k)), paths[k])
+        #for k in new_paths:
+        #    print(self.get_genes_in_unitig(list(k)), len(new_paths[k]))
         return paths, path_coverages
 
-    def new_get_paths_for_gene_working(self, reads, junction_nodes, amr_nodes, path_threshold):
+    def intersection_of_sets(self, sets_list):
+        if not sets_list:
+            return set()
+        return set.intersection(*sets_list)
+
+    def reverse_BFS_trimming(self, number_of_intersecting_reads):
+        """Performs a reverse BFS from terminal nodes to find a set of intersecting reads across paths that meet the required threshold."""
+        # Get terminal nodes based on their neighbors
+        terminal_nodes = [node for node in self.all_nodes() if not self.get_forward_neighbors(node) or not self.get_backward_neighbors(node)]
+        if not terminal_nodes:
+            return self
+        # Initialize read sets from the terminal nodes
+        read_sets = [set(node.get_list_of_reads()) for node in terminal_nodes]
+        intersecting_reads = self.intersection_of_sets(read_sets)
+        if len(intersecting_reads) >= number_of_intersecting_reads:
+            return self
+        seen_nodes = set()
+        while len(intersecting_reads) < number_of_intersecting_reads:
+            for i, terminal in enumerate(terminal_nodes):
+                if terminal is None:
+                    continue
+                next_nodes = [n for n in self.get_all_neighbors(terminal) if n.__hash__() not in seen_nodes]
+                if len(next_nodes) == 1:
+                    next_node = next_nodes[0]
+                    terminal_nodes[i] = next_node
+                    read_sets[i] = set(next_node.get_list_of_reads())
+                    intersecting_reads = self.intersection_of_sets(read_sets)
+                    seen_nodes.add(terminal.__hash__())
+                    if len(intersecting_reads) >= number_of_intersecting_reads:
+                        for n in seen_nodes:
+                            self.remove_node(self.get_node_by_hash(n))
+                        print(intersecting_reads)
+                        return self
+                else:
+                    terminal_nodes[i] = None
+                    read_sets[i] = None
+            # Terminate if all nodes are exhausted
+            if all(n is None for n in terminal_nodes):
+                break
+        for n in seen_nodes:
+            self.remove_node(self.get_node_by_hash(n))
+        return self
+
+    def get_paths_for_gene(self,
+                        reads,
+                        nodeHashesOfInterest,
+                        threshold,
+                        ):
         paths = {}
         path_coverages = {}
-        unique_paths = set()
-        # Iterate through the reads
-        for read in tqdm(reads):
-            # Get the nodes on the read
+        nodeHashesOfInterest = set(nodeHashesOfInterest)  # Convert to set for faster lookup
+        # Collect core options from reads
+        for read in reads:
             nodes_on_read = self.get_readNodes()[read]
-            # List to store AMR blocks
-            this_block = []
-            block_start = None
-            # Iterate through the nodes on the read
-            for i, n in enumerate(nodes_on_read):
-                if n in amr_nodes:
-                    this_block.append(n)
-                    if block_start is None:
-                        block_start = i
-                else:
-                    if len(this_block) != 0:
-                        canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
-                        if canonical_path not in paths:
-                            paths[canonical_path] = set()
-                            path_coverages[canonical_path] = [
-                                self.get_node_by_hash(h).get_node_coverage()
-                                for h in list(canonical_path)
-                            ]
-                        paths[canonical_path].add(read)
-                        this_block = []
-                        block_start = None
-            if this_block:
-                canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
-                if len(this_block) > 1:
-                    sourceToTarget, targetToSource = self.get_edges_between_nodes(
-                        self.get_node_by_hash(this_block[-2]),
-                        self.get_node_by_hash(this_block[-1]),
-                    )
-                    if sourceToTarget.get_targetNodeDirection() == 1:
-                        next_nodes = [
-                            nxt.__hash__()
-                            for nxt in self.get_forward_neighbors(sourceToTarget.get_targetNode())
-                            if nxt.__hash__() in amr_nodes
-                        ]
-                    else:
-                        next_nodes = [
-                            nxt.__hash__()
-                            for nxt in self.get_backward_neighbors(sourceToTarget.get_targetNode())
-                            if nxt.__hash__() in amr_nodes
-                        ]
-                    sourceToTarget, targetToSource = self.get_edges_between_nodes(
-                        self.get_node_by_hash(this_block[1]),
-                        self.get_node_by_hash(this_block[0]),
-                    )
-                    if sourceToTarget.get_targetNodeDirection() == 1:
-                        previous_nodes = [
-                            nxt.__hash__()
-                            for nxt in self.get_forward_neighbors(sourceToTarget.get_targetNode())
-                            if nxt.__hash__() in amr_nodes
-                        ]
-                    else:
-                        previous_nodes = [
-                            nxt.__hash__()
-                            for nxt in self.get_backward_neighbors(sourceToTarget.get_targetNode())
-                            if nxt.__hash__() in amr_nodes
-                        ]
-                else:
-                    next_nodes = []
-                    previous_nodes = []
-                if len(next_nodes) == 0 or len(previous_nodes) == 0:
-                    if canonical_path not in paths:
-                        paths[canonical_path] = set()
-                        path_coverages[canonical_path] = [
-                            self.get_node_by_hash(h).get_node_coverage()
-                            for h in list(canonical_path)
-                        ]
-                    paths[canonical_path].add(read)
-        sorted_paths = sorted(list(paths.keys()), key=len, reverse=True)
-        for i, canonical_path in enumerate(sorted_paths):
-            if len(paths[canonical_path]) >= path_threshold:
-                # Check if this path is a subpath of any other path
-                if not any(
-                    self.is_sublist(list(other), list(canonical_path))
-                    or self.is_sublist(list(other), list(reversed(list(canonical_path))))
-                    for j, other in enumerate(unique_paths)
-                ):
-                    unique_paths.add(canonical_path)
-        to_delete = []
-        for key in paths:
-            if key not in unique_paths:
-                to_delete.append(key)
-        for k in paths:
-            print(self.get_genes_in_unitig(list(k)), paths[k])
-        for key in to_delete:
-            del paths[key]
-            del path_coverages[key]
+            AMR_indices = [1 if n_hash in nodeHashesOfInterest else 0 for n_hash in nodes_on_read]
+            first_one_index = AMR_indices.index(1)
+            last_one_index = len(AMR_indices) - 1 - AMR_indices[::-1].index(1)
+            core = nodes_on_read[first_one_index:last_one_index + 1]
+            core_tuple = tuple(sorted([core, list(reversed(core))])[0])
+            if core_tuple not in paths:
+                paths[core_tuple] = set()
+                path_coverages[core_tuple] = [self.get_node_by_hash(n).get_node_coverage() for n in nodes_on_read]
+            paths[core_tuple].add(read)
+        # Filter out core options below threshold
+        core_to_delete = [c for c, reads in paths.items() if len(reads) < threshold]
+        for c in core_to_delete:
+            del paths[c]
+            del path_coverages[c]
+        # Remove any core option that is fully contained within another
+        core_to_delete = set()
+        for c1 in paths:
+            c1_list = list(c1)
+            rev_c1_list = list(reversed(c1_list))
+            for c2 in paths:
+                if c1 != c2:
+                    c2_list = list(c2)
+                    if self.is_sublist(c2_list, c1_list) or self.is_sublist(c2_list, rev_c1_list):
+                        core_to_delete.add(c1)
+        for c in core_to_delete:
+            del paths[c]
+            del path_coverages[c]
+        for c in paths:
+            print(self.get_genes_in_unitig(list(c)), paths[c])
         return paths, path_coverages
 
-    def new_get_paths_for_gene_working_old(self, reads, anchor_nodes, amr_nodes):
-        paths = {}
-        path_coverages = {}
-        # Iterate through the reads
-        for read in tqdm(reads):
-            # Get the nodes on the read
-            nodes_on_read = self.get_readNodes()[read]
-            # List to store AMR blocks
-            amr_blocks = []
-            this_block = []
-            # Iterate through the nodes on the read
-            for i, n in enumerate(nodes_on_read):
-                if n in amr_nodes:
-                    this_block.append(n)
-                    if len(this_block) > 1:
-                        try:
-                            sourceToTarget, targetToSource = self.get_edges_between_nodes(
-                                self.get_node_by_hash(this_block[-2]),
-                                self.get_node_by_hash(this_block[-1]),
-                            )
-                        except AssertionError:
-                            this_block.pop()  # Remove the non-adjacent node
-                            if len(this_block) > 1:
-                                amr_blocks.append(this_block)
-                            this_block = [n]
-                            continue  # get the edge direction
-                        if sourceToTarget.get_targetNodeDirection() == 1:
-                            next_amr_nodes = [
-                                nxt.__hash__()
-                                for nxt in self.get_forward_neighbors(
-                                    sourceToTarget.get_targetNode()
-                                )
-                                if nxt.__hash__() in amr_nodes
-                            ]
-                        else:
-                            next_amr_nodes = [
-                                nxt.__hash__()
-                                for nxt in self.get_backward_neighbors(
-                                    sourceToTarget.get_targetNode()
-                                )
-                                if nxt.__hash__() in amr_nodes
-                            ]
-                        if i < len(nodes_on_read) - 2 and nodes_on_read[i + 1] not in amr_nodes:
-                            next_amr_nodes = []
-                        if len(next_amr_nodes) == 0:
-                            try:
-                                sourceToTarget, targetToSource = self.get_edges_between_nodes(
-                                    self.get_node_by_hash(this_block[1]),
-                                    self.get_node_by_hash(this_block[0]),
-                                )
-                            except AssertionError:
-                                if len(this_block) > 1:
-                                    amr_blocks.append(this_block)
-                                this_block = [n]
-                                continue
-                            if sourceToTarget.get_targetNodeDirection() == 1:
-                                previous_amr_nodes = [
-                                    nxt.__hash__()
-                                    for nxt in self.get_forward_neighbors(
-                                        sourceToTarget.get_targetNode()
-                                    )
-                                    if nxt.__hash__() in amr_nodes
-                                ]
-                            else:
-                                previous_amr_nodes = [
-                                    nxt.__hash__()
-                                    for nxt in self.get_backward_neighbors(
-                                        sourceToTarget.get_targetNode()
-                                    )
-                                    if nxt.__hash__() in amr_nodes
-                                ]
-                            if nodes_on_read.index(this_block[0]) != 0:
-                                previous_amr_nodes = []
-                            if len(previous_amr_nodes) == 0:
-                                amr_blocks.append(this_block)
-                                this_block = []
-            # Process reads with single nodes that are AMR nodes
-            if (
-                len(nodes_on_read) == 1
-                and nodes_on_read[0] in amr_nodes
-                and len(self.get_all_neighbor_hashes(self.get_node_by_hash(nodes_on_read[0]))) == 0
-            ):
-                amr_blocks.append([nodes_on_read[0]])
-            for path in amr_blocks:
-                if len(path) > 0:  # Process if there is at least one node in the path
-                    # Get the canonical path
-                    canonical_path = tuple(sorted((path, list(reversed(path))))[0])
-                    if canonical_path not in paths:
-                        paths[canonical_path] = set()
-                    paths[canonical_path].add(read)
-                    # collect the coverages of the nodes in the path
-                    if canonical_path not in path_coverages:
-                        path_coverages[canonical_path] = [
-                            self.get_node_by_hash(h).get_node_coverage()
-                            for h in list(canonical_path)
-                        ]
-        return paths, path_coverages
-
-    def new_split_into_subpaths(
-        self, geneOfInterest, pathsOfinterest, fastq_content, path_coverages
+    def split_into_subpaths(
+        self, geneOfInterest, pathsOfinterest, fastq_content, path_coverages, mean_node_coverage=None
     ):
         allele_count = 1
         gene_clusters = {}
         copy_numbers = {}
         # get the mean node coverage for all nodes
-        mean_node_coverage = self.get_mean_node_coverage()
+        if mean_node_coverage is None:
+            mean_node_coverage = self.get_mean_node_coverage()
         # iterate through the paths
         for path in pathsOfinterest:
             # get the genes in the path
@@ -2989,11 +2899,77 @@ class GeneMerGraph:
         # return the mean of the node covewrages
         return statistics.mean(all_node_coverages)
 
-    def new_assign_reads_to_genes(self, listOfGenes, fastq_dict, path_threshold=5):
+    def make_intersection_matrix(self):
+        node_hashes = [h for h in self.get_nodes()]  # Retrieve all nodes from the graph
+        num_nodes = len(node_hashes)
+        read_sets = [set(self.get_node_by_hash(n_hash).get_list_of_reads()) for n_hash in node_hashes]  # List of sets of reads for each node
+        # Initialize the matrix with zeros
+        matrix = [[0] * num_nodes for _ in range(num_nodes)]
+        # Compute the number of intersecting reads for each pair of nodes
+        for i in range(num_nodes):
+            for j in range(i, num_nodes):  # Only compute for each pair once
+                if i == j:
+                    # For the same node, we consider all reads as intersecting with themselves
+                    matrix[i][j] = len(read_sets[i])
+                else:
+                    # Intersection count for different nodes
+                    intersecting_reads = read_sets[i].intersection(read_sets[j])
+                    matrix[i][j] = matrix[j][i] = len(intersecting_reads)
+        return matrix, node_hashes
+
+    def get_node_with_highest_subthreshold_connections(self, matrix, threshold):
+        # Start by assuming no nodes are below the threshold sufficiently
+        highest_count = -1
+        node_index = None
+        for i, row in enumerate(matrix):
+            if not np.any(np.isnan(row)):  # Check if the row is already nullified
+                # Count the connections below the threshold
+                count_below_threshold = np.sum(row < threshold)
+                if count_below_threshold > highest_count:
+                    highest_count = count_below_threshold
+                    node_index = i
+        return node_index
+
+    def filter_nodes_by_intersection(self, matrix, node_hashes, threshold=5):
+        matrix = np.array(matrix, dtype=float)  # Ensure matrix is of float type to handle NaN
+        nodes_to_check = True
+
+        while nodes_to_check:
+            lowest = self.get_node_with_highest_subthreshold_connections(matrix, threshold)
+            if lowest is not None:
+                # Nullify the selected row and column
+                matrix[lowest, :] = np.nan
+                matrix[:, lowest] = np.nan
+            else:
+                nodes_to_check = False  # No more nodes to process
+            print(list(matrix), "\n")
+        return
+
+    def old_trim_fringe_nodes(self, number_of_intersecting_reads, intersection_matrix, node_hashes):
+        nodes_to_delete = self.filter_nodes_by_intersection(intersection_matrix, node_hashes, number_of_intersecting_reads)
+        # delete the nodes
+        for node_hash in nodes_to_delete:
+            self.remove_node(self.get_node_by_hash(node_hash))
+        return self
+
+    def trim_fringe_nodes(self, number_of_intersecting_reads, intersection_matrix, node_hashes):
+        # get a list of nodes to remove
+        nodes_to_delete = []
+        for i, n_hash in enumerate(node_hashes):
+            if all(v < number_of_intersecting_reads for v in intersection_matrix[i]):
+                nodes_to_delete.append(self.get_node_by_hash(n_hash))
+        # delete the nodes
+        for node in nodes_to_delete:
+            self.remove_node(node)
+        return self
+
+    def assign_reads_to_genes(self, listOfGenes, fastq_dict, allele_counts = {}, mean_node_coverage=None, path_threshold=5):
         # initialise dictionaries to track the alleles
         clustered_reads = {}
         cluster_copy_numbers = {}
-        allele_counts = {}
+        # get the mean node coverage if it is not specified
+        if mean_node_coverage is None:
+            mean_node_coverage = self.get_mean_node_coverage()
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
@@ -3014,16 +2990,31 @@ class GeneMerGraph:
                 anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
+                # construct a subgraph of the component
+                #subgraph = GeneMerGraph({r: self.get_reads()[r] for r in reads}, self.get_kmerSize())
+                # # make a matrix of the intersection counts of reads
+                # intersection_matrix, node_hashes = subgraph.make_intersection_matrix()
+                # # trim nodes that are only in a few reads
+                # trimmed_graph = subgraph.trim_fringe_nodes(path_threshold,
+                #                                         intersection_matrix,
+                #                                         node_hashes)
+                # check if there are any junctions in the trimmed graph
+                #if len(subgraph.identify_potential_bubble_starts()) == 0:
                 # get the paths containing this gene
-                pathsOfInterest, pathCoverages = self.new_get_paths_for_gene(
+                pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     reads,
-                    junction_nodes,
                     nodeHashesOfInterest,
-                    max(5, self.get_mean_node_coverage() / 10),
+                    max(5, mean_node_coverage / 10),
                 )
+                # else:
+                #     pathsOfInterest, pathCoverages = subgraph.get_complex_paths(
+                #         reads,
+                #         nodeHashesOfInterest,
+                #         max(5, mean_node_coverage / 10),
+                #     )
                 # split the paths into subpaths
-                finalAllelesOfInterest, copy_numbers = self.new_split_into_subpaths(
-                    geneOfInterest, pathsOfInterest, fastq_dict, pathCoverages
+                finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
+                    geneOfInterest, pathsOfInterest, fastq_dict, pathCoverages, mean_node_coverage
                 )
                 # add the component to the clustered reads
                 if component not in clustered_reads:
@@ -3051,7 +3042,7 @@ class GeneMerGraph:
                         allele_counts[gene_name] += 1
                     else:
                         message = f"Amira: allele {allele} in component {component} "
-                        message += "filtered due to an insufficient number of reads.\n"
+                        message += f"filtered due to an insufficient number of reads ({len(finalAllelesOfInterest[allele])}).\n"
                         sys.stderr.write(message)
                 # collect all of the reads containing the gene
                 if (
@@ -3087,7 +3078,7 @@ class GeneMerGraph:
                                 f"{read_id}_{gene_start}_{gene_end}"
                             )
                     allele_counts[geneOfInterest] += 1
-        return clustered_reads, cluster_copy_numbers
+        return clustered_reads, cluster_copy_numbers, allele_counts
 
     def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []

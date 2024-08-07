@@ -73,6 +73,13 @@ def get_options() -> argparse.Namespace:
         help="Minimum threshold for gene filtering.",
     )
     parser.add_argument(
+        "--genome-size",
+        dest="genome_size",
+        type=int,
+        required=True,
+        help="Approximate genome size (bp).",
+    )
+    parser.add_argument(
         "--minimum-length-proportion",
         dest="lower_gene_length_threshold",
         type=float,
@@ -157,6 +164,17 @@ def build_multiprocessed_graph(annotatedReads, geneMer_size, cores, gene_positio
     merged_graph = merge_graphs(sub_graphs)
     return merged_graph
 
+def plot_read_length_distribution(annotatedReads, output_dir):
+    read_lengths = []
+    for read in annotatedReads:
+        read_lengths.append(len(annotatedReads[read]))
+    plt.figure(figsize=(10, 6))
+    plt.hist(read_lengths, bins=50, edgecolor='black')
+    plt.title("Number of genes per read")
+    plt.xlabel("Number of genes")
+    plt.ylabel("Absolute frequency")
+    plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
+    plt.close()
 
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
@@ -286,7 +304,6 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
     )
     return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
 
-
 def main() -> None:
     # get command line options
     args = get_options()
@@ -354,13 +371,14 @@ def main() -> None:
                 random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
             )
     print(list(sorted(list(sample_genesOfInterest))))
+    # load the fastq data
+    fastq_content = parse_fastq(args.readfile)
     # write out debug files if specified
     if args.debug:
+        plot_read_length_distribution(annotatedReads, args.output_dir)
         write_debug_files(
             annotatedReads, args.geneMer_size, sample_genesOfInterest, args.output_dir, args.cores
         )
-    # load the fastq data
-    fastq_content = parse_fastq(args.readfile)
     # build the gene-mer graph
     sys.stderr.write("\nAmira: building intitial gene-mer graph\n")
     # graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
@@ -372,7 +390,7 @@ def main() -> None:
             graph.get_all_node_coverages(),
             os.path.join(args.output_dir, "initial_node_coverages.png"),
         )
-    except ValueError or IndexError:
+    except (ValueError, IndexError) as e:
         min_path_coverage = 10
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
@@ -480,7 +498,7 @@ def main() -> None:
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
-    clusters_of_interest, cluster_copy_numbers = graph.new_assign_reads_to_genes(
+    clusters_of_interest, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
         sample_genesOfInterest, fastq_content
     )
     # get the unique genes we have found
