@@ -2484,7 +2484,7 @@ class GeneMerGraph:
             # get the upstream nodes
             upstream = nodes_on_read[:first_one_index]
             # get the downstream nodes
-            downstream = nodes_on_read[last_one_index + 1:]
+            downstream = nodes_on_read[last_one_index + 1 :]
             # make the up and downstream nodes relative to the sorted core
             if sorted_core == core:
                 upstream_tuple = tuple(upstream)
@@ -2535,7 +2535,9 @@ class GeneMerGraph:
                     if len(shared_reads) > 0:
                         final_path = u + c + d
                         final_paths[final_path] = shared_reads
-                        final_path_coverages[final_path] = [self.get_node_by_hash(n).get_node_coverage() for n in list(final_path)]
+                        final_path_coverages[final_path] = [
+                            self.get_node_by_hash(n).get_node_coverage() for n in list(final_path)
+                        ]
         return final_paths, final_path_coverages
 
     def cluster_adjacent_paths(self, adjacent_paths):
@@ -2548,7 +2550,7 @@ class GeneMerGraph:
             paths_supported = []
             for c in clustered_sub_paths:
                 list_c = list(c)
-                if self.is_sublist(list_c, list_p):# or len(list_p) == 0:
+                if self.is_sublist(list_c, list_p):  # or len(list_p) == 0:
                     paths_supported.append(c)
             if len(paths_supported) == 0:
                 clustered_sub_paths[p] = {"reads": adjacent_paths[p], "paths": {p}}
@@ -2558,7 +2560,9 @@ class GeneMerGraph:
         # choose the shortest subpath in a cluster as the representative
         final_clusters = {}
         for c in clustered_sub_paths:
-            final_clusters[min(list(clustered_sub_paths[c]["paths"]), key=len)] = clustered_sub_paths[c]["reads"]
+            final_clusters[min(list(clustered_sub_paths[c]["paths"]), key=len)] = (
+                clustered_sub_paths[c]["reads"]
+            )
         return final_clusters
 
     def split_into_subpaths(

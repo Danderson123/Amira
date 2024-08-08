@@ -1,12 +1,11 @@
 import unittest
 from collections import Counter
 
+# from amira_prototype.__main__ import parse_fastq
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
-
-from amira_prototype.__main__ import parse_fastq
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -4638,15 +4637,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
     def test___get_paths_for_gene_one_adjacent_path(self):
         # setup
-        genes1 = [
-            "+gene1",
-            "-gene2",
-            "+gene4",
-            "-gene4",
-            "-gene4",
-            "+gene7",
-            "-gene8"
-        ]
+        genes1 = ["+gene1", "-gene2", "+gene4", "-gene4", "-gene4", "+gene7", "-gene8"]
         genes2 = [
             "+gene-1",
             "-gene0",
@@ -4658,8 +4649,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "+gene7",
             "-gene8",
             "+gene9",
-            "-gene10"
-            "+gene11"
+            "-gene10" "+gene11",
         ]
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
@@ -4713,7 +4703,19 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_paths_for_gene_linear_path_contained(self):
         # setup
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
-        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
+        genes2 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+        ]
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
@@ -5721,6 +5723,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_paths_for_gene_complex_one(self):
         # setup
         import json
+
         call_file = "tests/complex_gene_calls_one.json"
         position_file = "tests/complex_gene_positions_one.json"
         with open(call_file) as i:
@@ -5758,7 +5761,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "-gene12",
             "+gene13",
             "-gene14",
-            "+gene15"
+            "+gene15",
         ]
         genes2 = [
             "+gene16",
@@ -5775,10 +5778,18 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             "-gene20",
             "+gene21",
             "-gene22",
-            "+gene23"
+            "+gene23",
         ]
         graph = GeneMerGraph(
-            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes2, "read5": genes2, "read6": genes2}, 3
+            {
+                "read1": genes1,
+                "read2": genes1,
+                "read3": genes1,
+                "read4": genes2,
+                "read5": genes2,
+                "read6": genes2,
+            },
+            3,
         )
         nodesOfInterest = graph.get_nodes_containing("gene8")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
@@ -5799,7 +5810,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             (5, 6, 3, 4): {"read4", "read5"},
             (6, 3, 4): {"read6"},
             (5, 3, 2, 4): {"read7"},
-            (3, 4): {"read8"}
+            (3, 4): {"read8"},
         }
         graph = GeneMerGraph({}, 3)
         # execution
@@ -5809,9 +5820,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue((2, 3, 4) in actual_clusters)
         self.assertTrue((6, 3, 4) in actual_clusters)
         self.assertTrue((5, 3, 2, 4) in actual_clusters)
-        self.assertTrue(
-            all(r in actual_clusters[(2, 3, 4)] for r in {"read1", "read2", "read3"})
-        )
+        self.assertTrue(all(r in actual_clusters[(2, 3, 4)] for r in {"read1", "read2", "read3"}))
         self.assertTrue(all(r in actual_clusters[(6, 3, 4)] for r in {"read4", "read5", "read6"}))
         self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)] for r in {"read7"}))
 

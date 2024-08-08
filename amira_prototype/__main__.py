@@ -16,6 +16,7 @@ from amira_prototype.pre_process import convert_pandora_output, process_pandora_
 
 matplotlib.use("Agg")
 
+
 def get_options() -> argparse.Namespace:
     """define args from the command line"""
     parser = argparse.ArgumentParser(description="Build a prototype gene de Bruijn graph.")
@@ -672,6 +673,7 @@ def main() -> None:
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
     # make the result table
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
