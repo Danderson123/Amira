@@ -5835,23 +5835,3 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertTrue(actual_validity)
         self.assertEqual(len(actual_references), 6)
-
-    def test___get_paths_for_gene_complex_two(self):
-        # setup
-        import json
-        call_file = "tests/corrected_gene_calls_after_filtering.json"
-        position_file = "tests/corrected_gene_positions_after_filtering.json"
-        with open(call_file) as i:
-            calls = json.load(i)
-        with open(position_file) as i:
-            positions = json.load(i)
-        fastq_dict = parse_fastq("/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044219_1.fastq")
-        graph = GeneMerGraph(calls, 3, positions)
-        clusters, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
-            {'aph3Ib'}, fastq_dict
-        )
-        for c in clusters:
-            for g in clusters[c]:
-                for a in clusters[c][g]:
-                    print(g, a, clusters[c][g][a])
-        jkdkdkdkdk

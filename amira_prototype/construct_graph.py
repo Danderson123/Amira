@@ -2538,9 +2538,6 @@ class GeneMerGraph:
                         final_path_coverages[final_path] = [
                             self.get_node_by_hash(n).get_node_coverage() for n in list(final_path)
                         ]
-        for p in final_paths:
-            print(self.get_genes_in_unitig(p),len(final_paths[p]))
-        ssss
         return final_paths, final_path_coverages
 
     def cluster_adjacent_paths(self, adjacent_paths):
