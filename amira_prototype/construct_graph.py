@@ -3110,7 +3110,7 @@ class GeneMerGraph:
                         "04.polished_sequence.fasta",
                         str(len(valid_allele_sequence)),
                     )
-                except:
+                except subprocess.CalledProcessError:
                     return {
                         "Gene name": valid_allele.split(".")[0],
                         "Sequence name": phenotypes[valid_allele],

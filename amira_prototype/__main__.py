@@ -322,7 +322,7 @@ def parse_fastq(fastq_file):
                     # Add the identifier and sequence to the results dictionary
                     results[identifier] = {"sequence": sequence, "quality": quality}
             return results
-        except:
+        except OSError:
             pass
     with open(fastq_file, "r") as fh:
         # Iterate over the lines in the file
