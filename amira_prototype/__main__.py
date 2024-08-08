@@ -164,17 +164,19 @@ def build_multiprocessed_graph(annotatedReads, geneMer_size, cores, gene_positio
     merged_graph = merge_graphs(sub_graphs)
     return merged_graph
 
+
 def plot_read_length_distribution(annotatedReads, output_dir):
     read_lengths = []
     for read in annotatedReads:
         read_lengths.append(len(annotatedReads[read]))
     plt.figure(figsize=(10, 6))
-    plt.hist(read_lengths, bins=50, edgecolor='black')
+    plt.hist(read_lengths, bins=50, edgecolor="black")
     plt.title("Number of genes per read")
     plt.xlabel("Number of genes")
     plt.ylabel("Absolute frequency")
     plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
     plt.close()
+
 
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
@@ -303,6 +305,7 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
         read_subset,
     )
     return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
+
 
 def main() -> None:
     # get command line options

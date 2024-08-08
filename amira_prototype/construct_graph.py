@@ -2525,12 +2525,22 @@ class GeneMerGraph:
             for c1 in all_clusters:
                 for c2 in all_clusters:
                     if c1 != c2:
-                        if len(self.longest_common_sublist(list(c1), list(c2))) / min([len(c1), len(c2)]) > 0.5:
-                            new_clusters[tuple(self.longest_common_sublist(list(c1), list(c2)))] = {}
+                        if (
+                            len(self.longest_common_sublist(list(c1), list(c2)))
+                            / min([len(c1), len(c2)])
+                            > 0.5
+                        ):
+                            new_clusters[tuple(self.longest_common_sublist(list(c1), list(c2)))] = (
+                                {}
+                            )
             print(len(all_clusters), len(new_clusters))
             for c1 in all_clusters:
                 for c2 in new_clusters:
-                    print(len(self.longest_common_sublist(list(c1), list(c2))), len(self.longest_common_sublist(list(c1), list(c2))) / min([len(c1), len(c2)]))
+                    print(
+                        len(self.longest_common_sublist(list(c1), list(c2))),
+                        len(self.longest_common_sublist(list(c1), list(c2)))
+                        / min([len(c1), len(c2)]),
+                    )
             dddd
         return new_paths, new_path_coverages
 
@@ -2635,7 +2645,7 @@ class GeneMerGraph:
         for key in to_delete:
             del paths[key]
             del path_coverages[key]
-        #for k in new_paths:
+        # for k in new_paths:
         #    print(self.get_genes_in_unitig(list(k)), len(new_paths[k]))
         return paths, path_coverages
 
@@ -2647,7 +2657,11 @@ class GeneMerGraph:
     def reverse_BFS_trimming(self, number_of_intersecting_reads):
         """Performs a reverse BFS from terminal nodes to find a set of intersecting reads across paths that meet the required threshold."""
         # Get terminal nodes based on their neighbors
-        terminal_nodes = [node for node in self.all_nodes() if not self.get_forward_neighbors(node) or not self.get_backward_neighbors(node)]
+        terminal_nodes = [
+            node
+            for node in self.all_nodes()
+            if not self.get_forward_neighbors(node) or not self.get_backward_neighbors(node)
+        ]
         if not terminal_nodes:
             return self
         # Initialize read sets from the terminal nodes
@@ -2660,7 +2674,9 @@ class GeneMerGraph:
             for i, terminal in enumerate(terminal_nodes):
                 if terminal is None:
                     continue
-                next_nodes = [n for n in self.get_all_neighbors(terminal) if n.__hash__() not in seen_nodes]
+                next_nodes = [
+                    n for n in self.get_all_neighbors(terminal) if n.__hash__() not in seen_nodes
+                ]
                 if len(next_nodes) == 1:
                     next_node = next_nodes[0]
                     terminal_nodes[i] = next_node
@@ -2682,11 +2698,12 @@ class GeneMerGraph:
             self.remove_node(self.get_node_by_hash(n))
         return self
 
-    def get_paths_for_gene(self,
-                        reads,
-                        nodeHashesOfInterest,
-                        threshold,
-                        ):
+    def get_paths_for_gene(
+        self,
+        reads,
+        nodeHashesOfInterest,
+        threshold,
+    ):
         paths = {}
         path_coverages = {}
         nodeHashesOfInterest = set(nodeHashesOfInterest)  # Convert to set for faster lookup
@@ -2696,11 +2713,13 @@ class GeneMerGraph:
             AMR_indices = [1 if n_hash in nodeHashesOfInterest else 0 for n_hash in nodes_on_read]
             first_one_index = AMR_indices.index(1)
             last_one_index = len(AMR_indices) - 1 - AMR_indices[::-1].index(1)
-            core = nodes_on_read[first_one_index:last_one_index + 1]
+            core = nodes_on_read[first_one_index : last_one_index + 1]
             core_tuple = tuple(sorted([core, list(reversed(core))])[0])
             if core_tuple not in paths:
                 paths[core_tuple] = set()
-                path_coverages[core_tuple] = [self.get_node_by_hash(n).get_node_coverage() for n in nodes_on_read]
+                path_coverages[core_tuple] = [
+                    self.get_node_by_hash(n).get_node_coverage() for n in nodes_on_read
+                ]
             paths[core_tuple].add(read)
         # Filter out core options below threshold
         core_to_delete = [c for c, reads in paths.items() if len(reads) < threshold]
@@ -2725,7 +2744,12 @@ class GeneMerGraph:
         return paths, path_coverages
 
     def split_into_subpaths(
-        self, geneOfInterest, pathsOfinterest, fastq_content, path_coverages, mean_node_coverage=None
+        self,
+        geneOfInterest,
+        pathsOfinterest,
+        fastq_content,
+        path_coverages,
+        mean_node_coverage=None,
     ):
         allele_count = 1
         gene_clusters = {}
@@ -2902,7 +2926,9 @@ class GeneMerGraph:
     def make_intersection_matrix(self):
         node_hashes = [h for h in self.get_nodes()]  # Retrieve all nodes from the graph
         num_nodes = len(node_hashes)
-        read_sets = [set(self.get_node_by_hash(n_hash).get_list_of_reads()) for n_hash in node_hashes]  # List of sets of reads for each node
+        read_sets = [
+            set(self.get_node_by_hash(n_hash).get_list_of_reads()) for n_hash in node_hashes
+        ]  # List of sets of reads for each node
         # Initialize the matrix with zeros
         matrix = [[0] * num_nodes for _ in range(num_nodes)]
         # Compute the number of intersecting reads for each pair of nodes
@@ -2946,7 +2972,9 @@ class GeneMerGraph:
         return
 
     def old_trim_fringe_nodes(self, number_of_intersecting_reads, intersection_matrix, node_hashes):
-        nodes_to_delete = self.filter_nodes_by_intersection(intersection_matrix, node_hashes, number_of_intersecting_reads)
+        nodes_to_delete = self.filter_nodes_by_intersection(
+            intersection_matrix, node_hashes, number_of_intersecting_reads
+        )
         # delete the nodes
         for node_hash in nodes_to_delete:
             self.remove_node(self.get_node_by_hash(node_hash))
@@ -2963,7 +2991,9 @@ class GeneMerGraph:
             self.remove_node(node)
         return self
 
-    def assign_reads_to_genes(self, listOfGenes, fastq_dict, allele_counts = {}, mean_node_coverage=None, path_threshold=5):
+    def assign_reads_to_genes(
+        self, listOfGenes, fastq_dict, allele_counts={}, mean_node_coverage=None, path_threshold=5
+    ):
         # initialise dictionaries to track the alleles
         clustered_reads = {}
         cluster_copy_numbers = {}
@@ -2991,7 +3021,7 @@ class GeneMerGraph:
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # construct a subgraph of the component
-                #subgraph = GeneMerGraph({r: self.get_reads()[r] for r in reads}, self.get_kmerSize())
+                # subgraph = GeneMerGraph({r: self.get_reads()[r] for r in reads}, self.get_kmerSize())
                 # # make a matrix of the intersection counts of reads
                 # intersection_matrix, node_hashes = subgraph.make_intersection_matrix()
                 # # trim nodes that are only in a few reads
@@ -2999,7 +3029,7 @@ class GeneMerGraph:
                 #                                         intersection_matrix,
                 #                                         node_hashes)
                 # check if there are any junctions in the trimmed graph
-                #if len(subgraph.identify_potential_bubble_starts()) == 0:
+                # if len(subgraph.identify_potential_bubble_starts()) == 0:
                 # get the paths containing this gene
                 pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     reads,

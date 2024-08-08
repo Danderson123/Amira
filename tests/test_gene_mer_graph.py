@@ -6,7 +6,7 @@ from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
 
-#from amira_prototype.construct_unitig import parse_fastq
+# from amira_prototype.construct_unitig import parse_fastq
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -5018,9 +5018,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths, path_coverages = graph.get_paths_for_gene(
-            reads, nodeHashesOfInterest, 1
-        )
+        paths, path_coverages = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
@@ -5088,9 +5086,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths, path_coverages = graph.get_paths_for_gene(
-            reads, nodeHashesOfInterest, 1
-        )
+        paths, path_coverages = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
@@ -5299,7 +5295,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             (5, 6, 3, 4): {"read4"},
             (3, 4): {"read5"},
             (6, 3): {"read6"},
-            (0, 1, 2): {"read7"}
+            (0, 1, 2): {"read7"},
         }
         # execution
         actual_clustered_paths = graph.assign_subpaths_to_underlying_paths(subpaths)
@@ -5308,20 +5304,51 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue((1, 2, 3, 4) in actual_clustered_paths)
         self.assertTrue((5, 6, 3, 4) in actual_clustered_paths)
         self.assertTrue((0, 1, 2) in actual_clustered_paths)
-        self.assertTrue(all(r in actual_clustered_paths[(1, 2, 3, 4)] for r in {"read1", "read2", "read3"}))
+        self.assertTrue(
+            all(r in actual_clustered_paths[(1, 2, 3, 4)] for r in {"read1", "read2", "read3"})
+        )
         self.assertTrue(all(r in actual_clustered_paths[(5, 6, 3, 4)] for r in {"read4", "read6"}))
         self.assertTrue(all(r in actual_clustered_paths[(0, 1, 2)] for r in {"read7"}))
 
     def test___make_intersection_matrix(self):
         # setup
         annotations = {
-            "read1": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
+            "read1": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
             "read2": ["-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
-            "read3": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
             "read4": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
-            "read5": ["-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9"],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+            ],
             "read6": ["+gene7", "+gene8", "+gene9", "+gene10"],
-            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7"]
+            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7"],
         }
         graph = GeneMerGraph(annotations, 3)
         actual_matrix, actual_node_hashes = graph.make_intersection_matrix()
@@ -5334,7 +5361,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             [2, 3, 5, 6, 6, 5, 3, 2],
             [2, 3, 4, 5, 5, 5, 3, 2],
             [1, 2, 2, 3, 3, 3, 4, 3],
-            [1, 1, 1, 2, 2, 2, 3, 3]
+            [1, 1, 1, 2, 2, 2, 3, 3],
         ]
         self.assertEqual(actual_matrix, expected_matrix)
         self.assertEqual(len(actual_node_hashes), 8)
@@ -5342,13 +5369,42 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___trim_fringe_nodes_linear(self):
         # setup
         annotations = {
-            "read1": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
+            "read1": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
             "read2": ["-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
-            "read3": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
             "read4": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
-            "read5": ["-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9"],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+            ],
             "read6": ["+gene7", "+gene8", "+gene9", "+gene10"],
-            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7"]
+            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7"],
         }
         graph = GeneMerGraph(annotations, 3)
         matrix, node_hashes = graph.make_intersection_matrix()
@@ -5356,21 +5412,150 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 4)
-        self.assertTrue(all(len(n.get_list_of_reads()) in {5, 6} for n in trimmed_graph.all_nodes()))
+        self.assertTrue(
+            all(len(n.get_list_of_reads()) in {5, 6} for n in trimmed_graph.all_nodes())
+        )
 
     def test___trim_fringe_nodes_circle(self):
         # setup
         annotations = {
-            "read1": ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10", "-gene11"],
-            "read2": ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10", "-gene11", "+gene12"],
-            "read3": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10", "-gene11", "+gene12"],
-            "read4": ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10", "-gene11"],
-            "read5": ["-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10", "-gene11", "+gene12"],
-            "read6": ["-gene0", "+gene1", "-gene2", "+gene3", "-gene4", "+gene13", "+gene14", "+gene15", "+gene8", "+gene9", "+gene10", "-gene11", "+gene12"],
-            "read7": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene13", "+gene14", "+gene15", "+gene8", "+gene9", "+gene10", "-gene11"],
-            "read8": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene13", "+gene14", "+gene15", "+gene8", "+gene9", "+gene10", "-gene11"],
-            "read9": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene13", "+gene14", "+gene15", "+gene8", "+gene9", "+gene10", "-gene11"],
-            "read10": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene13", "+gene14", "+gene15", "+gene8", "+gene9", "+gene10", "-gene11"],
+            "read1": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read2": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read4": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read6": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read7": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read8": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read9": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read10": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
         }
         graph = GeneMerGraph(annotations, 3)
         matrix, node_hashes = graph.make_intersection_matrix()
@@ -5378,18 +5563,107 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 14)
-        self.assertTrue(all(len(n.get_list_of_reads()) in {9, 10, 5} for n in trimmed_graph.all_nodes()))
+        self.assertTrue(
+            all(len(n.get_list_of_reads()) in {9, 10, 5} for n in trimmed_graph.all_nodes())
+        )
 
     def test___trim_fringe_nodes_junction(self):
         # setup
         annotations = {
-            "read1": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
-            "read2": ["+gene3", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
-            "read3": ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
-            "read4": ["+gene3", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
-            "read5": ["-gene2", "+gene3", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9"],
+            "read1": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
+            "read2": [
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
+            "read4": [
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+            ],
             "read6": ["+gene7", "+gene8", "+gene9", "+gene10"],
-            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "-gene4", "+gene5", "+gene6", "+gene7"]
+            "read7": [
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+            ],
         }
         graph = GeneMerGraph(annotations, 3)
         matrix, node_hashes = graph.make_intersection_matrix()
@@ -5397,11 +5671,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 6)
-        self.assertTrue(all(len(n.get_list_of_reads()) in {5, 6} for n in trimmed_graph.all_nodes()))
+        self.assertTrue(
+            all(len(n.get_list_of_reads()) in {5, 6} for n in trimmed_graph.all_nodes())
+        )
 
     def test___trim_fringe_nodes_complex(self):
         # setup
         import json
+
         call_file = "tests/complex_gene_calls.json"
         position_file = "tests/complex_gene_positions.json"
         read_file = "tests/test.fastq.gz"
@@ -5423,6 +5700,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_complex_paths(self):
         # setup
         import json
+
         call_file = "tests/complex_gene_calls.json"
         position_file = "tests/complex_gene_positions.json"
         read_file = "tests/test.fastq.gz"
@@ -5438,10 +5716,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
         # execution
         actual_paths, actual_path_coverages = graph.get_paths_for_gene(
-                            graph.collect_reads_in_path(nodehashes),
-                            nodehashes,
-                            5
-                        )
+            graph.collect_reads_in_path(nodehashes), nodehashes, 5
+        )
         # assertion
         self.assertEqual(len(actual_paths), 2)
         self.assertTrue(all(len(actual_paths[p]) in {14, 5} for p in actual_paths))
@@ -5451,7 +5727,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         samfile = "tests/test_allele.sam"
         graph = GeneMerGraph({}, 3, {})
         # execution
-        actual_validity, actual_references, actual_unique_reads = graph.get_closest_allele(samfile, "allele")
+        actual_validity, actual_references, actual_unique_reads = graph.get_closest_allele(
+            samfile, "allele"
+        )
         # assertion
         self.assertTrue(actual_validity)
         self.assertEqual(len(actual_references), 6)
