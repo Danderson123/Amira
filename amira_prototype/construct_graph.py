@@ -2475,229 +2475,6 @@ class GeneMerGraph:
                 clustered_sub_paths[paths_supported[0]].update(subpaths[p])
         return clustered_sub_paths
 
-    def longest_common_sublist(self, a, b):
-        # Lengths of both lists
-        m, n = len(a), len(b)
-        # Creating a 2D array to store lengths of longest common suffixes of substrings
-        # dp[i][j] will be the length of LCS of a[0 to i-1] and b[0 to j-1]
-        dp = [[0] * (n + 1) for _ in range(m + 1)]
-        # Building the dp array from bottom up
-        for i in range(1, m + 1):
-            for j in range(1, n + 1):
-                if a[i - 1] == b[j - 1]:
-                    dp[i][j] = dp[i - 1][j - 1] + 1
-                else:
-                    dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
-        # Now, reconstruct the longest common subsequence from the dp array
-        lcs = []
-        i, j = m, n
-        while i > 0 and j > 0:
-            if a[i - 1] == b[j - 1]:
-                lcs.append(a[i - 1])
-                i -= 1
-                j -= 1
-            elif dp[i - 1][j] >= dp[i][j - 1]:
-                i -= 1
-            else:
-                j -= 1
-        # The lcs list will be in reverse order
-        lcs.reverse()
-        return lcs
-
-    def old_check_for_collapsed_paths(self, paths):
-        new_paths = {}
-        new_path_coverages = {}
-        for path in paths:
-            path_list = list(path)
-            upstream_options = {}
-            downstream_options = {}
-            all_options = {}
-            for read in paths[path]:
-                nodes_on_read = self.get_readNodes()[read]
-                if not self.is_sublist(nodes_on_read, path_list):
-                    reversed_read = list(reversed(nodes_on_read))
-                    nodes_on_read = reversed_read
-                if tuple(nodes_on_read) not in all_options:
-                    all_options[tuple(nodes_on_read)] = set()
-                all_options[tuple(nodes_on_read)].add(read)
-            all_clusters = self.assign_subpaths_to_underlying_paths(all_options)
-            new_clusters = {}
-            for c1 in all_clusters:
-                for c2 in all_clusters:
-                    if c1 != c2:
-                        if (
-                            len(self.longest_common_sublist(list(c1), list(c2)))
-                            / min([len(c1), len(c2)])
-                            > 0.5
-                        ):
-                            new_clusters[tuple(self.longest_common_sublist(list(c1), list(c2)))] = (
-                                {}
-                            )
-            print(len(all_clusters), len(new_clusters))
-            for c1 in all_clusters:
-                for c2 in new_clusters:
-                    print(
-                        len(self.longest_common_sublist(list(c1), list(c2))),
-                        len(self.longest_common_sublist(list(c1), list(c2)))
-                        / min([len(c1), len(c2)]),
-                    )
-            dddd
-        return new_paths, new_path_coverages
-
-    def current_get_paths_for_gene(self, reads, amr_nodes, path_threshold):
-        paths = {}
-        path_coverages = {}
-        unique_paths = set()
-        for read in tqdm(reads):
-            # Get the nodes on the read
-            nodes_on_read = self.get_readNodes()[read]
-            # Skip reads that do not contain any AMR nodes
-            if len(set(amr_nodes).intersection(nodes_on_read)) == 0:
-                continue
-            if len(nodes_on_read) > 1:
-                # Check if the first and last node are joined to non-AMR nodes
-                first_edge = self.get_edges_between_nodes(
-                    self.get_node_by_hash(nodes_on_read[1]),
-                    self.get_node_by_hash(nodes_on_read[0]),
-                )
-                last_edge = self.get_edges_between_nodes(
-                    self.get_node_by_hash(nodes_on_read[-2]),
-                    self.get_node_by_hash(nodes_on_read[-1]),
-                )
-                # Determine next nodes for the last node on the read
-                if last_edge[0].get_targetNodeDirection() == 1:
-                    next_nodes = [
-                        nxt.__hash__()
-                        for nxt in self.get_forward_neighbors(last_edge[0].get_targetNode())
-                        if nxt.__hash__() in amr_nodes
-                    ]
-                else:
-                    next_nodes = [
-                        nxt.__hash__()
-                        for nxt in self.get_backward_neighbors(last_edge[0].get_targetNode())
-                        if nxt.__hash__() in amr_nodes
-                    ]
-                # Determine previous nodes for the first node on the read
-                if first_edge[0].get_targetNodeDirection() == 1:
-                    previous_nodes = [
-                        nxt.__hash__()
-                        for nxt in self.get_forward_neighbors(first_edge[0].get_targetNode())
-                        if nxt.__hash__() in amr_nodes
-                    ]
-                else:
-                    previous_nodes = [
-                        nxt.__hash__()
-                        for nxt in self.get_backward_neighbors(first_edge[0].get_targetNode())
-                        if nxt.__hash__() in amr_nodes
-                    ]
-                # Process blocks of AMR nodes within the read
-                if len(previous_nodes) == 0 or len(next_nodes) == 0:
-                    this_block = []
-                    for n in nodes_on_read:
-                        if n in amr_nodes:
-                            this_block.append(n)
-                        else:
-                            if len(this_block) != 0:
-                                canonical_path = tuple(
-                                    sorted((this_block, list(reversed(this_block))))[0]
-                                )
-                                if canonical_path not in paths:
-                                    paths[canonical_path] = set()
-                                    path_coverages[canonical_path] = [
-                                        self.get_node_by_hash(h).get_node_coverage()
-                                        for h in list(canonical_path)
-                                    ]
-                                paths[canonical_path].add(read)
-                                this_block = []
-                    if this_block:
-                        canonical_path = tuple(sorted((this_block, list(reversed(this_block))))[0])
-                        if canonical_path not in paths:
-                            paths[canonical_path] = set()
-                            path_coverages[canonical_path] = [
-                                self.get_node_by_hash(h).get_node_coverage()
-                                for h in list(canonical_path)
-                            ]
-                        paths[canonical_path].add(read)
-                        this_block = []
-            else:
-                # Single-node read
-                if len(self.get_all_neighbors(self.get_node_by_hash(nodes_on_read[0]))) == 0:
-                    canonical_path = tuple([nodes_on_read[0]])
-                    if canonical_path not in paths:
-                        paths[canonical_path] = set()
-                        path_coverages[canonical_path] = [
-                            self.get_node_by_hash(h).get_node_coverage()
-                            for h in list(canonical_path)
-                        ]
-                    paths[canonical_path].add(read)
-
-        # Filter and retain unique paths
-        sorted_paths = sorted(list(paths.keys()), key=len, reverse=True)
-        for canonical_path in sorted_paths:
-            if len(paths[canonical_path]) >= path_threshold:
-                if not any(
-                    self.is_sublist(list(other), list(canonical_path))
-                    or self.is_sublist(list(other), list(reversed(list(canonical_path))))
-                    for other in unique_paths
-                ):
-                    unique_paths.add(canonical_path)
-        to_delete = [key for key in paths if key not in unique_paths]
-        for key in to_delete:
-            del paths[key]
-            del path_coverages[key]
-        # for k in new_paths:
-        #    print(self.get_genes_in_unitig(list(k)), len(new_paths[k]))
-        return paths, path_coverages
-
-    def intersection_of_sets(self, sets_list):
-        if not sets_list:
-            return set()
-        return set.intersection(*sets_list)
-
-    def reverse_BFS_trimming(self, number_of_intersecting_reads):
-        """Performs a reverse BFS from terminal nodes to find a set of intersecting reads across paths that meet the required threshold."""
-        # Get terminal nodes based on their neighbors
-        terminal_nodes = [
-            node
-            for node in self.all_nodes()
-            if not self.get_forward_neighbors(node) or not self.get_backward_neighbors(node)
-        ]
-        if not terminal_nodes:
-            return self
-        # Initialize read sets from the terminal nodes
-        read_sets = [set(node.get_list_of_reads()) for node in terminal_nodes]
-        intersecting_reads = self.intersection_of_sets(read_sets)
-        if len(intersecting_reads) >= number_of_intersecting_reads:
-            return self
-        seen_nodes = set()
-        while len(intersecting_reads) < number_of_intersecting_reads:
-            for i, terminal in enumerate(terminal_nodes):
-                if terminal is None:
-                    continue
-                next_nodes = [
-                    n for n in self.get_all_neighbors(terminal) if n.__hash__() not in seen_nodes
-                ]
-                if len(next_nodes) == 1:
-                    next_node = next_nodes[0]
-                    terminal_nodes[i] = next_node
-                    read_sets[i] = set(next_node.get_list_of_reads())
-                    intersecting_reads = self.intersection_of_sets(read_sets)
-                    seen_nodes.add(terminal.__hash__())
-                    if len(intersecting_reads) >= number_of_intersecting_reads:
-                        for n in seen_nodes:
-                            self.remove_node(self.get_node_by_hash(n))
-                        print(intersecting_reads)
-                        return self
-                else:
-                    terminal_nodes[i] = None
-                    read_sets[i] = None
-            # Terminate if all nodes are exhausted
-            if all(n is None for n in terminal_nodes):
-                break
-        for n in seen_nodes:
-            self.remove_node(self.get_node_by_hash(n))
-        return self
-
     def get_paths_for_gene(
         self,
         reads,
@@ -3020,28 +2797,12 @@ class GeneMerGraph:
                 anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
-                # construct a subgraph of the component
-                # subgraph = GeneMerGraph({r: self.get_reads()[r] for r in reads}, self.get_kmerSize())
-                # # make a matrix of the intersection counts of reads
-                # intersection_matrix, node_hashes = subgraph.make_intersection_matrix()
-                # # trim nodes that are only in a few reads
-                # trimmed_graph = subgraph.trim_fringe_nodes(path_threshold,
-                #                                         intersection_matrix,
-                #                                         node_hashes)
-                # check if there are any junctions in the trimmed graph
-                # if len(subgraph.identify_potential_bubble_starts()) == 0:
                 # get the paths containing this gene
                 pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     reads,
                     nodeHashesOfInterest,
                     max(5, mean_node_coverage / 10),
                 )
-                # else:
-                #     pathsOfInterest, pathCoverages = subgraph.get_complex_paths(
-                #         reads,
-                #         nodeHashesOfInterest,
-                #         max(5, mean_node_coverage / 10),
-                #     )
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
                     geneOfInterest, pathsOfInterest, fastq_dict, pathCoverages, mean_node_coverage
@@ -3072,7 +2833,8 @@ class GeneMerGraph:
                         allele_counts[gene_name] += 1
                     else:
                         message = f"Amira: allele {allele} in component {component} "
-                        message += f"filtered due to an insufficient number of reads ({len(finalAllelesOfInterest[allele])}).\n"
+                        message += "filtered due to an insufficient number of reads "
+                        message += f"({len(finalAllelesOfInterest[allele])}).\n"
                         sys.stderr.write(message)
                 # collect all of the reads containing the gene
                 if (

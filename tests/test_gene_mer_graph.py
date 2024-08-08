@@ -5681,7 +5681,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
         call_file = "tests/complex_gene_calls.json"
         position_file = "tests/complex_gene_positions.json"
-        read_file = "tests/test.fastq.gz"
         with open(call_file) as i:
             calls = json.load(i)
         with open(position_file) as i:
@@ -5703,7 +5702,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
 
         call_file = "tests/complex_gene_calls.json"
         position_file = "tests/complex_gene_positions.json"
-        read_file = "tests/test.fastq.gz"
         with open(call_file) as i:
             calls = json.load(i)
         with open(position_file) as i:
