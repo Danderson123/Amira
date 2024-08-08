@@ -2532,7 +2532,7 @@ class GeneMerGraph:
             for u in clustered_upstream:
                 for d in clustered_downstream:
                     shared_reads = clustered_upstream[u].intersection(clustered_downstream[d])
-                    if len(shared_reads) >= threshold:
+                    if len(shared_reads) > 0:
                         final_path = u + c + d
                         final_paths[final_path] = shared_reads
                         final_path_coverages[final_path] = [self.get_node_by_hash(n).get_node_coverage() for n in list(final_path)]
@@ -2548,7 +2548,7 @@ class GeneMerGraph:
             paths_supported = []
             for c in clustered_sub_paths:
                 list_c = list(c)
-                if self.is_sublist(list_c, list_p):
+                if self.is_sublist(list_c, list_p):# or len(list_p) == 0:
                     paths_supported.append(c)
             if len(paths_supported) == 0:
                 clustered_sub_paths[p] = {"reads": adjacent_paths[p], "paths": {p}}

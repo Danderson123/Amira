@@ -6,7 +6,7 @@ from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
 
-# from amira_prototype.construct_unitig import parse_fastq
+from amira_prototype.__main__ import parse_fastq
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -4605,7 +4605,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("gene4")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
         paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
@@ -4613,6 +4612,67 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(len(paths), 1)
         for k in paths:
             self.assertEqual(len(paths[k]), 2)
+
+    def test___get_paths_for_gene_no_adjacent_paths(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene4",
+            "-gene4",
+            "-gene4",
+            "+gene7",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene4")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
+        # assertion
+        self.assertEqual(len(paths), 1)
+        for k in paths:
+            self.assertEqual(len(paths[k]), 4)
+
+    def test___get_paths_for_gene_one_adjacent_path(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene4",
+            "-gene4",
+            "-gene4",
+            "+gene7",
+            "-gene8"
+        ]
+        genes2 = [
+            "+gene-1",
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene4",
+            "-gene4",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10"
+            "+gene11"
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene4")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
+        # assertion
+        self.assertEqual(len(paths), 1)
+        for k in paths:
+            self.assertEqual(len(paths[k]), 4)
 
     def test___get_paths_for_gene_linear_path_duplicates(self):
         # setup
@@ -5641,8 +5701,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # setup
         import json
 
-        call_file = "tests/complex_gene_calls.json"
-        position_file = "tests/complex_gene_positions.json"
+        call_file = "tests/complex_gene_calls_one.json"
+        position_file = "tests/complex_gene_positions_one.json"
         with open(call_file) as i:
             calls = json.load(i)
         with open(position_file) as i:
@@ -5658,11 +5718,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 66)
 
-    def test___get_paths_for_gene_complex(self):
+    def test___get_paths_for_gene_complex_one(self):
         # setup
         import json
-        call_file = "tests/complex_gene_calls.json"
-        position_file = "tests/complex_gene_positions.json"
+        call_file = "tests/complex_gene_calls_one.json"
+        position_file = "tests/complex_gene_positions_one.json"
         with open(call_file) as i:
             calls = json.load(i)
         with open(position_file) as i:
