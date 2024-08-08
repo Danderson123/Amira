@@ -3119,7 +3119,7 @@ class GeneMerGraph:
                 if prop_covered > ref_covered[read.reference_name]:
                     ref_covered[read.reference_name] = prop_covered
         for ref in ref_matching:
-            if ref_covered[ref] >= 0.9:
+            if ref_covered[ref] >= 0.85:
                 valid_references.append(
                     (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref])
                 )

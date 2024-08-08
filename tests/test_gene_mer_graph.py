@@ -5445,3 +5445,13 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(actual_paths), 2)
         self.assertTrue(all(len(actual_paths[p]) in {14, 5} for p in actual_paths))
+
+    def test___get_closest_allele(self):
+        # setup
+        samfile = "tests/test_allele.sam"
+        graph = GeneMerGraph({}, 3, {})
+        # execution
+        actual_validity, actual_references, actual_unique_reads = graph.get_closest_allele(samfile, "allele")
+        # assertion
+        self.assertTrue(actual_validity)
+        self.assertEqual(len(actual_references), 6)

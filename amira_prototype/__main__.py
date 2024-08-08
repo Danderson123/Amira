@@ -588,7 +588,7 @@ def main() -> None:
             sys.stderr.write(message)
             alleles_to_delete.append(row["Amira allele"])
         else:
-            if row["Coverage (%)"] < 90:
+            if row["Coverage (%)"] < 85:
                 message = f"\nAmira: allele {row['Amira allele']} removed "
                 message += f"due to insufficient coverage ({row['Coverage (%)']}).\n"
                 sys.stderr.write(message)
