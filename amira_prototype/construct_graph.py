@@ -2457,24 +2457,6 @@ class GeneMerGraph:
         replacement = {"A": "T", "T": "A", "C": "G", "G": "C"}
         return "".join([replacement[b] for b in reversed_seq])
 
-    def assign_subpaths_to_underlying_paths(self, subpaths):
-        # sort the subpaths from longest to shortest
-        sorted_paths = sorted([k for k in subpaths], key=len, reverse=True)
-        # cluster the sorted paths
-        clustered_sub_paths = {}
-        for p in sorted_paths:
-            list_p = list(p)
-            paths_supported = []
-            for c in clustered_sub_paths:
-                list_c = list(c)
-                if self.is_sublist(list_c, list_p):
-                    paths_supported.append(c)
-            if len(paths_supported) == 0:
-                clustered_sub_paths[p] = subpaths[p]
-            if len(paths_supported) == 1:
-                clustered_sub_paths[paths_supported[0]].update(subpaths[p])
-        return clustered_sub_paths
-
     def get_paths_for_gene(
         self,
         reads,
@@ -2482,27 +2464,50 @@ class GeneMerGraph:
         threshold,
     ):
         paths = {}
-        path_coverages = {}
-        nodeHashesOfInterest = set(nodeHashesOfInterest)  # Convert to set for faster lookup
-        # Collect core options from reads
+        # convert to a set for faster lookup
+        nodeHashesOfInterest = set(nodeHashesOfInterest)
+        # iterate through the reads
         for read in reads:
+            # get the nodes on this read
             nodes_on_read = self.get_readNodes()[read]
+            # iterate through the nodes to see if they contain AMR genes
             AMR_indices = [1 if n_hash in nodeHashesOfInterest else 0 for n_hash in nodes_on_read]
+            # get the index of the first node containing an AMR gene
             first_one_index = AMR_indices.index(1)
+            # get the index of the last node containing an AMR gene
             last_one_index = len(AMR_indices) - 1 - AMR_indices[::-1].index(1)
+            # get the nodes between the first and last AMR node inclusive
             core = nodes_on_read[first_one_index : last_one_index + 1]
-            core_tuple = tuple(sorted([core, list(reversed(core))])[0])
+            # convert to a tuple
+            sorted_core = sorted([core, list(reversed(core))])[0]
+            core_tuple = tuple(sorted_core)
+            # get the upstream nodes
+            upstream = nodes_on_read[:first_one_index]
+            # get the downstream nodes
+            downstream = nodes_on_read[last_one_index + 1:]
+            # make the up and downstream nodes relative to the sorted core
+            if sorted_core == core:
+                upstream_tuple = tuple(upstream)
+                downstream_tuple = tuple(downstream)
+            elif sorted_core != core:
+                upstream_tuple = tuple(list(reversed(downstream)))
+                downstream_tuple = tuple(list(reversed(upstream)))
+            # add the path to the dictionary of all paths
             if core_tuple not in paths:
-                paths[core_tuple] = set()
-                path_coverages[core_tuple] = [
-                    self.get_node_by_hash(n).get_node_coverage() for n in nodes_on_read
-                ]
-            paths[core_tuple].add(read)
+                paths[core_tuple] = {"upstream": {}, "downstream": {}, "reads": set()}
+            # add the up and down paths to the nested dictionary
+            if upstream_tuple not in paths[core_tuple]["upstream"]:
+                paths[core_tuple]["upstream"][upstream_tuple] = set()
+            if downstream_tuple not in paths[core_tuple]["downstream"]:
+                paths[core_tuple]["downstream"][downstream_tuple] = set()
+            # add the reads to the nested dictionary
+            paths[core_tuple]["upstream"][upstream_tuple].add(read)
+            paths[core_tuple]["downstream"][downstream_tuple].add(read)
+            paths[core_tuple]["reads"].add(read)
         # Filter out core options below threshold
-        core_to_delete = [c for c, reads in paths.items() if len(reads) < threshold]
+        core_to_delete = [c for c, data in paths.items() if len(data["reads"]) < threshold]
         for c in core_to_delete:
             del paths[c]
-            del path_coverages[c]
         # Remove any core option that is fully contained within another
         core_to_delete = set()
         for c1 in paths:
@@ -2515,10 +2520,46 @@ class GeneMerGraph:
                         core_to_delete.add(c1)
         for c in core_to_delete:
             del paths[c]
-            del path_coverages[c]
+        # iterate through the remaining paths
+        final_paths = {}
+        final_path_coverages = {}
         for c in paths:
-            print(self.get_genes_in_unitig(list(c)), paths[c])
-        return paths, path_coverages
+            # cluster the upstream paths based on the underlying path they support
+            clustered_upstream = self.cluster_adjacent_paths(paths[c]["upstream"])
+            # cluster the downstream paths based on the underlying path they support
+            clustered_downstream = self.cluster_adjacent_paths(paths[c]["downstream"])
+            # get all combinations of valid paths
+            for u in clustered_upstream:
+                for d in clustered_downstream:
+                    shared_reads = clustered_upstream[u].intersection(clustered_downstream[d])
+                    if len(shared_reads) >= threshold:
+                        final_path = u + c + d
+                        final_paths[final_path] = shared_reads
+                        final_path_coverages[final_path] = [self.get_node_by_hash(n).get_node_coverage() for n in list(final_path)]
+        return final_paths, final_path_coverages
+
+    def cluster_adjacent_paths(self, adjacent_paths):
+        # sort the subpaths from longest to shortest
+        sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
+        # cluster the sorted paths
+        clustered_sub_paths = {}
+        for p in sorted_paths:
+            list_p = list(p)
+            paths_supported = []
+            for c in clustered_sub_paths:
+                list_c = list(c)
+                if self.is_sublist(list_c, list_p):
+                    paths_supported.append(c)
+            if len(paths_supported) == 0:
+                clustered_sub_paths[p] = {"reads": adjacent_paths[p], "paths": {p}}
+            if len(paths_supported) == 1:
+                clustered_sub_paths[paths_supported[0]]["reads"].update(adjacent_paths[p])
+                clustered_sub_paths[paths_supported[0]]["paths"].add(p)
+        # choose the shortest subpath in a cluster as the representative
+        final_clusters = {}
+        for c in clustered_sub_paths:
+            final_clusters[min(list(clustered_sub_paths[c]["paths"]), key=len)] = clustered_sub_paths[c]["reads"]
+        return final_clusters
 
     def split_into_subpaths(
         self,
@@ -2747,15 +2788,6 @@ class GeneMerGraph:
                 nodes_to_check = False  # No more nodes to process
             print(list(matrix), "\n")
         return
-
-    def old_trim_fringe_nodes(self, number_of_intersecting_reads, intersection_matrix, node_hashes):
-        nodes_to_delete = self.filter_nodes_by_intersection(
-            intersection_matrix, node_hashes, number_of_intersecting_reads
-        )
-        # delete the nodes
-        for node_hash in nodes_to_delete:
-            self.remove_node(self.get_node_by_hash(node_hash))
-        return self
 
     def trim_fringe_nodes(self, number_of_intersecting_reads, intersection_matrix, node_hashes):
         # get a list of nodes to remove

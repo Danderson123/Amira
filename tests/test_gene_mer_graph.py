@@ -4647,25 +4647,13 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(k), 4)
+            self.assertEqual(len(k), 5)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_linear_path_contained(self):
         # setup
         genes1 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
-        genes2 = [
-            "+gene1",
-            "-gene2",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "-gene6",
-            "+gene7",
-            "-gene8",
-        ]
+        genes2 = ["+gene1", "-gene2", "+gene3", "-gene4", "+gene5", "+gene3", "-gene4", "+gene5", "-gene6", "+gene7", "-gene8"]
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
@@ -4678,7 +4666,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 3 or len(k) == 6)
+            self.assertTrue(len(k) == 9 or len(k) == 6)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_terminate_at_junction(self):
@@ -4734,14 +4722,13 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
         paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 3 or len(k) == 18)
+            self.assertTrue(len(k) == 16 or len(k) == 22)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_terminate_and_start_at_junction(self):
@@ -4806,7 +4793,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 3 or len(k) == 18)
+            self.assertTrue(len(k) == 16 or len(k) == 24)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_singleton(self):
@@ -4980,7 +4967,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(k), 9)
+            self.assertEqual(len(k), 11)
             self.assertEqual(len(paths[k]), 2)
 
     def test___split_into_subpaths_linear(self):
@@ -5284,31 +5271,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_indices = graph.find_sublist_indices(["1", "1", "1", "1", "1"], ["1", "1", "1"])
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
-
-    def test___assign_subpaths_to_underlying_paths(self):
-        # setup
-        graph = GeneMerGraph({}, 3, {})
-        subpaths = {
-            (1, 2, 3): {"read1"},
-            (1, 2, 3, 4): {"read2"},
-            (2, 3, 4): {"read3"},
-            (5, 6, 3, 4): {"read4"},
-            (3, 4): {"read5"},
-            (6, 3): {"read6"},
-            (0, 1, 2): {"read7"},
-        }
-        # execution
-        actual_clustered_paths = graph.assign_subpaths_to_underlying_paths(subpaths)
-        # assertion
-        self.assertEqual(len(actual_clustered_paths), 3)
-        self.assertTrue((1, 2, 3, 4) in actual_clustered_paths)
-        self.assertTrue((5, 6, 3, 4) in actual_clustered_paths)
-        self.assertTrue((0, 1, 2) in actual_clustered_paths)
-        self.assertTrue(
-            all(r in actual_clustered_paths[(1, 2, 3, 4)] for r in {"read1", "read2", "read3"})
-        )
-        self.assertTrue(all(r in actual_clustered_paths[(5, 6, 3, 4)] for r in {"read4", "read6"}))
-        self.assertTrue(all(r in actual_clustered_paths[(0, 1, 2)] for r in {"read7"}))
 
     def test___make_intersection_matrix(self):
         # setup
@@ -5696,10 +5658,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 66)
 
-    def test___get_complex_paths(self):
+    def test___get_paths_for_gene_complex(self):
         # setup
         import json
-
         call_file = "tests/complex_gene_calls.json"
         position_file = "tests/complex_gene_positions.json"
         with open(call_file) as i:
@@ -5719,6 +5680,80 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(actual_paths), 2)
         self.assertTrue(all(len(actual_paths[p]) in {14, 5} for p in actual_paths))
+
+    def test___get_paths_for_gene_diverging_paths_at_terminals(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene12",
+            "+gene13",
+            "-gene14",
+            "+gene15"
+        ]
+        genes2 = [
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene20",
+            "+gene21",
+            "-gene22",
+            "+gene23"
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes2, "read5": genes2, "read6": genes2}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene8")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 2)
+        # assertion
+        self.assertEqual(len(paths), 2)
+        for k in paths:
+            self.assertEqual(len(paths[k]), 3)
+
+    def test___cluster_adjacent_paths(self):
+        # setup
+        adjacent_paths = {
+            (0, 1, 2, 3, 4): {"read1"},
+            (1, 2, 3, 4): {"read2"},
+            (2, 3, 4): {"read3"},
+            (5, 6, 3, 4): {"read4", "read5"},
+            (6, 3, 4): {"read6"},
+            (5, 3, 2, 4): {"read7"},
+            (3, 4): {"read8"}
+        }
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_clusters = graph.cluster_adjacent_paths(adjacent_paths)
+        # assertion
+        self.assertEqual(len(actual_clusters), 3)
+        self.assertTrue((2, 3, 4) in actual_clusters)
+        self.assertTrue((6, 3, 4) in actual_clusters)
+        self.assertTrue((5, 3, 2, 4) in actual_clusters)
+        self.assertTrue(
+            all(r in actual_clusters[(2, 3, 4)] for r in {"read1", "read2", "read3"})
+        )
+        self.assertTrue(all(r in actual_clusters[(6, 3, 4)] for r in {"read4", "read5", "read6"}))
+        self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)] for r in {"read7"}))
 
     def test___get_closest_allele(self):
         # setup
