@@ -445,7 +445,6 @@ def main() -> None:
     sys.stderr.write(
         f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
     )
-    # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
@@ -455,7 +454,6 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
@@ -472,7 +470,6 @@ def main() -> None:
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}\n"
         )
         sys.stderr.write("\n\tAmira: removing dead ends\n")
-        # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         graph = build_multiprocessed_graph(
             new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
         )
@@ -487,7 +484,6 @@ def main() -> None:
         graph.remove_short_linear_paths(args.geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs\n")
-        # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
         graph = build_multiprocessed_graph(
             new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
         )
@@ -501,7 +497,6 @@ def main() -> None:
         )
     # merge paths that are very similar in terms of minimizers
     sys.stderr.write("\n\tAmira: using minimizers to correct high coverage paths\n")
-    graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
@@ -518,7 +513,6 @@ def main() -> None:
         os.path.join(args.output_dir, "corrected_gene_positions_after_filtering.json"), "w"
     ) as o:
         o.write(json.dumps(new_gene_position_dict))
-    # graph = GeneMerGraph(new_annotatedReads, args.geneMer_size, new_gene_position_dict)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
