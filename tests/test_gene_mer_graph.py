@@ -5723,7 +5723,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_paths_for_gene_complex_one(self):
         # setup
         import json
-
         call_file = "tests/complex_gene_calls_one.json"
         position_file = "tests/complex_gene_positions_one.json"
         with open(call_file) as i:
@@ -5824,6 +5823,29 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue(all(r in actual_clusters[(6, 3, 4)] for r in {"read4", "read5", "read6"}))
         self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)] for r in {"read7"}))
 
+    def test___cluster_adjacent_paths_overlapping(self):
+        # setup
+        adjacent_paths = {
+            (0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read1"},
+            (0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read2"},
+            (5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read3"},
+            (5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read4", "read5"},
+            (5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read6"},
+            (5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read7"},
+            (2, 3, 4, 7, 8, 9, 10): {"read8"},
+        }
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_clusters = graph.cluster_adjacent_paths(adjacent_paths)
+        # assertion
+        self.assertEqual(len(actual_clusters), 3)
+        self.assertTrue((0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
+        self.assertTrue((5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
+        self.assertTrue((5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
+        # self.assertTrue(all(r in actual_clusters[(2, 3, 4)] for r in {"read1", "read2", "read3"}))
+        # self.assertTrue(all(r in actual_clusters[(6, 3, 4)] for r in {"read4", "read5", "read6"}))
+        # self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)] for r in {"read7"}))
+
     def test___get_closest_allele(self):
         # setup
         samfile = "tests/test_allele.sam"
@@ -5835,3 +5857,95 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertTrue(actual_validity)
         self.assertEqual(len(actual_references), 6)
+
+    def test___get_paths_for_gene_long(self):
+        # setup
+        import json
+        call_file = "/home/daniel/Documents/GitHub/amira_prototype/tests/gene_calls_with_gene_filtering.json"
+        position_file = "/home/daniel/Documents/GitHub/amira_prototype/tests/gene_positions_with_gene_filtering.json"
+        call_file = "/home/daniel/Documents/GitHub/amira_prototype/amira.output.k.3.05.15.GCA_027944875.1_ASM2794487v1_genomic/gene_calls_with_gene_filtering.json"
+        position_file = "/home/daniel/Documents/GitHub/amira_prototype/amira.output.k.3.05.15.GCA_027944875.1_ASM2794487v1_genomic/gene_positions_with_gene_filtering.json"
+        with open(call_file) as i:
+            calls = json.load(i)
+        with open(position_file) as i:
+            positions = json.load(i)
+        #fastq_content = parse_fastq("/home/daniel/Documents/GitHub/amira_prototype/5/5_1.fastq.gz")
+        fastq_content = parse_fastq("/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044204_1.fastq")
+        import statistics
+        for k in [3, 5, 7]:
+            graph = GeneMerGraph(calls.copy(), k, positions.copy())
+            graph.remove_low_coverage_components(5)
+            graph.filter_graph(3, 1)
+            new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+            graph = GeneMerGraph(new_annotatedReads, k, new_gene_position_dict)
+            graph.generate_gml(f"tests/test_{k}", k, 1, 1)
+            genes = ['aadA5', 'blaCMY54NG_0488491', 'dfrA17', 'group_6222', 'mphANG_0479861', 'qacEdelta1', 'sul1NG_0480981', 'tetA']
+            #genes = ['aac3IId', 'aph3Ia', 'aph3Ib', 'aph6Id', 'blaCTXM211NG_0574771', 'blaOXA159NG_0494581', 'catA1', 'dfrA17', 'group_6222', 'mphANG_0479861', 'qacEdelta1', 'sul1NG_0480981', 'sul2NG_0481161', 'tetA', 'tetBNG_0481711']
+            for component in graph.components():
+                amr_nodes = set()
+                for g in genes:
+                    nodes_with_gene = graph.get_nodes_containing(g)
+                    for n in nodes_with_gene:
+                        amr_nodes.add(n.__hash__())
+                nodes_in_component = graph.get_nodes_in_component(component)
+                reads = graph.collect_reads_in_path([n.__hash__() for n in nodes_in_component if n.__hash__() in amr_nodes])
+                lengths = [len(graph.get_reads()[r]) for r in reads]
+                print(k, component, statistics.mean(lengths), statistics.mode(lengths), statistics.median(lengths), len([1 for l in lengths if l >= (2*k - 1)]), len(lengths), len([1 for l in lengths if l >= (2*k - 1)]) / len(lengths))
+        sss
+        xvals = []
+        yvals = []
+        for k in [3, 5, 7, 9, 11]:
+            counts = {}
+            k_or_more = []
+            for r in calls:
+                if len(calls[r]) > k - 1:
+                    # iterate through the list of genes by index
+                    for i in range(len(calls[r]) - (k - 1)):
+                        # take a slice of the list of Genes from index i to i + kmerSize
+                        geneMerGenes = calls[r][i : i + k]
+                        rv_geneMerGenes = list(reversed(geneMerGenes))
+                        for i in range(len(rv_geneMerGenes)):
+                            if rv_geneMerGenes[i][0] == "+":
+                                rv_geneMerGenes[i] = "-" + rv_geneMerGenes[i][1:]
+                            if rv_geneMerGenes[i][0] == "-":
+                                rv_geneMerGenes[i] = "+" + rv_geneMerGenes[i][1:]
+                        kmer_tuple = tuple(sorted([geneMerGenes, rv_geneMerGenes])[0])
+                        if kmer_tuple not in counts:
+                            counts[kmer_tuple] = 0
+                        counts[kmer_tuple] += 1
+                    k_or_more.append(1)
+            xvals.append(k)
+            yvals.append(len(k_or_more) / len(calls))
+            vals = {}
+            for count in list(counts.values()):
+                if count not in vals:
+                    vals[count] = 0
+                vals[count] += 1
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(10, 6))
+            plt.bar(list(vals.keys()), list(vals.values()), log=True, edgecolor="black")
+            plt.title("K-mer counts")
+            plt.xlabel("K-mer count")
+            plt.ylabel("Absolute frequency")
+            plt.savefig(f"tests/{k}_kmer_counts.png", dpi=600)
+            plt.close()
+        plt.figure(figsize=(10, 6))
+        plt.plot(xvals, yvals)
+        plt.xlabel("K-mer size")
+        plt.ylabel("Proportion of reads")
+        plt.ylim([0, 1])
+        plt.savefig(f"tests/proportion_of_reads.png", dpi=600)
+        plt.close()
+        ddd
+        graph = GeneMerGraph(filtered_calls, 3, positions)
+        graph.generate_gml("tests/test", 7,1,1)
+        nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
+        # execution
+        actual_paths, actual_path_coverages = graph.get_paths_for_gene(
+            graph.collect_reads_in_path(nodehashes), nodehashes, 5
+        )
+        print(len(actual_paths))
+        # assertion
+        self.assertEqual(len(actual_paths), 3)
+        dddd
+        self.assertTrue(all(len(actual_paths[p]) in {14, 5} for p in actual_paths))

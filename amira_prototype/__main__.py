@@ -424,7 +424,7 @@ def main() -> None:
         )
     # build the gene-mer graph
     sys.stderr.write("\nAmira: building intitial gene-mer graph\n")
-    # graph = GeneMerGraph(annotatedReads, args.geneMer_size, gene_position_dict)
+    # graph = GeneMerGraph(annotatedReads, geneMer_size, gene_position_dict)
     graph = build_multiprocessed_graph(
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
@@ -443,7 +443,7 @@ def main() -> None:
     new_annotatedReads, new_gene_position_dict, rejected_reads = graph.remove_junk_reads(0.80)
     node_min_coverage = args.node_min_coverage
     sys.stderr.write(
-        f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
+        f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage} 1/2\n"
     )
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
@@ -454,6 +454,9 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+    sys.stderr.write(
+        f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage} 2/2\n"
+    )
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
@@ -462,6 +465,32 @@ def main() -> None:
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
+    # choose a value for k
+    sys.stderr.write(
+        "\nAmira: selecting a gene-mer size (k)\n"
+    )
+    geneMer_size = 3
+    for k in range(3, 16, 2):
+        # Build the graph with the current k value
+        graph = build_multiprocessed_graph(new_annotatedReads.copy(), k, args.cores, new_gene_position_dict.copy())
+
+        def is_component_valid(component):
+            amr_nodes = {n.__hash__() for g in sample_genesOfInterest for n in graph.get_nodes_containing(g)}
+            nodes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
+            reads = graph.collect_reads_in_path([n for n in nodes_in_component if n in amr_nodes])
+            lengths = [len(graph.get_reads()[r]) for r in reads]
+            if len(lengths) != 0:
+                return len([l for l in lengths if l >= (2*k - 1)]) / len(lengths) >= 0.8
+            else:
+                return True
+
+        if all(is_component_valid(c) for c in graph.components()):
+            geneMer_size = k
+        else:
+            break
+    sys.stderr.write(
+        f"\nAmira: selected k={geneMer_size}\n"
+    )
     # parse the original fastq file
     cleaning_iterations = 10
     prev_nodes = 0
@@ -471,7 +500,7 @@ def main() -> None:
         )
         sys.stderr.write("\n\tAmira: removing dead ends\n")
         graph = build_multiprocessed_graph(
-            new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
+            new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
         )
         # check if the current number of nodes is equal to the previous number of nodes
         if len(graph.get_nodes()) == prev_nodes:
@@ -481,25 +510,25 @@ def main() -> None:
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
-        graph.remove_short_linear_paths(args.geneMer_size)
+        graph.remove_short_linear_paths(geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         sys.stderr.write(f"\n\tAmira: popping bubbles using {args.cores} CPUs\n")
         graph = build_multiprocessed_graph(
-            new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
+            new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
         )
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
         new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
             graph.correct_low_coverage_paths(
-                fastq_content, sample_genesOfInterest, args.cores, min_path_coverage
+                fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
             )
         )
     # merge paths that are very similar in terms of minimizers
-    sys.stderr.write("\n\tAmira: using minimizers to correct high coverage paths\n")
     graph = build_multiprocessed_graph(
-        new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
-    )
+            new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
+        )
+    # correct the graph at this new k value
     new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
         graph.correct_low_coverage_paths(
             fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
@@ -514,7 +543,7 @@ def main() -> None:
     ) as o:
         o.write(json.dumps(new_gene_position_dict))
     graph = build_multiprocessed_graph(
-        new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
+        new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
     )
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
@@ -529,9 +558,9 @@ def main() -> None:
     sys.stderr.write("\nAmira: writing gene-mer graph\n")
     graph.generate_gml(
         os.path.join(args.output_dir, "gene_mer_graph"),
-        args.geneMer_size,
+        geneMer_size,
         node_min_coverage,
-        args.edge_min_coverage,
+        1,
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
