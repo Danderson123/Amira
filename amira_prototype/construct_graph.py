@@ -2245,7 +2245,7 @@ class GeneMerGraph:
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
         for node_hash in batch:
             node = self.get_node_by_hash(node_hash)
-            minhash = sourmash.MinHash(n=0, ksize=13, scaled=1)
+            minhash = sourmash.MinHash(n=0, ksize=13, scaled=10)
             # iterate through the reads
             for read in node.get_reads():
                 # get the indices of the node occurence on the read

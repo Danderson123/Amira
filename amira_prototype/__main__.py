@@ -320,7 +320,7 @@ def parse_fastq(fastq_file):
                 # Iterate over the lines in the file
                 for identifier, sequence, quality in parse_fastq_lines(fh):
                     # Add the identifier and sequence to the results dictionary
-                    results[identifier] = {"sequence": sequence, "quality": quality}
+                    results[identifier.replace("\n", "")] = {"sequence": sequence, "quality": quality}
             return results
         except OSError:
             pass
@@ -328,7 +328,7 @@ def parse_fastq(fastq_file):
         # Iterate over the lines in the file
         for identifier, sequence, quality in parse_fastq_lines(fh):
             # Add the identifier and sequence to the results dictionary
-            results[identifier] = {"sequence": sequence, "quality": quality}
+            results[identifier.replace("\n", "")] = {"sequence": sequence, "quality": quality}
     # Return the dictionary of results
     return results
 
