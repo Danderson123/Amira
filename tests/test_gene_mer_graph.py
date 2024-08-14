@@ -1,7 +1,7 @@
 import unittest
 from collections import Counter
 
-from amira_prototype.__main__ import parse_fastq, write_fastq
+from amira_prototype.__main__ import parse_fastq
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
@@ -5874,12 +5874,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___path_finding_between_junctions(self):
         # setup
         import json
-        with open("tests/test_paths.json") as i:
+
+        with open("tests/test_path_calls.json") as i:
             calls = json.load(i)
         graph = GeneMerGraph(calls, 3)
         graph.filter_graph(3, 1)
-        fastq_data = parse_fastq("tests/test_1.fastq.gz")
-        graph.generate_gml("tests/test", 3, 1, 1)
         # get the potential start nodes
         potential_bubble_starts = graph.identify_potential_bubble_starts()
         max_distance = graph.get_kmerSize() * 3
@@ -5899,12 +5898,12 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_minhashes_for_paths_same_path(self):
         # setup
         import json
+
         with open("tests/test_path_calls.json") as i:
             calls = json.load(i)
         with open("tests/test_path_positions.json") as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 3, positions)
-        graph.filter_graph(3, 1)
         fastq_data = parse_fastq("tests/test_1.fastq.gz")
         # get the potential start nodes
         potential_bubble_starts = graph.identify_potential_bubble_starts()
@@ -5919,9 +5918,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # execution
-            path_minimizers = graph.get_minhashes_for_paths(
-                sorted_filtered_paths, fastq_data, 1
-            )
+            path_minimizers = graph.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, 1)
             min1 = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[0][0]])]
             min2 = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[1][0]])]
             # assertion
