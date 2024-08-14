@@ -1,11 +1,10 @@
 import json
-import math
 import os
 import shutil
 import statistics
 import subprocess
 import sys
-from collections import Counter, deque
+from collections import Counter, defaultdict, deque
 from itertools import product
 
 import numpy as np
@@ -2299,7 +2298,7 @@ class GeneMerGraph:
                 positions = [self.get_readNodePositions()[read][i] for i in indices]
                 entire_read_sequence = fastq_data[read.split("_")[0]]["sequence"]
                 for p in positions:
-                    minhash.add_sequence(entire_read_sequence[p[0]: p[1] + 1], force=True)
+                    minhash.add_sequence(entire_read_sequence[p[0] : p[1] + 1], force=True)
             node_minhashes[node_hash] = minhash
 
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
@@ -2308,7 +2307,6 @@ class GeneMerGraph:
                 path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
 
     def get_minhashes_for_paths(self, sorted_filtered_paths, fastq_data, cores):
-        from collections import defaultdict
         path_minimizers = defaultdict(set)
         node_minhashes = {}
 

@@ -420,7 +420,10 @@ def main() -> None:
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
-        results = "Gene name\tSequence name\tClosest reference\tReference length\tIdentity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
+        results = "Gene name\tSequence name\tClosest reference\tReference length\t"
+        results += (
+            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
+        )
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
