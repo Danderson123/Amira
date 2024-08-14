@@ -417,6 +417,14 @@ def main() -> None:
                 random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
             )
     print(list(sorted(list(sample_genesOfInterest))))
+    # terminate if no AMR genes were found
+    if len(sample_genesOfInterest) == 0:
+        # write an empty dataframe
+        results = "Gene name\tSequence name\tClosest reference\tReference length\tIdentity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
+        with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
+            o.write(results)
+        # exit
+        sys.exit(0)
     # load the fastq data
     fastq_content = parse_fastq(args.readfile)
     # write out debug files if specified
