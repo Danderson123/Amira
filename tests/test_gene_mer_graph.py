@@ -1,12 +1,11 @@
 import unittest
 from collections import Counter
 
+from amira_prototype.__main__ import parse_fastq
 from amira_prototype.construct_edge import Edge
 from amira_prototype.construct_graph import GeneMerGraph
 from amira_prototype.construct_node import Node
 from amira_prototype.construct_read import Read
-
-from amira_prototype.construct_unitig import parse_fastq
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -4172,7 +4171,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_alignment_subset, actual_start_index, actual_end_index = (
             graph.slice_alignment_by_shared_elements(alignment, read_genes)
         )
-        print(actual_alignment_subset, actual_start_index, actual_end_index)
         self.assertEqual(actual_alignment_subset, alignment)
         self.assertEqual(actual_start_index, 0)
         self.assertEqual(actual_end_index, 6)
@@ -4606,14 +4604,65 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("gene4")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
             self.assertEqual(len(paths[k]), 2)
+
+    def test___get_paths_for_gene_no_adjacent_paths(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene4",
+            "-gene4",
+            "-gene4",
+            "+gene7",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene4")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
+        # assertion
+        self.assertEqual(len(paths), 1)
+        for k in paths:
+            self.assertEqual(len(paths[k]), 4)
+
+    def test___get_paths_for_gene_one_adjacent_path(self):
+        # setup
+        genes1 = ["+gene1", "-gene2", "+gene4", "-gene4", "-gene4", "+gene7", "-gene8"]
+        genes2 = [
+            "+gene-1",
+            "-gene0",
+            "+gene1",
+            "-gene2",
+            "+gene4",
+            "-gene4",
+            "-gene4",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10" "+gene11",
+        ]
+        graph = GeneMerGraph(
+            {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene4")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
+        # assertion
+        self.assertEqual(len(paths), 1)
+        for k in paths:
+            self.assertEqual(len(paths[k]), 4)
 
     def test___get_paths_for_gene_linear_path_duplicates(self):
         # setup
@@ -4644,11 +4693,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(k), 4)
+            self.assertEqual(len(k), 5)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_linear_path_contained(self):
@@ -4675,11 +4724,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 3 or len(k) == 6)
+            self.assertTrue(len(k) == 9 or len(k) == 6)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_terminate_at_junction(self):
@@ -4735,14 +4784,13 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 3 or len(k) == 18)
+            self.assertTrue(len(k) == 16 or len(k) == 22)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_terminate_and_start_at_junction(self):
@@ -4803,11 +4851,11 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
-            self.assertTrue(len(k) == 3 or len(k) == 18)
+            self.assertTrue(len(k) == 16 or len(k) == 24)
             self.assertEqual(len(paths[k]), 2)
 
     def test___get_paths_for_gene_singleton(self):
@@ -4823,7 +4871,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 1)
         for k in paths:
@@ -4870,7 +4918,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 2)
         for k in paths:
@@ -4936,7 +4984,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
         self.assertEqual(len(paths), 3)
         for k in paths:
@@ -4977,14 +5025,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.new_get_paths_for_gene(reads, anchor_nodes, nodeHashesOfInterest, 1)
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         # assertion
-        self.assertEqual(len(paths), 2)
+        self.assertEqual(len(paths), 1)
         for k in paths:
-            self.assertEqual(len(k), 3)
+            self.assertEqual(len(k), 11)
             self.assertEqual(len(paths[k]), 2)
 
-    def test___new_split_into_subpaths_linear(self):
+    def test___split_into_subpaths_linear(self):
         # setup
         genes1 = [
             "+gene1",
@@ -5019,16 +5067,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths, path_coverages = graph.new_get_paths_for_gene(
-            reads, anchor_nodes, nodeHashesOfInterest, 1
-        )
+        paths, path_coverages = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
         }
         # execution
-        actual_final_paths, _ = graph.new_split_into_subpaths(
+        actual_final_paths, _ = graph.split_into_subpaths(
             "gene5", paths, fastq_content, path_coverages
         )
         # assertion
@@ -5046,7 +5092,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             for k in actual_final_paths
         )
 
-    def test___new_split_into_subpaths_triangle(self):
+    def test___split_into_subpaths_triangle(self):
         # setup
         genes1 = [
             "+gene1",
@@ -5089,16 +5135,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
         anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        paths, path_coverages = graph.new_get_paths_for_gene(
-            reads, anchor_nodes, nodeHashesOfInterest, 1
-        )
+        paths, path_coverages = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
         fastq_content = {
             "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
             "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
         }
         # execution
-        actual_final_paths, _ = graph.new_split_into_subpaths(
+        actual_final_paths, _ = graph.split_into_subpaths(
             "gene5", paths, fastq_content, path_coverages
         )
         # assertion
@@ -5290,17 +5334,593 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(actual_indices, [(0, 2), (1, 3), (2, 4)])
 
-    # def test_real(self):
-    #     import json
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
-    #         calls = json.load(i)
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
-    #         positions = json.load(i)
-    #     fastq_dict = parse_fastq("/home/daniel/Documents/GitHub/PRJNA907549/nanopore_reads/SRR23044219_1.fastq")
-    #     graph = GeneMerGraph(calls, 3, positions)
-    #     pathsOfInterest, copy_numbers = graph.new_assign_reads_to_genes({"group_6233"}, fastq_dict)
-    #     for component in pathsOfInterest:
-    #         for gene in pathsOfInterest[component]:
-    #             for p in pathsOfInterest[component][gene]:
-    #                 print(len(pathsOfInterest[component][gene][p]))
-    #     bhhhhh
+    def test___make_intersection_matrix(self):
+        # setup
+        annotations = {
+            "read1": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
+            "read2": ["-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
+            "read4": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+            ],
+            "read6": ["+gene7", "+gene8", "+gene9", "+gene10"],
+            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7"],
+        }
+        graph = GeneMerGraph(annotations, 3)
+        actual_matrix, actual_node_hashes = graph.make_intersection_matrix()
+        # assertion
+        expected_matrix = [
+            [2, 2, 2, 2, 2, 2, 1, 1],
+            [2, 3, 3, 3, 3, 3, 2, 1],
+            [2, 3, 5, 5, 5, 4, 2, 1],
+            [2, 3, 5, 6, 6, 5, 3, 2],
+            [2, 3, 5, 6, 6, 5, 3, 2],
+            [2, 3, 4, 5, 5, 5, 3, 2],
+            [1, 2, 2, 3, 3, 3, 4, 3],
+            [1, 1, 1, 2, 2, 2, 3, 3],
+        ]
+        self.assertEqual(actual_matrix, expected_matrix)
+        self.assertEqual(len(actual_node_hashes), 8)
+
+    def test___trim_fringe_nodes_linear(self):
+        # setup
+        annotations = {
+            "read1": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
+            "read2": ["-gene4", "+gene5", "+gene6", "+gene7", "+gene8", "+gene9", "+gene10"],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
+            "read4": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7", "+gene8"],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+            ],
+            "read6": ["+gene7", "+gene8", "+gene9", "+gene10"],
+            "read7": ["+gene3", "-gene4", "+gene5", "+gene6", "+gene7"],
+        }
+        graph = GeneMerGraph(annotations, 3)
+        matrix, node_hashes = graph.make_intersection_matrix()
+        # execution
+        trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
+        # assertion
+        self.assertEqual(len(trimmed_graph.get_nodes()), 4)
+        self.assertTrue(
+            all(len(n.get_list_of_reads()) in {5, 6} for n in trimmed_graph.all_nodes())
+        )
+
+    def test___trim_fringe_nodes_circle(self):
+        # setup
+        annotations = {
+            "read1": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read2": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read4": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read6": [
+                "-gene0",
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+                "+gene12",
+            ],
+            "read7": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read8": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read9": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+            "read10": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene13",
+                "+gene14",
+                "+gene15",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+                "-gene11",
+            ],
+        }
+        graph = GeneMerGraph(annotations, 3)
+        matrix, node_hashes = graph.make_intersection_matrix()
+        # execution
+        trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
+        # assertion
+        self.assertEqual(len(trimmed_graph.get_nodes()), 14)
+        self.assertTrue(
+            all(len(n.get_list_of_reads()) in {9, 10, 5} for n in trimmed_graph.all_nodes())
+        )
+
+    def test___trim_fringe_nodes_junction(self):
+        # setup
+        annotations = {
+            "read1": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
+            "read2": [
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+                "+gene10",
+            ],
+            "read3": [
+                "+gene1",
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
+            "read4": [
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+            ],
+            "read5": [
+                "-gene2",
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+                "+gene8",
+                "+gene9",
+            ],
+            "read6": ["+gene7", "+gene8", "+gene9", "+gene10"],
+            "read7": [
+                "+gene3",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "-gene4",
+                "+gene5",
+                "+gene6",
+                "+gene7",
+            ],
+        }
+        graph = GeneMerGraph(annotations, 3)
+        matrix, node_hashes = graph.make_intersection_matrix()
+        # execution
+        trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
+        # assertion
+        self.assertEqual(len(trimmed_graph.get_nodes()), 6)
+        self.assertTrue(
+            all(len(n.get_list_of_reads()) in {5, 6} for n in trimmed_graph.all_nodes())
+        )
+
+    def test___trim_fringe_nodes_complex(self):
+        # setup
+        import json
+
+        call_file = "tests/complex_gene_calls_one.json"
+        position_file = "tests/complex_gene_positions_one.json"
+        with open(call_file) as i:
+            calls = json.load(i)
+        with open(position_file) as i:
+            positions = json.load(i)
+        filtered_calls = {}
+        for r in calls:
+            if any(g[1:] == "mphANG_0479861" for g in calls[r]):
+                filtered_calls[r] = calls[r]
+        graph = GeneMerGraph(filtered_calls, 3, positions)
+        matrix, node_hashes = graph.make_intersection_matrix()
+        # execution
+        trimmed_graph = graph.trim_fringe_nodes(5, matrix, node_hashes)
+        # assertion
+        self.assertEqual(len(trimmed_graph.get_nodes()), 66)
+
+    def test___get_paths_for_gene_complex_one(self):
+        # setup
+        import json
+
+        call_file = "tests/complex_gene_calls_one.json"
+        position_file = "tests/complex_gene_positions_one.json"
+        with open(call_file) as i:
+            calls = json.load(i)
+        with open(position_file) as i:
+            positions = json.load(i)
+        filtered_calls = {}
+        for r in calls:
+            if any(g[1:] == "mphANG_0479861" for g in calls[r]):
+                filtered_calls[r] = calls[r]
+        graph = GeneMerGraph(filtered_calls, 3, positions)
+        nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
+        # execution
+        actual_paths, actual_path_coverages = graph.get_paths_for_gene(
+            graph.collect_reads_in_path(nodehashes), nodehashes, 5
+        )
+        # assertion
+        self.assertEqual(len(actual_paths), 2)
+        self.assertTrue(all(len(actual_paths[p]) in {14, 5} for p in actual_paths))
+
+    def test___get_paths_for_gene_diverging_paths_at_terminals(self):
+        # setup
+        genes1 = [
+            "+gene1",
+            "-gene2",
+            "+gene3",
+            "-gene4",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene12",
+            "+gene13",
+            "-gene14",
+            "+gene15",
+        ]
+        genes2 = [
+            "+gene16",
+            "-gene17",
+            "+gene18",
+            "-gene19",
+            "+gene5",
+            "-gene6",
+            "+gene7",
+            "-gene8",
+            "+gene9",
+            "-gene10",
+            "+gene11",
+            "-gene20",
+            "+gene21",
+            "-gene22",
+            "+gene23",
+        ]
+        graph = GeneMerGraph(
+            {
+                "read1": genes1,
+                "read2": genes1,
+                "read3": genes1,
+                "read4": genes2,
+                "read5": genes2,
+                "read6": genes2,
+            },
+            3,
+        )
+        nodesOfInterest = graph.get_nodes_containing("gene8")
+        nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 2)
+        # assertion
+        self.assertEqual(len(paths), 2)
+        for k in paths:
+            self.assertEqual(len(paths[k]), 3)
+
+    def test___cluster_adjacent_paths(self):
+        # setup
+        adjacent_paths = {
+            (0, 1, 2, 3, 4): {"read1"},
+            (1, 2, 3, 4): {"read2"},
+            (2, 3, 4): {"read3"},
+            (5, 6, 3, 4): {"read4", "read5"},
+            (6, 3, 4): {"read6"},
+            (5, 3, 2, 4): {"read7"},
+            (3, 4): {"read8"},
+        }
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_clusters = graph.cluster_adjacent_paths(adjacent_paths)
+        # assertion
+        self.assertEqual(len(actual_clusters), 3)
+        self.assertTrue((2, 3, 4) in actual_clusters)
+        self.assertTrue((6, 3, 4) in actual_clusters)
+        self.assertTrue((5, 3, 2, 4) in actual_clusters)
+        self.assertTrue(all(r in actual_clusters[(2, 3, 4)] for r in {"read1", "read2", "read3"}))
+        self.assertTrue(all(r in actual_clusters[(6, 3, 4)] for r in {"read4", "read5", "read6"}))
+        self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)] for r in {"read7"}))
+
+    def test___cluster_adjacent_paths_overlapping(self):
+        # setup
+        adjacent_paths = {
+            (0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read1", "read2"},
+            (5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read3", "read4", "read5"},
+            (5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12): {"read6", "read7"},
+            (2, 3, 4, 7, 8, 9, 10): {"read8"},
+        }
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_clusters = graph.cluster_adjacent_paths(adjacent_paths)
+        # assertion
+        self.assertEqual(len(actual_clusters), 3)
+        self.assertTrue((0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
+        self.assertTrue((5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
+        self.assertTrue((5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
+        self.assertTrue(
+            all(
+                r in actual_clusters[(0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12)]
+                for r in {"read1", "read2"}
+            )
+        )
+        self.assertTrue(
+            all(
+                r in actual_clusters[(5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12)]
+                for r in {"read4", "read5", "read3"}
+            )
+        )
+        self.assertTrue(
+            all(
+                r in actual_clusters[(5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12)]
+                for r in {"read6", "read7"}
+            )
+        )
+
+    def test___get_closest_allele(self):
+        # setup
+        samfile = "tests/test_allele.sam"
+        graph = GeneMerGraph({}, 3, {})
+        # execution
+        actual_validity, actual_references, actual_unique_reads = graph.get_closest_allele(
+            samfile, "allele"
+        )
+        # assertion
+        self.assertTrue(actual_validity)
+        self.assertEqual(len(actual_references), 6)
+
+    def test___path_finding_between_junctions(self):
+        # setup
+        import json
+
+        with open("tests/test_path_calls.json") as i:
+            calls = json.load(i)
+        graph = GeneMerGraph(calls, 3)
+        graph.filter_graph(3, 1)
+        # get the potential start nodes
+        potential_bubble_starts = graph.identify_potential_bubble_starts()
+        max_distance = graph.get_kmerSize() * 3
+        for component in graph.components():
+            if component not in potential_bubble_starts:
+                continue
+            potential_bubble_starts_component = potential_bubble_starts[component]
+            unique_paths = graph.get_all_paths_between_junctions_in_component(
+                potential_bubble_starts_component, max_distance, 1
+            )
+            filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
+            sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
+            # assertion
+            # Amira will never correct a path that starts and ends at the same node
+            self.assertEqual(len(sorted_filtered_paths), 2)
+
+    def test___get_minhashes_for_paths_same_path(self):
+        # setup
+        import json
+
+        with open("tests/test_path_calls.json") as i:
+            calls = json.load(i)
+        with open("tests/test_path_positions.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        fastq_data = parse_fastq("tests/test_1.fastq.gz")
+        # get the potential start nodes
+        potential_bubble_starts = graph.identify_potential_bubble_starts()
+        max_distance = graph.get_kmerSize() * 3
+        for component in graph.components():
+            if component not in potential_bubble_starts:
+                continue
+            potential_bubble_starts_component = potential_bubble_starts[component]
+            unique_paths = graph.get_all_paths_between_junctions_in_component(
+                potential_bubble_starts_component, max_distance, 1
+            )
+            filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
+            sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
+            # execution
+            path_minimizers = graph.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, 1)
+            min1 = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[0][0]])]
+            min2 = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[1][0]])]
+            # assertion
+            self.assertEqual(len(min1 & min2) / len(min1), 0.9155718701700154)
+            self.assertEqual(len(min1 & min2) / len(min2), 0.9052531041069724)
