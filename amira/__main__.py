@@ -454,8 +454,13 @@ def main() -> None:
     short_read_gene_positions = graph.get_short_read_gene_positions()
     # filter junk reads
     graph.filter_graph(2, 1)
-    new_annotatedReads, new_gene_position_dict, rejected_reads = graph.remove_junk_reads(0.80)
+    new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
+        graph.remove_junk_reads(0.80)
+    )
     node_min_coverage = args.node_min_coverage
+    # keep track of rejected reads to check for AMR genes later
+    short_reads.update(rejected_reads)
+    short_read_gene_positions.update(rejected_read_positions)
     sys.stderr.write(
         f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
     )
@@ -538,16 +543,6 @@ def main() -> None:
                 fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
             )
         )
-    # # merge paths that are very similar in terms of minimizers
-    # graph = build_multiprocessed_graph(
-    #     new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
-    # )
-    # # correct the graph at this new k value
-    # new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
-    #     graph.correct_low_coverage_paths(
-    #         fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
-    #     )
-    # )
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     with open(os.path.join(args.output_dir, "corrected_gene_calls_after_filtering.json"), "w") as o:
@@ -590,18 +585,32 @@ def main() -> None:
     # add AMR alleles that have come from the reads shorter than k
     clusters_to_add = {}
     cluster_copy_numbers_to_add = {}
-    for read_id in short_reads:
-        for g in range(len(short_reads[read_id])):
-            strandless_gene = short_reads[read_id][g][1:]
+    # get all of the possible reference alleles for genes in the graph
+    all_possible_ref_genes = set()
+    for gene in found_genes_of_interest:
+        this_gene_refs = reference_alleles[gene].keys()
+        for g in this_gene_refs:
+            all_possible_ref_genes.add(g.split(".")[0])
+    # add genes that are not in the graph for whatever reason
+    for read_id in annotatedReads:
+        for g in range(len(annotatedReads[read_id])):
+            strandless_gene = annotatedReads[read_id][g][1:]
             if (
                 strandless_gene in sample_genesOfInterest
                 and strandless_gene not in found_genes_of_interest
             ):
-                if f"{strandless_gene}_1" not in clusters_to_add:
-                    clusters_to_add[f"{strandless_gene}_1"] = []
-                gene_start = short_read_gene_positions[read_id][g][0]
-                gene_end = short_read_gene_positions[read_id][g][1]
-                clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
+                # get the possible reference alleles for this gene
+                refs_to_check = [
+                    a.split(".")[0] for a in list(reference_alleles[strandless_gene].keys())
+                ]
+                if len(all_possible_ref_genes.intersection(refs_to_check)) == 0:
+                    if f"{strandless_gene}_1" not in clusters_to_add:
+                        clusters_to_add[f"{strandless_gene}_1"] = []
+                    gene_start = gene_position_dict[read_id][g][0]
+                    gene_end = gene_position_dict[read_id][g][1]
+                    clusters_to_add[f"{strandless_gene}_1"].append(
+                        f"{read_id}_{gene_start}_{gene_end}"
+                    )
     for amira_allele in clusters_to_add:
         cluster_copy_numbers_to_add[amira_allele] = max(
             1.0, len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()

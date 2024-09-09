@@ -1458,7 +1458,8 @@ class GeneMerGraph:
     def remove_junk_reads(self, error_rate):
         new_reads = {}
         new_positions = {}
-        rejected_reads = set()
+        rejected_reads = {}
+        rejected_read_positions = {}
         read_nodes = self.get_readNodes()
         reads = self.get_reads()
         gene_positions = self.get_gene_positions()
@@ -1474,8 +1475,9 @@ class GeneMerGraph:
                 new_reads[read_id] = reads[read_id]
                 new_positions[read_id] = gene_positions[read_id]
             else:
-                rejected_reads.add(read_id)
-        return new_reads, new_positions, rejected_reads
+                rejected_reads[read_id] = reads[read_id]
+                rejected_read_positions[read_id] = gene_positions[read_id]
+        return new_reads, new_positions, rejected_reads, rejected_read_positions
 
     def get_valid_reads_only(self):
         valid_reads = {}
