@@ -1,7 +1,7 @@
 import unittest
 
-from amira_prototype.construct_gene import Gene
-from amira_prototype.construct_read import Read, convert_genes
+from amira.construct_gene import Gene
+from amira.construct_read import Read, convert_genes
 
 
 class TestReadConstructor(unittest.TestCase):

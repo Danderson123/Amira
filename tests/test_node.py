@@ -1,7 +1,7 @@
 import unittest
 
-from amira_prototype.construct_node import Node
-from amira_prototype.construct_read import Read
+from amira.construct_node import Node
+from amira.construct_read import Read
 
 
 class TestNodeConstructor(unittest.TestCase):

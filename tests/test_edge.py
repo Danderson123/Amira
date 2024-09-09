@@ -1,8 +1,8 @@
 import unittest
 
-from amira_prototype.construct_edge import Edge
-from amira_prototype.construct_node import Node
-from amira_prototype.construct_read import Read
+from amira.construct_edge import Edge
+from amira.construct_node import Node
+from amira.construct_read import Read
 
 
 class TestEdgeConstructor(unittest.TestCase):
