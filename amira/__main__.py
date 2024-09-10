@@ -457,7 +457,9 @@ def main() -> None:
     short_read_gene_positions = graph.get_short_read_gene_positions()
     # filter junk reads
     graph.filter_graph(2, 1)
-    new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = graph.remove_junk_reads(0.80)
+    new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
+        graph.remove_junk_reads(0.80)
+    )
     node_min_coverage = args.node_min_coverage
     sys.stderr.write(
         f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"

@@ -3095,7 +3095,11 @@ class GeneMerGraph:
                 # get the first and last non-zero element
                 try:
                     first_index = depth_list.index(next(x for x in depth_list if x != 0))
-                    last_index = len(depth_list) - 1 - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
+                    last_index = (
+                        len(depth_list)
+                        - 1
+                        - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
+                    )
                 except StopIteration:
                     first_index, last_index = 0, len(depth_list) - 1
                 ref_allele_positions[ref] = (first_index, last_index)
