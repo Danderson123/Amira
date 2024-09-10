@@ -404,7 +404,7 @@ def main() -> None:
             args.upper_gene_length_threshold,
             args.readfile,
             args.cores,
-            args.output_dir
+            args.output_dir,
         )
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -457,13 +457,8 @@ def main() -> None:
     short_read_gene_positions = graph.get_short_read_gene_positions()
     # filter junk reads
     graph.filter_graph(2, 1)
-    new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
-        graph.remove_junk_reads(0.80)
-    )
+    new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = graph.remove_junk_reads(0.80)
     node_min_coverage = args.node_min_coverage
-    # keep track of rejected reads to check for AMR genes later
-    short_reads.update(rejected_reads)
-    short_read_gene_positions.update(rejected_read_positions)
     sys.stderr.write(
         f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
     )
@@ -588,21 +583,18 @@ def main() -> None:
     # add AMR alleles that have come from the reads shorter than k
     clusters_to_add = {}
     cluster_copy_numbers_to_add = {}
-    # add genes that are not in the graph for whatever reason
-    for read_id in annotatedReads:
-        for g in range(len(annotatedReads[read_id])):
-            strandless_gene = annotatedReads[read_id][g][1:]
+    for read_id in short_reads:
+        for g in range(len(short_reads[read_id])):
+            strandless_gene = short_reads[read_id][g][1:]
             if (
                 strandless_gene in sample_genesOfInterest
                 and strandless_gene not in found_genes_of_interest
             ):
                 if f"{strandless_gene}_1" not in clusters_to_add:
                     clusters_to_add[f"{strandless_gene}_1"] = []
-                gene_start = gene_position_dict[read_id][g][0]
-                gene_end = gene_position_dict[read_id][g][1]
-                clusters_to_add[f"{strandless_gene}_1"].append(
-                    f"{read_id}_{gene_start}_{gene_end}"
-                )
+                gene_start = short_read_gene_positions[read_id][g][0]
+                gene_end = short_read_gene_positions[read_id][g][1]
+                clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
     for amira_allele in clusters_to_add:
         cluster_copy_numbers_to_add[amira_allele] = max(
             1.0, len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
@@ -631,7 +623,7 @@ def main() -> None:
                     ][allele]
     # add the genes from the short reads
     for allele in clusters_to_add:
-        if len(clusters_to_add[allele]) > 9:
+        if len(clusters_to_add[allele]) > 4:
             files_to_assemble.append(
                 write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
             )
@@ -711,6 +703,7 @@ def main() -> None:
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
     # make the result table
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

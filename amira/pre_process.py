@@ -1,7 +1,8 @@
 import json
-import subprocess
-
 import os
+import subprocess
+import sys
+
 import pysam
 from tqdm import tqdm
 
@@ -88,19 +89,58 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
 #     for gene in genes_to_delete:
 #         del pandora_consensus[gene]
 
-def remove_poorly_mapped_genes(pandora_consensus,
-                            zero_coverage_threshold,
-                            genesOfInterest,
-                            read_path,
-                            cores,
-                            output_dir,
-                            consensus_file):
+
+def remove_poorly_mapped_genes(
+    pandora_consensus,
+    zero_coverage_threshold,
+    genesOfInterest,
+    read_path,
+    cores,
+    output_dir,
+    consensus_file,
+):
+    sys.stderr.write("\nAmira: removing genes with low coverage\n")
     # map the reads to the pandora consensus
-    map_command = f"minimap2 -x map-ont -a --MD -t {cores} "
-    map_command += f"-o {os.path.join(output_dir, "mapped_to_consensus.sam")} "
-    map_command += f"{consensus_file} {read_path}"
+    map_command = f"minimap2 -x map-ont -a --MD --secondary=no -t {cores} "
+    map_command += f"-o {os.path.join(output_dir, 'mapped_to_consensus.sam')} "
+    map_command += f"{consensus_file} {read_path} && "
+    map_command += (
+        f"samtools sort -@ {cores} {os.path.join(output_dir, 'mapped_to_consensus.sam')} > "
+    )
+    map_command += f"{os.path.join(output_dir, 'mapped_to_consensus.bam')} && "
+    map_command += f"samtools index {os.path.join(output_dir, 'mapped_to_consensus.bam')}"
     subprocess.run(map_command, shell=True, check=True)
-    # check the coverage of each gene
+    # Load the BAM file
+    bam_path = os.path.join(output_dir, "mapped_to_consensus.bam")
+    bam_file = pysam.AlignmentFile(bam_path, "rb")
+    # Initialize coverage dictionary for each gene
+    gene_coverage = {gene: [0] * bam_file.get_reference_length(gene) for gene in pandora_consensus}
+    # Iterate through each read in the BAM file
+    for read in bam_file.fetch():
+        if read.reference_name in gene_coverage:
+            # Get the start and end positions of the read mapping to the reference
+            start = read.reference_start
+            end = read.reference_end
+            # Mark the covered positions in the gene coverage list
+            for pos in range(start, end):
+                gene_coverage[read.reference_name][pos] = 1
+    # Close the BAM file
+    bam_file.close()
+    # Calculate coverage percentage for each gene
+    count = 0
+    for gene in gene_coverage:
+        if gene in genesOfInterest:
+            continue
+        if (len(gene_coverage[gene]) - sum(gene_coverage[gene])) / len(
+            gene_coverage[gene]
+        ) > zero_coverage_threshold:
+            del pandora_consensus[gene]
+            count += 1
+    print("Removed ", count)
+    # clean up the files
+    os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
+    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
+    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
 
 
 def convert_pandora_output(
@@ -112,7 +152,7 @@ def convert_pandora_output(
     gene_length_upper_threshold: float,
     read_path: str,
     cores: int,
-    output_dir: str
+    output_dir: str,
 ) -> tuple[dict[str, list[str]], list[str]]:
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
@@ -120,13 +160,15 @@ def convert_pandora_output(
     gene_position_dict: dict[str, list[tuple[int, int]]] = {}
     geneCounts: dict[str, int] = {}
     # remove genes that have a high proportion of unmapped bases in the pandora consensus
-    remove_poorly_mapped_genes(pandora_consensus,
-                            0.2,
-                            genesOfInterest,
-                            read_path,
-                            cores,
-                            output_dir,
-                            os.path.join(os.path.dirname(pandoraSam), "pandora.consensus.fq.gz"))
+    remove_poorly_mapped_genes(
+        pandora_consensus,
+        0.2,
+        genesOfInterest,
+        read_path,
+        cores,
+        output_dir,
+        os.path.join(os.path.dirname(pandoraSam), "pandora.consensus.fq.gz"),
+    )
     # iterate through the read regions
     read_tracking = {}
     distances = {}

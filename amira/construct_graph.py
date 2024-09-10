@@ -3024,7 +3024,7 @@ class GeneMerGraph:
         output_fasta,
         window_length,
     ):
-        racon_command = f"{racon_path} -t 1 -w {window_length} {input_fasta} "
+        racon_command = f"{racon_path} -t 1 --no-trimming -w {window_length} {input_fasta} "
         racon_command += f"{sam_file} {reference_fasta} > {output_fasta}"
         self.run_subprocess(racon_command)
 
@@ -3073,6 +3073,7 @@ class GeneMerGraph:
 
     def get_ref_allele_pileups(self, bam_file, output_dir):
         read_depths = []
+        ref_allele_positions = {}
         # Open the BAM file
         with pysam.AlignmentFile(bam_file, "rb") as bam:
             # Iterate over each reference (chromosome/contig)
@@ -3091,10 +3092,18 @@ class GeneMerGraph:
                 # Convert the depth list to a string format
                 depth_list_str = ",".join(map(str, depth_list))
                 read_depths.append(f">{ref}\n{depth_list_str}")
+                # get the first and last non-zero element
+                try:
+                    first_index = depth_list.index(next(x for x in depth_list if x != 0))
+                    last_index = len(depth_list) - 1 - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
+                except StopIteration:
+                    first_index, last_index = 0, len(depth_list) - 1
+                ref_allele_positions[ref] = (first_index, last_index)
         # Write the read depths to the output file
         output_file_path = os.path.join(output_dir, "reference_allele_coverages.txt")
         with open(output_file_path, "w") as output_file:
             output_file.write("\n".join(read_depths))
+        return ref_allele_positions
 
     def compare_reads_to_references(
         self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes, debug
@@ -3110,17 +3119,19 @@ class GeneMerGraph:
             "02.read",
             "-a --MD -t 1 -x map-ont --eqx",
         )
-        if debug is True:
-            self.get_ref_allele_pileups(bam_file, output_dir)
+        ref_allele_positions = self.get_ref_allele_pileups(bam_file, output_dir)
+        if debug is False:
+            os.remove(os.path.join(output_dir, "reference_allele_coverages.txt"))
         validity, references, unique_reads = self.get_closest_allele(bam_file, "reads")
         if validity is True:
             valid_allele, match_proportion, match_length, coverage_proportion = references[0]
             valid_allele_sequence = self.get_allele_sequence(
                 gene_name, valid_allele, reference_genes
             )
+            first_base, last_base = ref_allele_positions[valid_allele]
             self.write_fasta(
                 os.path.join(output_dir, "03.sequence_to_polish.fasta"),
-                [f">{valid_allele}\n{valid_allele_sequence}"],
+                [f">{valid_allele}\n{valid_allele_sequence[first_base: last_base+1]}"],
             )
             for _ in range(5):
                 try:
