@@ -646,7 +646,17 @@ def main() -> None:
         args.phenotypes,
         args.debug,
     )
-
+    # return an empty DF if there are no AMR genes
+    if len(result_df) == 0:
+        # write an empty dataframe
+        results = "Gene name\tSequence name\tClosest reference\tReference length\t"
+        results += (
+            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
+        )
+        with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
+            o.write(results)
+        # exit
+        sys.exit(0)
     # get the copy number estimates of each allele
     result_df["Approximate copy number"] = result_df.apply(
         lambda row: estimate_copy_number(
