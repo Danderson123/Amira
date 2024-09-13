@@ -1097,6 +1097,7 @@ class GeneMerGraph:
 
     def is_sublist(self, long_list, sub_list):
         """Check if list is a sublist of long_list."""
+        assert isinstance(long_list, list) and isinstance(sub_list, list)
         len_sub = len(sub_list)
         return any(
             sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
@@ -1881,6 +1882,7 @@ class GeneMerGraph:
         corrected_reads = {}
         # iterate through the path terminals
         path_coverages = []
+        all_containments = []
         for pair in tqdm(bubbles):
             if len(bubbles[pair]) > 1:
                 # sort the paths from highest to lower coverage
@@ -1961,6 +1963,7 @@ class GeneMerGraph:
                                         / len(high_coverage_minimizers),
                                     ]
                                 )
+                                all_containments.append(str(containment))
                                 # if the containment is greater than the threshold
                                 if containment > threshold:
                                     correct_path = True
@@ -1981,6 +1984,8 @@ class GeneMerGraph:
                                     fastq_data,
                                     corrected_reads,
                                 )
+        # with open("all_containments.txt", "w") as o:
+        #     o.write("\n".join(sorted(all_containments)))
         return path_coverages
 
     def split_into_contiguous_chunks(
@@ -2235,61 +2240,13 @@ class GeneMerGraph:
             p_list = list(p)
             # Skip self-comparison and check for sublists in both forward and reversed directions
             if not any(
-                self.is_sublist(list(q), p) or self.is_sublist(list(q), list(reversed(p)))
+                self.is_sublist(list(q), list(p)) or self.is_sublist(list(q), list(reversed(p)))
                 for q in unique_paths
                 if q != p
             ):
                 if len(p_list) > 2:
                     filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
         return filtered_paths
-
-    def old_get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
-        for node_hash in batch:
-            node = self.get_node_by_hash(node_hash)
-            minhash = sourmash.MinHash(n=0, ksize=13, scaled=10)
-            # iterate through the reads
-            for read in node.get_reads():
-                # get the indices of the node occurence on the read
-                indices = [i for i, n in enumerate(self.get_readNodes()[read]) if n == node_hash]
-                # get the positions on the read
-                positions = [self.get_readNodePositions()[read][i] for i in indices]
-                # get the read sequence
-                entire_read_sequence = fastq_data[read.split("_")[0]]["sequence"]
-                # iterate through the positions
-                for p in positions:
-                    # add the sequence to the minhash object
-                    minhash.add_sequence(entire_read_sequence[p[0] : p[1] + 1], force=True)
-            node_minhashes[node_hash] = minhash
-
-    def old_get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
-        for path_tuple in batch:
-            for node_hash in path_tuple:
-                assert node_minhashes[node_hash] is not None
-                path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
-
-    def old_get_minhashes_for_paths(self, sorted_filtered_paths, fastq_data, cores):
-        path_minimizers = {}
-        node_minhashes = {}
-        for path_tuple, path_coverage in sorted_filtered_paths:
-            path = [p[0] for p in path_tuple]
-            # iterate through the nodes
-            for node_hash in path:
-                node_minhashes[node_hash] = None
-            path_minimizers[tuple(path)] = set()
-        keys = list(node_minhashes.keys())
-        batches = [set(keys[i::cores]) for i in range(cores)]
-        Parallel(n_jobs=cores, prefer="threads")(
-            delayed(self.get_minhash_of_nodes)(batch, node_minhashes, fastq_data)
-            for batch in batches
-        )
-        keys = list(path_minimizers.keys())
-        batches = [set(keys[i::cores]) for i in range(cores)]
-        Parallel(n_jobs=cores, prefer="threads")(
-            delayed(self.get_minhash_of_path)(batch, path_minimizers, node_minhashes)
-            for batch in batches
-        )
-        assert not any(v is None for v in path_minimizers.values())
-        return path_minimizers
 
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
         for node_hash in batch:
@@ -2340,7 +2297,7 @@ class GeneMerGraph:
         return path_minimizers
 
     def correct_low_coverage_paths(
-        self, fastq_data, genesOfInterest, cores, min_path_coverage, use_minimizers=False
+        self, fastq_data, genesOfInterest, cores, min_path_coverage, components_to_skip, use_minimizers=False
     ):
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
@@ -2351,6 +2308,9 @@ class GeneMerGraph:
         # iterate through the components
         path_coverages = []
         for component in self.components():
+            # skip this component if specified
+            if component in components_to_skip:
+                continue
             # convert the bubbles nodes to a list
             if component not in potential_bubble_starts:
                 continue
@@ -2509,12 +2469,26 @@ class GeneMerGraph:
             # get the downstream nodes
             downstream = nodes_on_read[last_one_index + 1 :]
             # make the up and downstream nodes relative to the sorted core
-            if sorted_core == core:
-                upstream_tuple = tuple(upstream)
-                downstream_tuple = tuple(downstream)
-            elif sorted_core != core:
-                upstream_tuple = tuple(list(reversed(downstream)))
-                downstream_tuple = tuple(list(reversed(upstream)))
+            if len(core) == 1:
+                core_genes = self.get_genes_in_unitig(sorted_core)
+                fw_sublist = self.is_sublist(self.get_reads()[read], core_genes)
+                rv_sublist = self.is_sublist(self.get_reads()[read], self.reverse_list_of_genes(core_genes))
+                if fw_sublist is True and rv_sublist is False:
+                    upstream_tuple = tuple(upstream)
+                    downstream_tuple = tuple(downstream)
+                elif rv_sublist is True and fw_sublist is False:
+                    upstream_tuple = tuple(list(reversed(downstream)))
+                    downstream_tuple = tuple(list(reversed(upstream)))
+                else:
+                    raise ValueError("Cannot determine core AMR path direction, please submit a GitHub issue at https://github.com/Danderson123/Amira.")
+            else:
+                # Make the upstream and downstream nodes relative to the sorted core
+                if sorted_core == core:
+                    upstream_tuple = tuple(upstream)
+                    downstream_tuple = tuple(downstream)
+                else:
+                    upstream_tuple = tuple(list(reversed(downstream)))
+                    downstream_tuple = tuple(list(reversed(upstream)))
             # add the path to the dictionary of all paths
             if core_tuple not in paths:
                 paths[core_tuple] = {"upstream": {}, "downstream": {}, "reads": set()}
@@ -2531,36 +2505,76 @@ class GeneMerGraph:
         core_to_delete = [c for c, data in paths.items() if len(data["reads"]) < threshold]
         for c in core_to_delete:
             del paths[c]
-        # Remove any core option that is fully contained within another
-        core_to_delete = set()
-        for c1 in paths:
-            c1_list = list(c1)
-            rev_c1_list = list(reversed(c1_list))
-            for c2 in paths:
-                if c1 != c2:
-                    c2_list = list(c2)
-                    if self.is_sublist(c2_list, c1_list) or self.is_sublist(c2_list, rev_c1_list):
-                        core_to_delete.add(c1)
-        for c in core_to_delete:
-            del paths[c]
         # iterate through the remaining paths
-        final_paths = {}
-        final_path_coverages = {}
+        clustered_paths = {}
+        longest_paths = {}
+        longest_shortest_mapping = {}
         for c in paths:
             # cluster the upstream paths based on the underlying path they support
-            clustered_upstream = self.cluster_adjacent_paths(paths[c]["upstream"])
+            clustered_upstream= self.cluster_adjacent_paths(paths[c]["upstream"])
             # cluster the downstream paths based on the underlying path they support
             clustered_downstream = self.cluster_adjacent_paths(paths[c]["downstream"])
             # get all combinations of valid paths
             for u in clustered_upstream:
                 for d in clustered_downstream:
-                    shared_reads = clustered_upstream[u].intersection(clustered_downstream[d])
+                    shared_reads = clustered_upstream[u]["reads"].intersection(clustered_downstream[d]["reads"])
                     if len(shared_reads) > 0:
-                        final_path = u + c + d
-                        final_paths[final_path] = shared_reads
-                        final_path_coverages[final_path] = [
-                            self.get_node_by_hash(n).get_node_coverage() for n in list(final_path)
-                        ]
+                        if c not in clustered_paths:
+                            clustered_paths[c] = {"upstream": [], "downstream": [], "shared_reads": [], "full_path": []}
+                        long_path = u + c + d
+                        clustered_paths[c]["upstream"].append(u)
+                        clustered_paths[c]["downstream"].append(d)
+                        clustered_paths[c]["shared_reads"].append(shared_reads)
+                        clustered_paths[c]["full_path"].append(long_path)
+                        longest_paths[long_path] = shared_reads
+                        # make a mapping of the longest to shortest representation of this path
+                        longest_shortest_mapping[long_path] = clustered_upstream[u]["shortest"] + c + clustered_downstream[d]["shortest"]
+        # Remove any core option that is fully contained within another
+        paths_to_delete = set()
+        for c1 in clustered_paths:
+            c1_list = list(c1)
+            rev_c1_list = list(reversed(c1_list))
+            for c2 in clustered_paths:
+                if c1 == c2:
+                    continue
+                c2_list = list(c2)
+                c2_upstream = clustered_paths[c2]["upstream"]
+                c2_downstream = clustered_paths[c2]["downstream"]
+
+                def check_and_add(c1_path, c2_list, u1, d1):
+                    if len(u1) == 0 or len(d1) == 0:
+                        paths_to_delete.add(c1_path)
+                        return True
+                    if (any(self.is_sublist(list(u2), u1) or self.is_sublist(u1, list(u2)) or self.is_sublist(c2_list, u1) for u2 in c2_upstream) and
+                        any(self.is_sublist(list(d2), d1) or self.is_sublist(d1, list(d2)) or self.is_sublist(c2_list, d1)  for d2 in c2_downstream)):
+                        paths_to_delete.add(c1_path)
+                        return True
+                    return False
+
+                if self.is_sublist(c2_list, c1_list):
+                    for i, c1_path in enumerate(clustered_paths[c1]["full_path"]):
+                        u1 = list(clustered_paths[c1]["upstream"][i])
+                        d1 = list(clustered_paths[c1]["downstream"][i])
+                        added = check_and_add(c1_path, c2_list, u1, d1)
+
+                if self.is_sublist(c2_list, rev_c1_list):
+                    for i, c1_path in enumerate(clustered_paths[c1]["full_path"]):
+                        d1 = list(reversed(clustered_paths[c1]["downstream"][i]))
+                        u1 = list(reversed(clustered_paths[c1]["upstream"][i]))
+                        added = check_and_add(c1_path, c2_list, d1, u1)
+                        if added is True:
+                            sub = True
+            #if sub is False:
+            #    print(c1_list)
+        for p in paths_to_delete:
+            del longest_paths[p]
+        final_paths, final_path_coverages = {}, {}
+        for p in longest_paths:
+            shortest_path = longest_shortest_mapping[p]
+            final_paths[shortest_path] = longest_paths[p]
+            final_path_coverages[shortest_path] = [
+                    self.get_node_by_hash(n).get_node_coverage() for n in list(shortest_path)
+                ]
         return final_paths, final_path_coverages
 
     def cluster_adjacent_paths(self, adjacent_paths):
@@ -2583,16 +2597,16 @@ class GeneMerGraph:
         # choose the shortest subpath in a cluster as the representative
         final_clusters = {}
         for c in clustered_sub_paths:
-            final_clusters[min(list(clustered_sub_paths[c]["paths"]), key=len)] = (
-                clustered_sub_paths[c]["reads"]
-            )
+            final_clusters[max(list(clustered_sub_paths[c]["paths"]), key=len)] = {
+                "shortest": min(list(clustered_sub_paths[c]["paths"]), key=len),
+                "reads": clustered_sub_paths[c]["reads"]
+            }
         return final_clusters
 
     def split_into_subpaths(
         self,
         geneOfInterest,
         pathsOfinterest,
-        fastq_content,
         path_coverages,
         mean_node_coverage=None,
     ):
@@ -2860,11 +2874,11 @@ class GeneMerGraph:
                 pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     reads,
                     nodeHashesOfInterest,
-                    max(5, mean_node_coverage / 10),
+                    max(2, mean_node_coverage / 20),
                 )
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
-                    geneOfInterest, pathsOfInterest, fastq_dict, pathCoverages, mean_node_coverage
+                    geneOfInterest, pathsOfInterest, pathCoverages, mean_node_coverage
                 )
                 # add the component to the clustered reads
                 if component not in clustered_reads:
@@ -2880,7 +2894,7 @@ class GeneMerGraph:
                     if gene_name not in allele_counts:
                         allele_counts[gene_name] = 1
                     # add this allele if there are 5 or more reads
-                    if len(finalAllelesOfInterest[allele]) >= path_threshold:
+                    if len(finalAllelesOfInterest[allele]) >= max(2, mean_node_coverage / 20):#:path_threshold:
                         clustered_reads[component][geneOfInterest][
                             f"{gene_name}_{allele_counts[gene_name]}"
                         ] = finalAllelesOfInterest[allele]
@@ -3242,3 +3256,23 @@ class GeneMerGraph:
             )
         gene_data = sorted(gene_data, key=lambda x: x["Gene name"])
         return pd.DataFrame(gene_data)
+
+    def remove_non_AMR_associated_nodes(self, genesOfInterest):
+        # get the reads containing AMR genes
+        readsOfInterest = set()
+        for geneOfInterest in tqdm(genesOfInterest):
+            # get the graph nodes containing this gene
+            nodesOfInterest = self.get_nodes_containing(geneOfInterest)
+            # get the reads containing this gene
+            for node in nodesOfInterest:
+                for read in node.get_reads():
+                    readsOfInterest.add(read)
+        # go through all of the nodes to check for AMR reads
+        nodes_to_remove = []
+        for node_hash in self.get_nodes():
+            node = self.get_node_by_hash(node_hash)
+            node_reads = set(node.get_list_of_reads())
+            if not len(readsOfInterest.intersection(node_reads)) > 0:
+                nodes_to_remove.append(node)
+        for node in nodes_to_remove:
+            self.remove_node(node)

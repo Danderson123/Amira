@@ -109,14 +109,14 @@ def remove_poorly_mapped_genes(
     )
     map_command += f"{os.path.join(output_dir, 'mapped_to_consensus.bam')} && "
     map_command += f"samtools index {os.path.join(output_dir, 'mapped_to_consensus.bam')}"
-    subprocess.run(map_command, shell=True, check=True)
+    #subprocess.run(map_command, shell=True, check=True)
     # Load the BAM file
     bam_path = os.path.join(output_dir, "mapped_to_consensus.bam")
     bam_file = pysam.AlignmentFile(bam_path, "rb")
     # Initialize coverage dictionary for each gene
     gene_coverage = {gene: [0] * bam_file.get_reference_length(gene) for gene in pandora_consensus}
     # Iterate through each read in the BAM file
-    for read in bam_file.fetch():
+    for read in tqdm(bam_file.fetch()):
         if read.reference_name in gene_coverage:
             # Get the start and end positions of the read mapping to the reference
             start = read.reference_start
@@ -136,7 +136,6 @@ def remove_poorly_mapped_genes(
         ) > zero_coverage_threshold:
             del pandora_consensus[gene]
             count += 1
-    print("Removed ", count)
     # clean up the files
     os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
     os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))

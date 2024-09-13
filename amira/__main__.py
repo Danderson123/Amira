@@ -445,6 +445,16 @@ def main() -> None:
     graph = build_multiprocessed_graph(
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
+    overall_mean_node_coverage = graph.get_mean_node_coverage()
+    # collect the reads that have fewer than k genes
+    short_reads = graph.get_short_read_annotations()
+    short_read_gene_positions = graph.get_short_read_gene_positions()
+    # mark nodes in the graph that contain at least 1 AMR gene
+    graph.remove_non_AMR_associated_nodes(sample_genesOfInterest)
+    new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+    graph = build_multiprocessed_graph(
+        new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
+    )
     try:
         min_path_coverage = plot_node_coverages(
             graph.get_all_node_coverages(),
@@ -452,9 +462,6 @@ def main() -> None:
         )
     except (ValueError, IndexError):
         min_path_coverage = 10
-    # collect the reads that have fewer than k genes
-    short_reads = graph.get_short_read_annotations()
-    short_read_gene_positions = graph.get_short_read_gene_positions()
     # filter junk reads
     graph.filter_graph(2, 1)
     new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
@@ -473,7 +480,8 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    graph = build_multiprocessed_graph(
+    graph = build_multiprocessed_graph(    # mark nodes in the graph that contain at least 1 read with an AMR gene
+
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
     # collect the reads that have fewer than k genes
@@ -481,38 +489,51 @@ def main() -> None:
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads = graph.get_valid_reads_only()
+    # return an empty DF if there are no AMR genes
+    if len(new_annotatedReads) == 0:
+        # write an empty dataframe
+        results = "Gene name\tSequence name\tClosest reference\tReference length\t"
+        results += (
+            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
+        )
+        with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
+            o.write(results)
+        # exit
+        sys.exit(0)
     # choose a value for k
     sys.stderr.write("\nAmira: selecting a gene-mer size (k)\n")
     geneMer_size = 3
-    for k in range(3, 16, 2):
-        # Build the graph with the current k value
-        graph = build_multiprocessed_graph(
-            new_annotatedReads.copy(), k, args.cores, new_gene_position_dict.copy()
-        )
+    if overall_mean_node_coverage >= 20:
+        for k in range(3, 16, 2):
+            # Build the graph with the current k value
+            graph = build_multiprocessed_graph(
+                new_annotatedReads.copy(), k, args.cores, new_gene_position_dict.copy()
+            )
 
-        def is_component_valid(component):
-            amr_nodes = {
-                n.__hash__() for g in sample_genesOfInterest for n in graph.get_nodes_containing(g)
-            }
-            nodes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
-            reads = graph.collect_reads_in_path([n for n in nodes_in_component if n in amr_nodes])
-            lengths = [len(graph.get_reads()[r]) for r in reads]
-            if len(lengths) != 0:
-                return (
-                    len([length for length in lengths if length >= (2 * k - 1)]) / len(lengths)
-                    >= 0.8
-                )
+            def is_component_valid(component):
+                amr_nodes = {
+                    n.__hash__() for g in sample_genesOfInterest for n in graph.get_nodes_containing(g)
+                }
+                nodes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
+                reads = graph.collect_reads_in_path([n for n in nodes_in_component if n in amr_nodes])
+                lengths = [len(graph.get_reads()[r]) for r in reads]
+                if len(lengths) != 0:
+                    print(lengths)
+                    return (
+                        len([length for length in lengths if length >= (2 * k - 1)]) / len(lengths)
+                        >= 0.8
+                    )
+                else:
+                    return True
+            if all(is_component_valid(c) for c in graph.components()):
+                geneMer_size = k
             else:
-                return True
-
-        if all(is_component_valid(c) for c in graph.components()):
-            geneMer_size = k
-        else:
-            break
+                break
     sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n")
     # parse the original fastq file
-    cleaning_iterations = 10
-    prev_nodes = 0
+    cleaning_iterations = 15
+    prev_nodes = {}
+    components_to_skip = set()
     for this_iteration in range(cleaning_iterations):
         sys.stderr.write(
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}\n"
@@ -521,11 +542,18 @@ def main() -> None:
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
         )
-        # check if the current number of nodes is equal to the previous number of nodes
-        if len(graph.get_nodes()) == prev_nodes:
+        # check if the current number of nodes per component is equal to the previous number of nodes
+        all_skip = True
+        for component in graph.components():
+            nodes_in_component = graph.get_nodes_in_component(component)
+            if component in prev_nodes and len(nodes_in_component) == prev_nodes[component]:
+                components_to_skip.add(component)
+            else:
+                prev_nodes[component] = len(nodes_in_component)
+                all_skip = False
+        if all_skip is True:
             sys.stderr.write(f"\n\tAmira: terminating cleaning at iteration {this_iteration+1}\n")
             break
-        prev_nodes = len(graph.get_nodes())
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
@@ -538,9 +566,15 @@ def main() -> None:
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
+        graph.generate_gml(
+            os.path.join(args.output_dir, "intermediate_graph"),
+            geneMer_size,
+            node_min_coverage,
+            1,
+        )
         new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
             graph.correct_low_coverage_paths(
-                fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, True
+                fastq_content, sample_genesOfInterest, args.cores, min_path_coverage, components_to_skip, True
             )
         )
     # build the corrected gene-mer graph
@@ -574,7 +608,7 @@ def main() -> None:
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
     clusters_of_interest, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
-        sample_genesOfInterest, fastq_content
+        sample_genesOfInterest, fastq_content, {}, overall_mean_node_coverage
     )
     # get the unique genes we have found
     found_genes_of_interest = set()
@@ -599,7 +633,7 @@ def main() -> None:
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
     for amira_allele in clusters_to_add:
         cluster_copy_numbers_to_add[amira_allele] = max(
-            1.0, len(clusters_to_add[amira_allele]) / graph.get_mean_node_coverage()
+            1.0, len(clusters_to_add[amira_allele]) / overall_mean_node_coverage
         )
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
@@ -611,7 +645,7 @@ def main() -> None:
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
             for allele in clusters_of_interest[component][gene]:
-                if len(clusters_of_interest[component][gene][allele]) > 4:
+                if len(clusters_of_interest[component][gene][allele]) > max(2, graph.get_mean_node_coverage() / 20):
                     files_to_assemble.append(
                         write_allele_fastq(
                             clusters_of_interest[component][gene][allele],
@@ -625,7 +659,7 @@ def main() -> None:
                     ][allele]
     # add the genes from the short reads
     for allele in clusters_to_add:
-        if len(clusters_to_add[allele]) > 4:
+        if len(clusters_to_add[allele]) > max(2, graph.get_mean_node_coverage() / 20):
             files_to_assemble.append(
                 write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
             )
