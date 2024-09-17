@@ -2480,7 +2480,7 @@ class GeneMerGraph:
                     upstream_tuple = tuple(list(reversed(downstream)))
                     downstream_tuple = tuple(list(reversed(upstream)))
                 else:
-                    raise ValueError("Cannot determine core AMR path direction, please submit a GitHub issue at https://github.com/Danderson123/Amira.")
+                    raise ValueError("Cannot determine core AMR path direction, please submit a GitHub issue at https://github.com/Danderson123/")
             else:
                 # Make the upstream and downstream nodes relative to the sorted core
                 if sorted_core == core:
@@ -2502,6 +2502,7 @@ class GeneMerGraph:
             paths[core_tuple]["downstream"][downstream_tuple].add(read)
             paths[core_tuple]["reads"].add(read)
         # Filter out core options below threshold
+        all_core_depths = [len(paths[k]["reads"]) for k in paths]
         core_to_delete = [c for c, data in paths.items() if len(data["reads"]) < threshold]
         for c in core_to_delete:
             del paths[c]
@@ -2575,7 +2576,7 @@ class GeneMerGraph:
             final_path_coverages[shortest_path] = [
                     self.get_node_by_hash(n).get_node_coverage() for n in list(shortest_path)
                 ]
-        return final_paths, final_path_coverages
+        return final_paths, final_path_coverages, all_core_depths
 
     def cluster_adjacent_paths(self, adjacent_paths):
         # sort the subpaths from longest to shortest
@@ -2850,6 +2851,7 @@ class GeneMerGraph:
         # get the mean node coverage if it is not specified
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
+        all_core_depths = []
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
@@ -2871,11 +2873,13 @@ class GeneMerGraph:
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # get the paths containing this gene
-                pathsOfInterest, pathCoverages = self.get_paths_for_gene(
+                pathsOfInterest, pathCoverages, core_depths = self.get_paths_for_gene(
                     reads,
                     nodeHashesOfInterest,
-                    max(2, mean_node_coverage / 20),
+                    mean_node_coverage / 20
+                    #max(5, mean_node_coverage / 20),
                 )
+                all_core_depths += core_depths
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
                     geneOfInterest, pathsOfInterest, pathCoverages, mean_node_coverage
@@ -2894,7 +2898,7 @@ class GeneMerGraph:
                     if gene_name not in allele_counts:
                         allele_counts[gene_name] = 1
                     # add this allele if there are 5 or more reads
-                    if len(finalAllelesOfInterest[allele]) >= max(2, mean_node_coverage / 20):#:path_threshold:
+                    if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:#:path_threshold:
                         clustered_reads[component][geneOfInterest][
                             f"{gene_name}_{allele_counts[gene_name]}"
                         ] = finalAllelesOfInterest[allele]
@@ -2943,7 +2947,7 @@ class GeneMerGraph:
                                 f"{read_id}_{gene_start}_{gene_end}"
                             )
                     allele_counts[geneOfInterest] += 1
-        return clustered_reads, cluster_copy_numbers, allele_counts
+        return clustered_reads, cluster_copy_numbers, allele_counts, all_core_depths
 
     def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []
