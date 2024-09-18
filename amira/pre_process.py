@@ -14,17 +14,12 @@ def clean_gene(g):
 
 
 def process_pandora_json(
-    pandoraJSON: str, genesOfInterest: list[str]
+    pandoraJSON: str, genesOfInterest: list[str], gene_positions: str
 ) -> tuple[dict[str, list[str]], list[str]]:
     with open(pandoraJSON) as i:
         annotatedReads = json.loads(i.read())
-    ###################
-    # just needed for running on simulated data
-    newAnnotatedReads = {}
-    for r in annotatedReads:
-        newAnnotatedReads[r] = ["_".join(g.split("_")[:-1]) for g in annotatedReads[r]]
-    annotatedReads = newAnnotatedReads
-    ###################
+    with open(gene_positions) as i:
+        gene_position_dict = json.loads(i.read())
     to_delete = []
     subsettedGenesOfInterest = set()
     for read in tqdm(annotatedReads):
@@ -35,10 +30,11 @@ def process_pandora_json(
                 subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
         if not containsAMRgene:
             to_delete.append(read)
-    for read in to_delete:
-        del annotatedReads[read]
+    # for read in to_delete:
+    #     del annotatedReads[read]
     genesOfInterest = list(subsettedGenesOfInterest)
-    return annotatedReads, genesOfInterest
+
+    return annotatedReads, genesOfInterest, gene_position_dict
 
 
 def get_read_start(cigar: list[tuple[int, int]]) -> int:

@@ -6016,38 +6016,38 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     #         )
     #         print(sorted_filtered_paths)
     #     dsdd
-    # def test___low_coverage(self):
-    #     # setup
-    #     import json
+    def test___low_coverage(self):
+        # setup
+        import json
 
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
-    #         calls = json.load(i)
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
-    #         positions = json.load(i)
-    #     graph = GeneMerGraph(calls, 3, positions)
-    #     nodesOfInterest = []
-    #     for geneOfInterest in [
-    #                         'aac630aac6IbNG_0472131',
-    #                     ]:
-    #         nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-    #     nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
-    #     reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-    #     graph.generate_gml("tests/test", 3, 1, 1)
-    #     # execution
-    #     # paths, _ = graph.get_paths_for_gene(reads,
-    #     #     nodeHashesOfInterest,
-    #     #     57.507224205337415 / 20
-    #     # )
-    #     # for p in paths:
-    #     #     print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
-    #     # ssss
-    #     # # split the paths into subpaths
-    #     # finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
-    #     #    geneOfInterest, paths, _, None
-    #     # )
-    #     one, two, three = graph.assign_reads_to_genes(["aac630aac6IbNG_0472131"], {}, {}, 57.507224205337415)
-    #     print(one)
-    #     dss
+        with open("/home/daniel/Documents/GitHub/amira_prototype/amira.output.k.3.GCA_027944735.1_ASM2794473v1_genomic/corrected_gene_calls_after_filtering.json") as i:
+            calls = json.load(i)
+        with open("/home/daniel/Documents/GitHub/amira_prototype/amira.output.k.3.GCA_027944735.1_ASM2794473v1_genomic/corrected_gene_positions_after_filtering.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in [
+                            'aph3Ib',
+                        ]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        graph.generate_gml("tests/test", 3, 1, 1)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads,
+            nodeHashesOfInterest,
+            57.09409635828998 / 20
+        )
+        # for p in paths:
+        #     print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
+        # ssss
+        # # split the paths into subpaths
+        # finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
+        #    geneOfInterest, paths, _, None
+        # )
+        one, two, three = graph.assign_reads_to_genes(["aph3Ib"], {}, {}, 57.09409635828998)
+        print(one)
+        dss
     #     # assertion
     #     self.assertEqual(len(paths), 2)
     #     self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
