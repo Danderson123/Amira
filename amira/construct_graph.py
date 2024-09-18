@@ -1969,11 +1969,11 @@ class GeneMerGraph:
                                     correct_path = True
                             if correct_path is True:
                                 # make sure that we do not delete AMR genes
-                                if any(
-                                    c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest
-                                    for c in fw_alignment
-                                ):
-                                    continue
+                                # if any(
+                                #     c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest
+                                #     for c in fw_alignment
+                                # ):
+                                #     continue
                                 # correct the lower coverage path to the higher coverage path
                                 corrected_reads = self.correct_low_coverage_path(
                                     lower_coverage_path,
@@ -2945,7 +2945,7 @@ class GeneMerGraph:
                     allele_counts[geneOfInterest] += 1
         return clustered_reads, cluster_copy_numbers, allele_counts
 
-    def get_closest_allele(self, bam_file_path, mapping_type):
+    def get_closest_allele(self, bam_file_path, mapping_type, ref_cov_proportion=None):
         valid_references = []
         invalid_references = []
         ref_covered = {}
@@ -2974,10 +2974,11 @@ class GeneMerGraph:
                         matching_bases += length
                 if mapping_type == "reads":
                     prop_matching = (matching_bases / total_length) * 100
+                    prop_covered = ref_cov_proportion[read.reference_name]
                 if mapping_type == "allele":
                     prop_matching = (matching_bases / read.infer_read_length()) * 100
-                # get the proportion of the reference covered by the query
-                prop_covered = read.query_alignment_length / total_length
+                    # get the proportion of the reference covered by the query
+                    prop_covered = read.query_alignment_length / total_length
                 # add the stats to the dictionaries
                 if prop_matching > ref_matching[read.reference_name]:
                     ref_matching[read.reference_name] = prop_matching
@@ -3085,6 +3086,7 @@ class GeneMerGraph:
     def get_ref_allele_pileups(self, bam_file, output_dir):
         read_depths = []
         ref_allele_positions = {}
+        cov_proportion = {}
         # Open the BAM file
         with pysam.AlignmentFile(bam_file, "rb") as bam:
             # Iterate over each reference (chromosome/contig)
@@ -3106,19 +3108,16 @@ class GeneMerGraph:
                 # get the first and last non-zero element
                 try:
                     first_index = depth_list.index(next(x for x in depth_list if x != 0))
-                    last_index = (
-                        len(depth_list)
-                        - 1
-                        - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
-                    )
+                    last_index = len(depth_list) - 1 - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
                 except StopIteration:
-                    first_index, last_index = 0, len(depth_list) - 1
+                    first_index, last_index = None, None
                 ref_allele_positions[ref] = (first_index, last_index)
+                cov_proportion[ref] = len([d for d in depth_list if d != 0]) / len(depth_list)
         # Write the read depths to the output file
         output_file_path = os.path.join(output_dir, "reference_allele_coverages.txt")
         with open(output_file_path, "w") as output_file:
             output_file.write("\n".join(read_depths))
-        return ref_allele_positions
+        return ref_allele_positions, cov_proportion
 
     def compare_reads_to_references(
         self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes, debug
@@ -3134,10 +3133,10 @@ class GeneMerGraph:
             "02.read",
             "-a --MD -t 1 -x map-ont --eqx",
         )
-        ref_allele_positions = self.get_ref_allele_pileups(bam_file, output_dir)
+        ref_allele_positions, ref_cov_proportion = self.get_ref_allele_pileups(bam_file, output_dir)
         if debug is False:
             os.remove(os.path.join(output_dir, "reference_allele_coverages.txt"))
-        validity, references, unique_reads = self.get_closest_allele(bam_file, "reads")
+        validity, references, unique_reads = self.get_closest_allele(bam_file, "reads", ref_cov_proportion)
         if validity is True:
             valid_allele, match_proportion, match_length, coverage_proportion = references[0]
             valid_allele_sequence = self.get_allele_sequence(

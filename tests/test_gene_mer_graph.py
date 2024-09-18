@@ -5976,6 +5976,46 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             )
             self.assertEqual(len(unique_paths), 2)
 
+    # def test___correct_low_coverage_paths_two(self):
+    #     # setup
+    #     import json
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+    #         calls = json.load(i)
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+    #         positions = json.load(i)
+    #     graph = GeneMerGraph(calls, 3, positions)
+    #     graph.generate_gml("tests/test", 3, 1, 1)
+    #     # execution
+    #     actual_bubble_starts = graph.identify_potential_bubble_starts()
+    #     # assertion
+    #     for component in actual_bubble_starts:
+    #         if component != 3:
+    #             continue
+    #         # execution
+    #         potential_bubble_starts_component = actual_bubble_starts[component]
+    #         # get all the paths of length <= max distance between all pairs of junctions
+    #         unique_paths = graph.get_all_paths_between_junctions_in_component(
+    #             potential_bubble_starts_component, 15, 1
+    #         )
+    #         # filter the paths out if they are subpaths of longer paths
+    #         filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
+    #         # sort by path length
+    #         sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
+    #         fastq_data = parse_fastq("/home/daniel/Documents/GitHub/amira_prototype/test/AUSMDU00031978.fastq.gz")
+    #         path_minimizers = graph.get_minhashes_for_paths(
+    #                 sorted_filtered_paths, fastq_data, 1
+    #             )
+    #         # bin the paths based on their terminal nodes
+    #         sorted_filtered_paths = graph.separate_paths_by_terminal_nodes(sorted_filtered_paths)
+    #         graph.correct_bubble_paths(
+    #             sorted_filtered_paths,
+    #             fastq_data,
+    #             path_minimizers,
+    #             {'aac3IId', 'aac630aac6IbNG_0472131', 'aadA5', 'aadA8NG_0524081', 'ant3Ihaac6IIdNG_0472181', 'aph3Ib', 'aph6Id', 'blaCMY54NG_0488491', 'blaCTXM110NG_0489052', 'blaCTXM211NG_0574771', 'blaDHA33NG_2421811', 'blaEC', 'blaLAP2NG_0492641', 'blaNDM18NG_0528661', 'blaOXA896NG_0671581', 'blaTEM239NG_0766451', 'bleNG_0475591', 'dfrA17', 'ermBNG_0561911', 'mphANG_0479861', 'qacEdelta1', 'qnrB41NG_0505042', 'qnrS1', 'sul1NG_0480981', 'sul2NG_0481161', 'tetA'},
+    #             0,
+    #         )
+    #         print(sorted_filtered_paths)
+    #     dsdd
     # def test___low_coverage(self):
     #     # setup
     #     import json
