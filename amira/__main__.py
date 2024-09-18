@@ -419,19 +419,20 @@ def main() -> None:
             annotatedReads = dict(
                 random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
             )
-            # get the AMR genes in the subsampled reads
-            subsampled_genesOfInterest = set()
-            for r in annotatedReads:
-                for g in annotatedReads[r]:
-                    if g[1:] in sample_genesOfInterest:
-                        subsampled_genesOfInterest.add(g[1:])
-            missing_genes = sample_genesOfInterest = subsampled_genesOfInterest
-            if len(missing_genes) > 0:
-                for r in original_annotatedReads:
-                    if r not in annotatedReads:
-                        for g in original_annotatedReads[r]:
-                            if g[1:] in missing_genes:
-                                annotatedReads[r] = original_annotatedReads[r]
+            # # get the AMR genes in the subsampled reads
+            # subsampled_genesOfInterest = set()
+            # for r in annotatedReads:
+            #     for g in annotatedReads[r]:
+            #         if g[1:] in sample_genesOfInterest:
+            #             subsampled_genesOfInterest.add(g[1:])
+            # missing_genes = sample_genesOfInterest - subsampled_genesOfInterest
+            # # be aware that this will artificially enrich for AMR genes that have been filtered by the subsampling
+            # if len(missing_genes) > 0:
+            #     for r in original_annotatedReads:
+            #         if r not in annotatedReads:
+            #             for g in original_annotatedReads[r]:
+            #                 if g[1:] in missing_genes:
+            #                     annotatedReads[r] = original_annotatedReads[r]
     print(list(sorted(list(sample_genesOfInterest))))
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
@@ -532,7 +533,6 @@ def main() -> None:
                 reads = graph.collect_reads_in_path([n for n in nodes_in_component if n in amr_nodes])
                 lengths = [len(graph.get_reads()[r]) for r in reads]
                 if len(lengths) != 0:
-                    print(lengths)
                     return (
                         len([length for length in lengths if length >= (2 * k - 1)]) / len(lengths)
                         >= 0.8
@@ -655,8 +655,8 @@ def main() -> None:
     cluster_copy_numbers_to_add = {}
     for read_id in short_reads:
         # skip reads with only 1 gene
-        if len(short_reads[read_id]) == 1:
-            continue
+        #if len(short_reads[read_id]) == 1:
+        #    continue
         for g in range(len(short_reads[read_id])):
             strandless_gene = short_reads[read_id][g][1:]
             if (

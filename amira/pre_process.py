@@ -109,21 +109,33 @@ def remove_poorly_mapped_genes(
     )
     map_command += f"{os.path.join(output_dir, 'mapped_to_consensus.bam')} && "
     map_command += f"samtools index {os.path.join(output_dir, 'mapped_to_consensus.bam')}"
-    #subprocess.run(map_command, shell=True, check=True)
+    subprocess.run(map_command, shell=True, check=True)
     # Load the BAM file
     bam_path = os.path.join(output_dir, "mapped_to_consensus.bam")
     bam_file = pysam.AlignmentFile(bam_path, "rb")
     # Initialize coverage dictionary for each gene
     gene_coverage = {gene: [0] * bam_file.get_reference_length(gene) for gene in pandora_consensus}
     # Iterate through each read in the BAM file
+    minimap2_annotatedReads = {}
     for read in tqdm(bam_file.fetch()):
-        if read.reference_name in gene_coverage:
-            # Get the start and end positions of the read mapping to the reference
-            start = read.reference_start
-            end = read.reference_end
-            # Mark the covered positions in the gene coverage list
-            for pos in range(start, end):
-                gene_coverage[read.reference_name][pos] = 1
+        if read.is_mapped:
+            if read.query_name not in minimap2_annotatedReads:
+                minimap2_annotatedReads[read.query_name] = set()
+            # Calculate the alignment length of the read
+            alignment_length = read.query_alignment_end - read.query_alignment_start
+            reference_length = bam_file.get_reference_length(read.reference_name)
+            # Check if alignment is at least 80% of the reference length
+            if alignment_length >= 0.9 * reference_length:
+                # Add the reference name to the set for the read
+                minimap2_annotatedReads[read.query_name].add(read.reference_name)
+
+            if read.reference_name in gene_coverage:
+                # Get the start and end positions of the read mapping to the reference
+                start = read.reference_start
+                end = read.reference_end
+                # Mark the covered positions in the gene coverage list
+                for pos in range(start, end):
+                    gene_coverage[read.reference_name][pos] = 1
     # Close the BAM file
     bam_file.close()
     # Calculate coverage percentage for each gene
@@ -137,9 +149,10 @@ def remove_poorly_mapped_genes(
             del pandora_consensus[gene]
             count += 1
     # clean up the files
-    os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
+    #os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
     os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
     os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
+    return minimap2_annotatedReads
 
 
 def convert_pandora_output(
@@ -159,7 +172,7 @@ def convert_pandora_output(
     gene_position_dict: dict[str, list[tuple[int, int]]] = {}
     geneCounts: dict[str, int] = {}
     # remove genes that have a high proportion of unmapped bases in the pandora consensus
-    remove_poorly_mapped_genes(
+    minimap2_annotatedReads = remove_poorly_mapped_genes(
         pandora_consensus,
         0.2,
         genesOfInterest,
@@ -184,6 +197,9 @@ def convert_pandora_output(
             regionEnd, regionLength = get_read_end(cigar, regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
+            # skip this read if there are no reads with >= 80% coverage
+            #if read.query_name not in minimap2_annotatedReads:
+            #    continue
             # exclude genes that do not have a pandora consensus
             if strandlessGene in genesOfInterest or (
                 strandlessGene in pandora_consensus

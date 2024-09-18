@@ -2996,10 +2996,7 @@ class GeneMerGraph:
                 invalid_references.append(
                     (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref])
                 )
-        if mapping_type == "reads":
-            valid_references = sorted(valid_references, key=lambda x: (x[2], x[1]), reverse=True)
-        if mapping_type == "allele":
-            valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
+        valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
         if len(valid_references) != 0:
             return True, valid_references, unique_reads
         else:
