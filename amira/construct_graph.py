@@ -1984,8 +1984,8 @@ class GeneMerGraph:
                                     fastq_data,
                                     corrected_reads,
                                 )
-        # with open("all_containments.txt", "w") as o:
-        #     o.write("\n".join(sorted(all_containments)))
+        with open("all_containments.txt", "w") as o:
+            o.write("\n".join(sorted(all_containments)))
         return path_coverages
 
     def split_into_contiguous_chunks(
@@ -2191,8 +2191,8 @@ class GeneMerGraph:
             for stop_hash, stop_direction in potential_bubble_starts_component:
                 if start_hash == stop_hash:
                     continue
-                if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
-                    continue
+                #if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
+                #    continue
                 # seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
                 paths_between_nodes = self.new_find_paths_between_nodes(
                     start_hash, stop_hash, max_distance, start_direction
@@ -2394,7 +2394,6 @@ class GeneMerGraph:
             (start_hash, current_direction)
         )  # Append the current node and direction to the path
         seen_nodes.add(start_hash)  # Add the current node to the seen nodes to avoid revisiting
-
         # Check if we've reached the end node or if end_hash is None
         if (end_hash and start_hash == end_hash and len(path) - 1 <= distance) or (
             end_hash is None and len(path) - 1 == distance
@@ -2576,7 +2575,7 @@ class GeneMerGraph:
             final_path_coverages[shortest_path] = [
                     self.get_node_by_hash(n).get_node_coverage() for n in list(shortest_path)
                 ]
-        return final_paths, final_path_coverages, all_core_depths
+        return final_paths, final_path_coverages
 
     def cluster_adjacent_paths(self, adjacent_paths):
         # sort the subpaths from longest to shortest
@@ -2828,7 +2827,6 @@ class GeneMerGraph:
                 matrix[:, lowest] = np.nan
             else:
                 nodes_to_check = False  # No more nodes to process
-            print(list(matrix), "\n")
         return
 
     def trim_fringe_nodes(self, number_of_intersecting_reads, intersection_matrix, node_hashes):
@@ -2851,7 +2849,6 @@ class GeneMerGraph:
         # get the mean node coverage if it is not specified
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
-        all_core_depths = []
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
@@ -2873,13 +2870,12 @@ class GeneMerGraph:
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # get the paths containing this gene
-                pathsOfInterest, pathCoverages, core_depths = self.get_paths_for_gene(
+                pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     reads,
                     nodeHashesOfInterest,
                     mean_node_coverage / 20
                     #max(5, mean_node_coverage / 20),
                 )
-                all_core_depths += core_depths
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
                     geneOfInterest, pathsOfInterest, pathCoverages, mean_node_coverage
@@ -2947,7 +2943,7 @@ class GeneMerGraph:
                                 f"{read_id}_{gene_start}_{gene_end}"
                             )
                     allele_counts[geneOfInterest] += 1
-        return clustered_reads, cluster_copy_numbers, allele_counts, all_core_depths
+        return clustered_reads, cluster_copy_numbers, allele_counts
 
     def get_closest_allele(self, bam_file_path, mapping_type):
         valid_references = []

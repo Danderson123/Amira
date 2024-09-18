@@ -552,26 +552,15 @@ def main() -> None:
         sys.stderr.write(
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}\n"
         )
-        sys.stderr.write("\n\tAmira: removing dead ends\n")
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
         )
-        # check if the current number of nodes per component is equal to the previous number of nodes
-        all_skip = True
-        num_nodes = len(graph.get_nodes())
-        if num_nodes != prev_nodes:
-            all_skip = False
-            prev_nodes == num_nodes
-        # for component in graph.components():
-        #     nodes_in_component = graph.get_nodes_in_component(component)
-        #     if component in prev_nodes and len(nodes_in_component) == prev_nodes[component]:
-        #         components_to_skip.add(component)
-        #     else:
-        #         prev_nodes[component] = len(nodes_in_component)
-        #         all_skip = False
-        if all_skip is True:
+        # check if the current number of nodes is equal to the previous number of nodes
+        if len(graph.get_nodes()) == prev_nodes:
             sys.stderr.write(f"\n\tAmira: terminating cleaning at iteration {this_iteration+1}\n")
             break
+        prev_nodes = len(graph.get_nodes())
+        sys.stderr.write("\n\tAmira: removing dead ends\n")
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
@@ -625,25 +614,9 @@ def main() -> None:
     )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
-    clusters_of_interest, cluster_copy_numbers, allele_counts, all_core_depths = graph.assign_reads_to_genes(
+    clusters_of_interest, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
         sample_genesOfInterest, fastq_content, {}, overall_mean_node_coverage
     )
-    # Count the occurrences of each integer
-    counts = {}
-    for num in all_core_depths:
-        counts[num] = counts.get(num, 0) + 1
-    # ceate the bar plot
-    plt.figure(figsize=(8, 6))
-    plt.bar(counts.keys(), counts.values(), color='skyblue', edgecolor='black')
-    # Add vertica line
-    plt.axvline(x=overall_mean_node_coverage, color='red', linestyle='--', linewidth=2, label=f'Line at {overall_mean_node_coverage}')
-    plt.axvline(x=overall_mean_node_coverage / 20, color='red', linestyle='--', linewidth=2, label=f'Line at {overall_mean_node_coverage  / 20}')
-    plt.xlabel('Core depths')
-    plt.ylabel('Counts')
-    plt.legend()
-    # Save the plot to the specified file
-    plt.savefig(os.path.join(args.output_dir, "core_path_coverages.png"), dpi=600)
-    plt.close()
     # get the unique genes we have found
     found_genes_of_interest = set()
     # iterate through the components
@@ -700,6 +673,10 @@ def main() -> None:
                 )
     # add the genes from the short reads
     for allele in clusters_to_add:
+        # remove alleles on reads with only AMR genes as this suggests contamination
+        #if all(all(g[1:] in sample_genesOfInterest for g in short_reads[read.split("_")[0]]) for read in clusters_to_add[allele]):
+        #    sys.stderr.write(f"Amira: allele {allele} filtered due to suspected contamination.\n")
+        #    continue
         if len(clusters_to_add[allele]) > overall_mean_node_coverage / 20:
             files_to_assemble.append(
                 write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)

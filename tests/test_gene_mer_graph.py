@@ -5955,38 +5955,59 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertEqual(len(paths), 2)
         self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
 
-    def test___low_coverage(self):
+    def test___correct_low_coverage_paths(self):
         # setup
         import json
-
-        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+        with open("tests/complex_gene_calls_four.json") as i:
             calls = json.load(i)
-        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+        with open("tests/complex_gene_positions_four.json") as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 5, positions)
-        nodesOfInterest = []
-        for geneOfInterest in [
-                            'aac630aac6IbNG_0472131',
-                        ]:
-            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
-        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        graph.generate_gml("tests/test", 3, 1, 1)
         # execution
-        paths, _ = graph.get_paths_for_gene(reads,
-            nodeHashesOfInterest,
-            2.347
-        )
-        for p in paths:
-            print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
-        ssss
-        # # split the paths into subpaths
-        # finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
-        #    geneOfInterest, paths, _, None
-        # )
-        one, two, three = graph.assign_reads_to_genes(["aac630aac6IbNG_0472131"], {}, {}, 84.921)
-        print(one)
-        dss
+        actual_bubble_starts = graph.identify_potential_bubble_starts()
         # assertion
-        self.assertEqual(len(paths), 2)
-        self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
+        for component in actual_bubble_starts:
+            self.assertEqual(len(actual_bubble_starts[component]), 4)
+            # execution
+            potential_bubble_starts_component = actual_bubble_starts[component]
+            # get all the paths of length <= max distance between all pairs of junctions
+            unique_paths = graph.get_all_paths_between_junctions_in_component(
+                potential_bubble_starts_component, 15, 1
+            )
+            self.assertEqual(len(unique_paths), 2)
+
+    # def test___low_coverage(self):
+    #     # setup
+    #     import json
+
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+    #         calls = json.load(i)
+    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+    #         positions = json.load(i)
+    #     graph = GeneMerGraph(calls, 5, positions)
+    #     nodesOfInterest = []
+    #     for geneOfInterest in [
+    #                         'aac630aac6IbNG_0472131',
+    #                     ]:
+    #         nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+    #     nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+    #     reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+    #     graph.generate_gml("tests/test", 3, 1, 1)
+    #     # execution
+    #     paths, _ = graph.get_paths_for_gene(reads,
+    #         nodeHashesOfInterest,
+    #         2.347
+    #     )
+    #     for p in paths:
+    #         print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
+    #     ssss
+    #     # # split the paths into subpaths
+    #     # finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
+    #     #    geneOfInterest, paths, _, None
+    #     # )
+    #     one, two, three = graph.assign_reads_to_genes(["aac630aac6IbNG_0472131"], {}, {}, 84.921)
+    #     print(one)
+    #     dss
+    #     # assertion
+    #     self.assertEqual(len(paths), 2)
+    #     self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
