@@ -1984,8 +1984,8 @@ class GeneMerGraph:
                                     fastq_data,
                                     corrected_reads,
                                 )
-        with open("all_containments.txt", "w") as o:
-            o.write("\n".join(sorted(all_containments)))
+        # with open("all_containments.txt", "w") as o:
+        #     o.write("\n".join(sorted(all_containments)))
         return path_coverages
 
     def split_into_contiguous_chunks(
@@ -2634,7 +2634,7 @@ class GeneMerGraph:
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     allele_count += 1
             # iterate through the reads in this path
-            for read_id in pathsOfinterest[path]:
+            for read_id in self.get_reads():#pathsOfinterest[path]:
                 # get the genes on the read
                 genes_on_read = self.get_reads()[read_id]
                 # get the positions of the path on the read
