@@ -1969,11 +1969,11 @@ class GeneMerGraph:
                                     correct_path = True
                             if correct_path is True:
                                 # make sure that we do not delete AMR genes
-                                # if any(
-                                #     c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest
-                                #     for c in fw_alignment
-                                # ):
-                                #     continue
+                                if any(
+                                    c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest
+                                    for c in fw_alignment
+                                ):
+                                    continue
                                 # correct the lower coverage path to the higher coverage path
                                 corrected_reads = self.correct_low_coverage_path(
                                     lower_coverage_path,
@@ -3164,8 +3164,8 @@ class GeneMerGraph:
                         "Sequence name": phenotypes[valid_allele],
                         "Closest reference": valid_allele.split(".")[1],
                         "Reference length": match_length,
-                        "Identity (%)": round(100, 1),
-                        "Coverage (%)": round(1 * 100, 1),
+                        "Identity (%)": 0,
+                        "Coverage (%)": 0,
                         "Amira allele": allele_name,
                         "Number of reads": len(unique_reads),
                     }

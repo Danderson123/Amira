@@ -105,7 +105,7 @@ def remove_poorly_mapped_genes(
     )
     map_command += f"{os.path.join(output_dir, 'mapped_to_consensus.bam')} && "
     map_command += f"samtools index {os.path.join(output_dir, 'mapped_to_consensus.bam')}"
-    #subprocess.run(map_command, shell=True, check=True)
+    subprocess.run(map_command, shell=True, check=True)
     # Load the BAM file
     bam_path = os.path.join(output_dir, "mapped_to_consensus.bam")
     bam_file = pysam.AlignmentFile(bam_path, "rb")
@@ -145,9 +145,9 @@ def remove_poorly_mapped_genes(
             del pandora_consensus[gene]
             count += 1
     # clean up the files
-    #os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
-    #os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
-    #os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
+    os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
+    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
+    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
     return minimap2_annotatedReads
 
 

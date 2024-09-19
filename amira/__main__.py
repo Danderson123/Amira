@@ -1,6 +1,9 @@
 import argparse
+from collections import defaultdict
 import gzip
 import json
+import random
+import math
 import os
 import sys
 
@@ -122,6 +125,13 @@ def get_options() -> argparse.Namespace:
         help="Supress progress updates.",
     )
     parser.add_argument(
+        "--filter-contaminants",
+        dest="filter_contamination",
+        action="store_true",
+        default=False,
+        help="Filter AMR alleles that are suspected contaminants.",
+    )
+    parser.add_argument(
         "--debug",
         dest="debug",
         action="store_true",
@@ -168,7 +178,6 @@ def plot_read_length_distribution(annotatedReads, output_dir):
     plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
     plt.close()
 
-
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
     geneMer_size: int,
@@ -185,7 +194,6 @@ def write_debug_files(
         os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
     )
     return raw_graph
-
 
 def plot_node_coverages(unitig_coverages, filename):
     # Calculate the frequency of each coverage value with bins of width 5
@@ -315,7 +323,6 @@ def parse_fastq_lines(fh):
         elif line_number % 4 == 0:
             # Yield the identifier, sequence and quality
             yield identifier, sequence, line.strip()
-
 
 def parse_fastq(fastq_file):
     # Initialize an empty dictionary to store the results
@@ -506,11 +513,28 @@ def process_reads(graph,
     # Return the processed results
     return clusters_to_add, cluster_copy_numbers_to_add, clusters_of_interest, cluster_copy_numbers, allele_counts
 
+def downsample_reads(annotatedReads, max_reads=100000):
+    # If no downsampling is needed, return original annotatedReads
+    total_reads = len(annotatedReads)
+    if total_reads <= max_reads:
+        return annotatedReads
+    # count the number of reads for each individual gene
+    gene_read_count = defaultdict(set)
+    for read in annotatedReads:
+        for gene in annotatedReads[read]:
+            gene_read_count[gene[1:]].add(read)
+    # downsample reads while maintaining the gene coverage proportions
+    downsampled_reads = set()
+    for gene, reads in gene_read_count.items():
+        read_sample_size = math.ceil(len(reads) / total_reads * max_reads)
+        read_list = list(reads)
+        downsampled_reads.update(random.sample(read_list, read_sample_size))
+    return {read_id: annotatedReads[read_id] for read_id in downsampled_reads}
+
 def main() -> None:
     # get command line options
     args = get_options()
     # set the seed
-    import random
     random.seed(args.seed)
     # make the output directory if it does not exist
     if not os.path.exists(args.output_dir):
@@ -532,7 +556,6 @@ def main() -> None:
         pandora_consensus = parse_fastq(args.pandoraConsensus)
         # randomly sample 100,000 reads
         if args.sample_reads:
-            import random
             annotatedReads = dict(
                 random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
             )
@@ -566,7 +589,6 @@ def main() -> None:
             o.write(json.dumps(annotatedReads))
         # randomly sample 100,000 reads
         if args.sample_reads:
-            import random
             annotatedReads = dict(
                 random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
             )
@@ -785,12 +807,24 @@ def main() -> None:
             message += f"due to insufficient similarity ({row['Identity (%)']}).\n"
             sys.stderr.write(message)
             alleles_to_delete.append(row["Amira allele"])
+            continue
         else:
             if row["Coverage (%)"] < 90:
                 message = f"\nAmira: allele {row['Amira allele']} removed "
                 message += f"due to insufficient coverage ({row['Coverage (%)']}).\n"
                 sys.stderr.write(message)
                 alleles_to_delete.append(row["Amira allele"])
+                continue
+        # check if filter contaminants is on
+        if args.filter_contamination is True:
+            # remove alleles where all of the reads just contain AMR genes
+            reads = supplemented_clusters_of_interest[row['Amira allele']]
+            if all(all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]]) for r in reads):
+                alleles_to_delete.append(row["Amira allele"])
+                message = f"\nAmira: allele {row['Amira allele']} removed "
+                message += f"due to suspected contamination.\n"
+                sys.stderr.write(message)
+                continue
     # remove genes as necessary
     for amira_allele in alleles_to_delete:
         del supplemented_clusters_of_interest[amira_allele]
