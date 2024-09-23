@@ -1,4 +1,4 @@
-from amira_prototype.construct_read import GeneMer, Read
+from amira.construct_read import GeneMer, Read
 
 
 class Node:

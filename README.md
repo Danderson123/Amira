@@ -1,1 +1,1 @@
-# amira_prototype
+# Amira

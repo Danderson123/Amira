@@ -1,7 +1,7 @@
 import unittest
 
-from amira_prototype.construct_gene import Gene
-from amira_prototype.construct_gene_mer import (
+from amira.construct_gene import Gene
+from amira.construct_gene_mer import (
     GeneMer,
     choose_canonical_geneMer,
     define_geneMer,

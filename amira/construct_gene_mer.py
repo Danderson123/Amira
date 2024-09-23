@@ -1,4 +1,4 @@
-from amira_prototype.construct_gene import Gene, hashlib_hash
+from amira.construct_gene import Gene, hashlib_hash
 
 
 def define_rc_geneMer(geneMer):

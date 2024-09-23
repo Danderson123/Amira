@@ -1,5 +1,5 @@
-from amira_prototype.construct_gene import Gene
-from amira_prototype.construct_gene_mer import GeneMer
+from amira.construct_gene import Gene
+from amira.construct_gene_mer import GeneMer
 
 
 def convert_genes(annotatedGenes):

@@ -1,11 +1,11 @@
 import unittest
 from collections import Counter
 
-from amira_prototype.__main__ import parse_fastq
-from amira_prototype.construct_edge import Edge
-from amira_prototype.construct_graph import GeneMerGraph
-from amira_prototype.construct_node import Node
-from amira_prototype.construct_read import Read
+from amira.__main__ import parse_fastq
+from amira.construct_edge import Edge
+from amira.construct_graph import GeneMerGraph
+from amira.construct_node import Node
+from amira.construct_read import Read
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -5075,7 +5075,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         }
         # execution
         actual_final_paths, _ = graph.split_into_subpaths(
-            "gene5", paths, fastq_content, path_coverages
+            "gene5", paths, path_coverages
         )
         # assertion
         self.assertEqual(len(actual_final_paths), 2)
@@ -5143,7 +5143,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         }
         # execution
         actual_final_paths, _ = graph.split_into_subpaths(
-            "gene5", paths, fastq_content, path_coverages
+            "gene5", paths, path_coverages
         )
         # assertion
         self.assertEqual(len(actual_final_paths), 3)
@@ -5720,29 +5720,31 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 66)
 
-    def test___get_paths_for_gene_complex_one(self):
-        # setup
-        import json
+    # def test___get_paths_for_gene_complex_one(self):
+    #     # setup
+    #     import json
 
-        call_file = "tests/complex_gene_calls_one.json"
-        position_file = "tests/complex_gene_positions_one.json"
-        with open(call_file) as i:
-            calls = json.load(i)
-        with open(position_file) as i:
-            positions = json.load(i)
-        filtered_calls = {}
-        for r in calls:
-            if any(g[1:] == "mphANG_0479861" for g in calls[r]):
-                filtered_calls[r] = calls[r]
-        graph = GeneMerGraph(filtered_calls, 3, positions)
-        nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
-        # execution
-        actual_paths, actual_path_coverages = graph.get_paths_for_gene(
-            graph.collect_reads_in_path(nodehashes), nodehashes, 5
-        )
-        # assertion
-        self.assertEqual(len(actual_paths), 2)
-        self.assertTrue(all(len(actual_paths[p]) in {14, 5} for p in actual_paths))
+    #     call_file = "tests/complex_gene_calls_one.json"
+    #     position_file = "tests/complex_gene_positions_one.json"
+    #     with open(call_file) as i:
+    #         calls = json.load(i)
+    #     with open(position_file) as i:
+    #         positions = json.load(i)
+    #     filtered_calls = {}
+    #     for r in calls:
+    #         if any(g[1:] == "mphANG_0479861" for g in calls[r]):
+    #             filtered_calls[r] = calls[r]
+    #     graph = GeneMerGraph(filtered_calls, 3, positions)
+    #     nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
+    #     # execution
+    #     actual_paths, actual_path_coverages = graph.get_paths_for_gene(
+    #         graph.collect_reads_in_path(nodehashes),
+    #         nodehashes,
+    #         max(5, graph.get_mean_node_coverage() / 5)
+    #     )
+    #     # assertion
+    #     self.assertEqual(len(actual_paths), 2)
+    #     self.assertTrue(all(len(actual_paths[p]) in {26, 24} for p in actual_paths))
 
     def test___get_paths_for_gene_diverging_paths_at_terminals(self):
         # setup
@@ -5817,12 +5819,15 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         actual_clusters = graph.cluster_adjacent_paths(adjacent_paths)
         # assertion
         self.assertEqual(len(actual_clusters), 3)
-        self.assertTrue((2, 3, 4) in actual_clusters)
-        self.assertTrue((6, 3, 4) in actual_clusters)
+        self.assertTrue((0, 1, 2, 3, 4) in actual_clusters)
+        self.assertTrue((5, 6, 3, 4) in actual_clusters)
         self.assertTrue((5, 3, 2, 4) in actual_clusters)
-        self.assertTrue(all(r in actual_clusters[(2, 3, 4)] for r in {"read1", "read2", "read3"}))
-        self.assertTrue(all(r in actual_clusters[(6, 3, 4)] for r in {"read4", "read5", "read6"}))
-        self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)] for r in {"read7"}))
+        self.assertTrue(all(r in actual_clusters[(0, 1, 2, 3, 4)]["reads"] for r in {"read1", "read2", "read3"}))
+        self.assertTrue(all(r in actual_clusters[(5, 6, 3, 4)]["reads"] for r in {"read4", "read5", "read6"}))
+        self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)]["reads"] for r in {"read7"}))
+        self.assertEqual(actual_clusters[(0, 1, 2, 3, 4)]["shortest"], (2, 3, 4))
+        self.assertEqual(actual_clusters[(5, 6, 3, 4)]["shortest"], (6, 3, 4))
+        self.assertEqual(actual_clusters[(5, 3, 2, 4)]["shortest"], (5, 3, 2, 4))
 
     def test___cluster_adjacent_paths_overlapping(self):
         # setup
@@ -5842,19 +5847,19 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue((5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
         self.assertTrue(
             all(
-                r in actual_clusters[(0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12)]
+                r in actual_clusters[(0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12)]["reads"]
                 for r in {"read1", "read2"}
             )
         )
         self.assertTrue(
             all(
-                r in actual_clusters[(5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12)]
+                r in actual_clusters[(5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12)]["reads"]
                 for r in {"read4", "read5", "read3"}
             )
         )
         self.assertTrue(
             all(
-                r in actual_clusters[(5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12)]
+                r in actual_clusters[(5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12)]["reads"]
                 for r in {"read6", "read7"}
             )
         )
@@ -5890,6 +5895,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
                 potential_bubble_starts_component, max_distance, 1
             )
             filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
+            print(filtered_paths)
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # assertion
             # Amira will never correct a path that starts and ends at the same node
@@ -5924,3 +5930,99 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             # assertion
             self.assertEqual(len(min1 & min2) / len(min1), 0.9155718701700154)
             self.assertEqual(len(min1 & min2) / len(min2), 0.9052531041069724)
+
+    def test___get_subpaths_long_collapsed(self):
+        # setup
+        import json
+
+        with open("tests/complex_gene_calls_three.json") as i:
+            calls = json.load(i)
+        with open("tests/complex_gene_positions_three.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in [
+                            'mphANG_0479861',
+                        ]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads,
+            nodeHashesOfInterest,
+            max(5, graph.get_mean_node_coverage() / 10))
+        # assertion
+        self.assertEqual(len(paths), 2)
+        self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
+
+    def test___correct_low_coverage_paths(self):
+        # setup
+        import json
+        with open("tests/complex_gene_calls_four.json") as i:
+            calls = json.load(i)
+        with open("tests/complex_gene_positions_four.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 5, positions)
+        # execution
+        actual_bubble_starts = graph.identify_potential_bubble_starts()
+        # assertion
+        for component in actual_bubble_starts:
+            self.assertEqual(len(actual_bubble_starts[component]), 4)
+            # execution
+            potential_bubble_starts_component = actual_bubble_starts[component]
+            # get all the paths of length <= max distance between all pairs of junctions
+            unique_paths = graph.get_all_paths_between_junctions_in_component(
+                potential_bubble_starts_component, 15, 1
+            )
+            self.assertEqual(len(unique_paths), 2)
+
+    def test___get_paths_for_gene_edge_case_one(self):
+        # setup
+        import json
+        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_calls_after_five.json") as i:
+            calls = json.load(i)
+        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_positions_five.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in [
+                            'blaCTXM110NG_0489052',
+                        ]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads,
+            nodeHashesOfInterest,
+            41.84688319548114 / 20
+        )
+        for p in paths:
+            print(p)
+            print(graph.get_genes_in_unitig(p), len(paths[p]))
+        self.assertEqual(len(paths), 1)
+
+    def test___weird(self):
+        # setup
+        import json
+        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+            calls = json.load(i)
+        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in [
+                            'blaCMY54NG_0488491',
+                        ]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads,
+            nodeHashesOfInterest,
+            32.50926869016093 / 20
+        )
+        for p in paths:
+            print(p)
+            print(graph.get_genes_in_unitig(p), len(paths[p]))
+        self.assertEqual(len(paths), 1)
+        ssss

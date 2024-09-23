@@ -1,5 +1,5 @@
-from amira_prototype.construct_gene import hashlib_hash
-from amira_prototype.construct_node import Node
+from amira.construct_gene import hashlib_hash
+from amira.construct_node import Node
 
 
 def extract_node_hashes(firstNode, secondNode):

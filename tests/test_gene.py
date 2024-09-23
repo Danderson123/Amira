@@ -1,6 +1,6 @@
 import unittest
 
-from amira_prototype.construct_gene import (
+from amira.construct_gene import (
     Gene,
     convert_int_strand_to_string,
     convert_string_strand_to_int,
