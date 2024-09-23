@@ -2191,7 +2191,7 @@ class GeneMerGraph:
             for stop_hash, stop_direction in potential_bubble_starts_component:
                 if start_hash == stop_hash:
                     continue
-                #if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
+                # if tuple(sorted([start_hash, stop_hash])) in seen_pairs:
                 #    continue
                 # seen_pairs.add(tuple(sorted([start_hash, stop_hash])))
                 paths_between_nodes = self.new_find_paths_between_nodes(
@@ -2297,7 +2297,13 @@ class GeneMerGraph:
         return path_minimizers
 
     def correct_low_coverage_paths(
-        self, fastq_data, genesOfInterest, cores, min_path_coverage, components_to_skip, use_minimizers=False
+        self,
+        fastq_data,
+        genesOfInterest,
+        cores,
+        min_path_coverage,
+        components_to_skip,
+        use_minimizers=False,
     ):
         # ensure there are gene positions in the input
         assert self.get_gene_positions()
@@ -2471,7 +2477,9 @@ class GeneMerGraph:
             if len(core) == 1:
                 core_genes = self.get_genes_in_unitig(sorted_core)
                 fw_sublist = self.is_sublist(self.get_reads()[read], core_genes)
-                rv_sublist = self.is_sublist(self.get_reads()[read], self.reverse_list_of_genes(core_genes))
+                rv_sublist = self.is_sublist(
+                    self.get_reads()[read], self.reverse_list_of_genes(core_genes)
+                )
                 if fw_sublist is True and rv_sublist is False:
                     upstream_tuple = tuple(upstream)
                     downstream_tuple = tuple(downstream)
@@ -2479,7 +2487,9 @@ class GeneMerGraph:
                     upstream_tuple = tuple(list(reversed(downstream)))
                     downstream_tuple = tuple(list(reversed(upstream)))
                 else:
-                    raise ValueError("Cannot determine core AMR path direction, please submit a GitHub issue at https://github.com/Danderson123/")
+                    message = "Cannot determine core AMR path direction, "
+                    message += "please submit a GitHub issue at https://github.com/Danderson123/"
+                    raise ValueError(message)
             else:
                 # Make the upstream and downstream nodes relative to the sorted core
                 if sorted_core == core:
@@ -2501,7 +2511,6 @@ class GeneMerGraph:
             paths[core_tuple]["downstream"][downstream_tuple].add(read)
             paths[core_tuple]["reads"].add(read)
         # Filter out core options below threshold
-        all_core_depths = [len(paths[k]["reads"]) for k in paths]
         core_to_delete = [c for c, data in paths.items() if len(data["reads"]) < threshold]
         for c in core_to_delete:
             del paths[c]
@@ -2511,34 +2520,44 @@ class GeneMerGraph:
         longest_shortest_mapping = {}
         for c in paths:
             # cluster the upstream paths based on the underlying path they support
-            clustered_upstream= self.cluster_adjacent_paths(paths[c]["upstream"])
+            clustered_upstream = self.cluster_adjacent_paths(paths[c]["upstream"])
             # cluster the downstream paths based on the underlying path they support
             clustered_downstream = self.cluster_adjacent_paths(paths[c]["downstream"])
             # get all combinations of valid paths
             for u in clustered_upstream:
                 for d in clustered_downstream:
-                    shared_reads = clustered_upstream[u]["reads"].intersection(clustered_downstream[d]["reads"])
+                    shared_reads = clustered_upstream[u]["reads"].intersection(
+                        clustered_downstream[d]["reads"]
+                    )
                     if len(shared_reads) > 0:
                         long_path = u + c + d
-                        # skip this path if it starts and ends at the same AMR gene due to circularity
+                        # skip this path if it starts and ends at the same AMR gene
                         unitig_genes = self.get_genes_in_unitig(long_path)
                         if len(long_path) > 1 and unitig_genes[0][1:] == unitig_genes[-1][1:]:
                             continue
                         if c not in clustered_paths:
-                            clustered_paths[c] = {"upstream": [], "downstream": [], "shared_reads": [], "full_path": []}
+                            clustered_paths[c] = {
+                                "upstream": [],
+                                "downstream": [],
+                                "shared_reads": [],
+                                "full_path": [],
+                            }
                         clustered_paths[c]["upstream"].append(u)
                         clustered_paths[c]["downstream"].append(d)
                         clustered_paths[c]["shared_reads"].append(shared_reads)
                         clustered_paths[c]["full_path"].append(long_path)
                         longest_paths[long_path] = shared_reads
                         # make a mapping of the longest to shortest representation of this path
-                        longest_shortest_mapping[long_path] = clustered_upstream[u]["shortest"] + c + clustered_downstream[d]["shortest"]
+                        longest_shortest_mapping[long_path] = (
+                            clustered_upstream[u]["shortest"]
+                            + c
+                            + clustered_downstream[d]["shortest"]
+                        )
         # Remove any core option that is fully contained within another
         paths_to_delete = set()
         for c1 in clustered_paths:
             c1_list = list(c1)
             rev_c1_list = list(reversed(c1_list))
-            added = False
             for c2 in clustered_paths:
                 if c1 == c2:
                     continue
@@ -2550,8 +2569,17 @@ class GeneMerGraph:
                     if len(u1) == 0 or len(d1) == 0:
                         paths_to_delete.add((c1, c1_path))
                         return True
-                    if (any(self.is_sublist(list(u2), u1) or self.is_sublist(u1, list(u2)) or self.is_sublist(c2_list, u1) for u2 in c2_upstream) and
-                        any(self.is_sublist(list(d2), d1) or self.is_sublist(d1, list(d2)) or self.is_sublist(c2_list, d1)  for d2 in c2_downstream)):
+                    if any(
+                        self.is_sublist(list(u2), u1)
+                        or self.is_sublist(u1, list(u2))
+                        or self.is_sublist(c2_list, u1)
+                        for u2 in c2_upstream
+                    ) and any(
+                        self.is_sublist(list(d2), d1)
+                        or self.is_sublist(d1, list(d2))
+                        or self.is_sublist(c2_list, d1)
+                        for d2 in c2_downstream
+                    ):
                         paths_to_delete.add((c1, c1_path))
                         return True
                     return False
@@ -2560,13 +2588,13 @@ class GeneMerGraph:
                     for i, c1_path in enumerate(clustered_paths[c1]["full_path"]):
                         u1 = list(clustered_paths[c1]["upstream"][i])
                         d1 = list(clustered_paths[c1]["downstream"][i])
-                        added = check_and_add(c1_path, c2_list, u1, d1)
+                        check_and_add(c1_path, c2_list, u1, d1)
 
                 if self.is_sublist(c2_list, rev_c1_list):
                     for i, c1_path in enumerate(clustered_paths[c1]["full_path"]):
                         d1 = list(reversed(clustered_paths[c1]["downstream"][i]))
                         u1 = list(reversed(clustered_paths[c1]["upstream"][i]))
-                        added = check_and_add(c1_path, c2_list, d1, u1)
+                        check_and_add(c1_path, c2_list, d1, u1)
         for core_p, long_p in paths_to_delete:
             del longest_paths[long_p]
             if core_p in clustered_paths:
@@ -2577,12 +2605,16 @@ class GeneMerGraph:
         for c1 in clustered_paths:
             for c2 in clustered_paths:
                 if c1 != c2 and tuple(sorted([c1, c2])) not in seen_pairs:
-                    if len(c1) < self.get_kmerSize() and \
-                        len(c2) < self.get_kmerSize() and \
-                        len(clustered_paths[c1]["full_path"]) == 1 and \
-                        len(clustered_paths[c2]["full_path"]) == 1:
+                    if (
+                        len(c1) < self.get_kmerSize()
+                        and len(c2) < self.get_kmerSize()
+                        and len(clustered_paths[c1]["full_path"]) == 1
+                        and len(clustered_paths[c2]["full_path"]) == 1
+                    ):
                         new_path = tuple([n for n in list(c1) if n in set(c2)])
-                        final_paths[new_path] = clustered_paths[c1]["shared_reads"][0].union(clustered_paths[c2]["shared_reads"][0])
+                        final_paths[new_path] = clustered_paths[c1]["shared_reads"][0].union(
+                            clustered_paths[c2]["shared_reads"][0]
+                        )
                         final_path_coverages[new_path] = [
                             self.get_node_by_hash(n).get_node_coverage() for n in list(new_path)
                         ]
@@ -2594,8 +2626,8 @@ class GeneMerGraph:
             shortest_path = longest_shortest_mapping[p]
             final_paths[shortest_path] = longest_paths[p]
             final_path_coverages[shortest_path] = [
-                    self.get_node_by_hash(n).get_node_coverage() for n in list(shortest_path)
-                ]
+                self.get_node_by_hash(n).get_node_coverage() for n in list(shortest_path)
+            ]
         return final_paths, final_path_coverages
 
     def cluster_adjacent_paths(self, adjacent_paths):
@@ -2620,7 +2652,7 @@ class GeneMerGraph:
         for c in clustered_sub_paths:
             final_clusters[max(list(clustered_sub_paths[c]["paths"]), key=len)] = {
                 "shortest": min(list(clustered_sub_paths[c]["paths"]), key=len),
-                "reads": clustered_sub_paths[c]["reads"]
+                "reads": clustered_sub_paths[c]["reads"],
             }
         return final_clusters
 
@@ -2655,7 +2687,7 @@ class GeneMerGraph:
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     allele_count += 1
             # iterate through the reads in this path
-            for read_id in self.get_reads():#pathsOfinterest[path]:
+            for read_id in self.get_reads():  # pathsOfinterest[path]:
                 # get the genes on the read
                 genes_on_read = self.get_reads()[read_id]
                 # get the positions of the path on the read
@@ -2894,8 +2926,8 @@ class GeneMerGraph:
                 pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     reads,
                     nodeHashesOfInterest,
-                    mean_node_coverage / 20
-                    #max(5, mean_node_coverage / 20),
+                    mean_node_coverage / 20,
+                    # max(5, mean_node_coverage / 20),
                 )
                 # split the paths into subpaths
                 finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
@@ -2915,7 +2947,7 @@ class GeneMerGraph:
                     if gene_name not in allele_counts:
                         allele_counts[gene_name] = 1
                     # add this allele if there are 5 or more reads
-                    if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:#:path_threshold:
+                    if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:
                         clustered_reads[component][geneOfInterest][
                             f"{gene_name}_{allele_counts[gene_name]}"
                         ] = finalAllelesOfInterest[allele]
@@ -3129,7 +3161,11 @@ class GeneMerGraph:
                 # get the first and last non-zero element
                 try:
                     first_index = depth_list.index(next(x for x in depth_list if x != 0))
-                    last_index = len(depth_list) - 1 - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
+                    last_index = (
+                        len(depth_list)
+                        - 1
+                        - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
+                    )
                 except StopIteration:
                     first_index, last_index = None, None
                 ref_allele_positions[ref] = (first_index, last_index)
@@ -3157,7 +3193,9 @@ class GeneMerGraph:
         ref_allele_positions, ref_cov_proportion = self.get_ref_allele_pileups(bam_file, output_dir)
         if debug is False:
             os.remove(os.path.join(output_dir, "reference_allele_coverages.txt"))
-        validity, references, unique_reads = self.get_closest_allele(bam_file, "reads", ref_cov_proportion)
+        validity, references, unique_reads = self.get_closest_allele(
+            bam_file, "reads", ref_cov_proportion
+        )
         if validity is True:
             valid_allele, match_proportion, match_length, coverage_proportion = references[0]
             valid_allele_sequence = self.get_allele_sequence(
