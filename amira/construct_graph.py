@@ -2519,9 +2519,13 @@ class GeneMerGraph:
                 for d in clustered_downstream:
                     shared_reads = clustered_upstream[u]["reads"].intersection(clustered_downstream[d]["reads"])
                     if len(shared_reads) > 0:
+                        long_path = u + c + d
+                        # skip this path if it starts and ends at the same AMR gene due to circularity
+                        unitig_genes = self.get_genes_in_unitig(long_path)
+                        if len(long_path) > 1 and unitig_genes[0][1:] == unitig_genes[-1][1:]:
+                            continue
                         if c not in clustered_paths:
                             clustered_paths[c] = {"upstream": [], "downstream": [], "shared_reads": [], "full_path": []}
-                        long_path = u + c + d
                         clustered_paths[c]["upstream"].append(u)
                         clustered_paths[c]["downstream"].append(d)
                         clustered_paths[c]["shared_reads"].append(shared_reads)
@@ -2534,6 +2538,7 @@ class GeneMerGraph:
         for c1 in clustered_paths:
             c1_list = list(c1)
             rev_c1_list = list(reversed(c1_list))
+            added = False
             for c2 in clustered_paths:
                 if c1 == c2:
                     continue
@@ -2543,11 +2548,11 @@ class GeneMerGraph:
 
                 def check_and_add(c1_path, c2_list, u1, d1):
                     if len(u1) == 0 or len(d1) == 0:
-                        paths_to_delete.add(c1_path)
+                        paths_to_delete.add((c1, c1_path))
                         return True
                     if (any(self.is_sublist(list(u2), u1) or self.is_sublist(u1, list(u2)) or self.is_sublist(c2_list, u1) for u2 in c2_upstream) and
                         any(self.is_sublist(list(d2), d1) or self.is_sublist(d1, list(d2)) or self.is_sublist(c2_list, d1)  for d2 in c2_downstream)):
-                        paths_to_delete.add(c1_path)
+                        paths_to_delete.add((c1, c1_path))
                         return True
                     return False
 
@@ -2562,13 +2567,29 @@ class GeneMerGraph:
                         d1 = list(reversed(clustered_paths[c1]["downstream"][i]))
                         u1 = list(reversed(clustered_paths[c1]["upstream"][i]))
                         added = check_and_add(c1_path, c2_list, d1, u1)
-                        if added is True:
-                            sub = True
-            #if sub is False:
-            #    print(c1_list)
-        for p in paths_to_delete:
-            del longest_paths[p]
+        for core_p, long_p in paths_to_delete:
+            del longest_paths[long_p]
+            if core_p in clustered_paths:
+                del clustered_paths[core_p]
+        # account for edge cases where there are no reads spanning all k gene-mers
         final_paths, final_path_coverages = {}, {}
+        seen_pairs = set()
+        for c1 in clustered_paths:
+            for c2 in clustered_paths:
+                if c1 != c2 and tuple(sorted([c1, c2])) not in seen_pairs:
+                    if len(c1) < self.get_kmerSize() and \
+                        len(c2) < self.get_kmerSize() and \
+                        len(clustered_paths[c1]["full_path"]) == 1 and \
+                        len(clustered_paths[c2]["full_path"]) == 1:
+                        new_path = tuple([n for n in list(c1) if n in set(c2)])
+                        final_paths[new_path] = clustered_paths[c1]["shared_reads"][0].union(clustered_paths[c2]["shared_reads"][0])
+                        final_path_coverages[new_path] = [
+                            self.get_node_by_hash(n).get_node_coverage() for n in list(new_path)
+                        ]
+                        del longest_paths[clustered_paths[c1]["full_path"][0]]
+                        del longest_paths[clustered_paths[c2]["full_path"][0]]
+                        seen_pairs.add(tuple(sorted([c1, c2])))
+        # get the final paths
         for p in longest_paths:
             shortest_path = longest_shortest_mapping[p]
             final_paths[shortest_path] = longest_paths[p]

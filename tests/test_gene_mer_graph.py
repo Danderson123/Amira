@@ -5976,78 +5976,53 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             )
             self.assertEqual(len(unique_paths), 2)
 
-    # def test___correct_low_coverage_paths_two(self):
-    #     # setup
-    #     import json
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
-    #         calls = json.load(i)
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
-    #         positions = json.load(i)
-    #     graph = GeneMerGraph(calls, 3, positions)
-    #     graph.generate_gml("tests/test", 3, 1, 1)
-    #     # execution
-    #     actual_bubble_starts = graph.identify_potential_bubble_starts()
-    #     # assertion
-    #     for component in actual_bubble_starts:
-    #         if component != 3:
-    #             continue
-    #         # execution
-    #         potential_bubble_starts_component = actual_bubble_starts[component]
-    #         # get all the paths of length <= max distance between all pairs of junctions
-    #         unique_paths = graph.get_all_paths_between_junctions_in_component(
-    #             potential_bubble_starts_component, 15, 1
-    #         )
-    #         # filter the paths out if they are subpaths of longer paths
-    #         filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
-    #         # sort by path length
-    #         sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
-    #         fastq_data = parse_fastq("/home/daniel/Documents/GitHub/amira_prototype/test/AUSMDU00031978.fastq.gz")
-    #         path_minimizers = graph.get_minhashes_for_paths(
-    #                 sorted_filtered_paths, fastq_data, 1
-    #             )
-    #         # bin the paths based on their terminal nodes
-    #         sorted_filtered_paths = graph.separate_paths_by_terminal_nodes(sorted_filtered_paths)
-    #         graph.correct_bubble_paths(
-    #             sorted_filtered_paths,
-    #             fastq_data,
-    #             path_minimizers,
-    #             {'aac3IId', 'aac630aac6IbNG_0472131', 'aadA5', 'aadA8NG_0524081', 'ant3Ihaac6IIdNG_0472181', 'aph3Ib', 'aph6Id', 'blaCMY54NG_0488491', 'blaCTXM110NG_0489052', 'blaCTXM211NG_0574771', 'blaDHA33NG_2421811', 'blaEC', 'blaLAP2NG_0492641', 'blaNDM18NG_0528661', 'blaOXA896NG_0671581', 'blaTEM239NG_0766451', 'bleNG_0475591', 'dfrA17', 'ermBNG_0561911', 'mphANG_0479861', 'qacEdelta1', 'qnrB41NG_0505042', 'qnrS1', 'sul1NG_0480981', 'sul2NG_0481161', 'tetA'},
-    #             0,
-    #         )
-    #         print(sorted_filtered_paths)
-    #     dsdd
-    # def test___low_coverage(self):
-    #     # setup
-    #     import json
+    def test___get_paths_for_gene_edge_case_one(self):
+        # setup
+        import json
+        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_calls_after_five.json") as i:
+            calls = json.load(i)
+        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_positions_five.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in [
+                            'blaCTXM110NG_0489052',
+                        ]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads,
+            nodeHashesOfInterest,
+            41.84688319548114 / 20
+        )
+        for p in paths:
+            print(p)
+            print(graph.get_genes_in_unitig(p), len(paths[p]))
+        self.assertEqual(len(paths), 1)
 
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/amira.output.k.3.GCA_027944735.1_ASM2794473v1_genomic/corrected_gene_calls_after_filtering.json") as i:
-    #         calls = json.load(i)
-    #     with open("/home/daniel/Documents/GitHub/amira_prototype/amira.output.k.3.GCA_027944735.1_ASM2794473v1_genomic/corrected_gene_positions_after_filtering.json") as i:
-    #         positions = json.load(i)
-    #     graph = GeneMerGraph(calls, 3, positions)
-    #     nodesOfInterest = []
-    #     for geneOfInterest in [
-    #                         'aph3Ib',
-    #                     ]:
-    #         nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-    #     nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
-    #     reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-    #     graph.generate_gml("tests/test", 3, 1, 1)
-    #     # execution
-    #     paths, _ = graph.get_paths_for_gene(reads,
-    #         nodeHashesOfInterest,
-    #         57.09409635828998 / 20
-    #     )
-    #     # for p in paths:
-    #     #     print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
-    #     # ssss
-    #     # # split the paths into subpaths
-    #     # finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
-    #     #    geneOfInterest, paths, _, None
-    #     # )
-    #     one, two, three = graph.assign_reads_to_genes(["aph3Ib"], {}, {}, 57.09409635828998)
-    #     print(one)
-    #     dss
-    # #     # assertion
-    # #     self.assertEqual(len(paths), 2)
-    # #     self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
+    def test___weird(self):
+        # setup
+        import json
+        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
+            calls = json.load(i)
+        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in [
+                            'blaCMY54NG_0488491',
+                        ]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+        # execution
+        paths, _ = graph.get_paths_for_gene(reads,
+            nodeHashesOfInterest,
+            32.50926869016093 / 20
+        )
+        for p in paths:
+            print(p)
+            print(graph.get_genes_in_unitig(p), len(paths[p]))
+        self.assertEqual(len(paths), 1)
+        ssss

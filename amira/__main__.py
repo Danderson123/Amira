@@ -518,18 +518,10 @@ def downsample_reads(annotatedReads, max_reads=100000):
     total_reads = len(annotatedReads)
     if total_reads <= max_reads:
         return annotatedReads
-    # count the number of reads for each individual gene
-    gene_read_count = defaultdict(set)
-    for read in annotatedReads:
-        for gene in annotatedReads[read]:
-            gene_read_count[gene[1:]].add(read)
-    # downsample reads while maintaining the gene coverage proportions
-    downsampled_reads = set()
-    for gene, reads in gene_read_count.items():
-        read_sample_size = math.ceil(len(reads) / total_reads * max_reads)
-        read_list = list(reads)
-        downsampled_reads.update(random.sample(read_list, read_sample_size))
-    return {read_id: annotatedReads[read_id] for read_id in downsampled_reads}
+    return dict(random.sample(annotatedReads.items(), min(len(annotatedReads), max_reads)))
+
+def get_allele_component(amira_allele, allele_component_mapping):
+    return float(allele_component_mapping[amira_allele])
 
 def main() -> None:
     # get command line options
@@ -556,9 +548,7 @@ def main() -> None:
         pandora_consensus = parse_fastq(args.pandoraConsensus)
         # randomly sample 100,000 reads
         if args.sample_reads:
-            annotatedReads = dict(
-                random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
-            )
+            annotatedReads = downsample_reads(annotatedReads, 100000)
     # load the pandora consensus and convert to a dictionary
     if args.pandoraSam:
         # output sample information
@@ -589,9 +579,7 @@ def main() -> None:
             o.write(json.dumps(annotatedReads))
         # randomly sample 100,000 reads
         if args.sample_reads:
-            annotatedReads = dict(
-                random.sample(annotatedReads.items(), min(len(annotatedReads), 100000))
-            )
+            annotatedReads = downsample_reads(annotatedReads, 100000)
     print(list(sorted(list(sample_genesOfInterest))))
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
@@ -739,6 +727,7 @@ def main() -> None:
     files_to_assemble = []
     sys.stderr.write("\nAmira: writing fastqs\n")
     supplemented_clusters_of_interest = {}
+    allele_component_mapping = {}
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
             for allele in clusters_of_interest[component][gene]:
@@ -754,6 +743,8 @@ def main() -> None:
                     supplemented_clusters_of_interest[allele] = clusters_of_interest[component][
                         gene
                     ][allele]
+                    # store the component of the allele
+                    allele_component_mapping[allele] = component
                 else:
                     sys.stderr.write(
                     f"Amira: allele {allele} filtered due to an insufficient number of reads ({len(clusters_of_interest[component][gene][allele])}).\n"
@@ -765,6 +756,7 @@ def main() -> None:
                 write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
             )
             supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
+            allele_component_mapping[allele] = None
         else:
             sys.stderr.write(
                 f"Amira: allele {allele} filtered due to an insufficient number of reads ({len(clusters_to_add[allele])}).\n"
@@ -796,6 +788,13 @@ def main() -> None:
     result_df["Approximate copy number"] = result_df.apply(
         lambda row: estimate_copy_number(
             row["Amira allele"], cluster_copy_numbers, cluster_copy_numbers_to_add
+        ),
+        axis=1,
+    )
+    # get the component of each allele
+    result_df["Component ID"] = result_df.apply(
+        lambda row: get_allele_component(
+            row["Amira allele"], allele_component_mapping
         ),
         axis=1,
     )

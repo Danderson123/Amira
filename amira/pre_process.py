@@ -223,24 +223,13 @@ def convert_pandora_output(
                 # proportion_gene_length.append(
                 #     regionLength / len(pandora_consensus[strandlessGene]["sequence"])
                 # )
-    to_delete = []
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
         annotatedReads[r] = [
             gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1
         ]
-        containsAMRgene = False
         for g in range(len(annotatedReads[r])):
             if annotatedReads[r][g][1:] in genesOfInterest:
-                containsAMRgene = True
                 subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
-            # split_names = annotatedReads[r][g][1:].split(".")
-            # if any(subgene in genesOfInterest for subgene in split_names):
-            #     containsAMRgene = True
-            #     subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
-        if not containsAMRgene:
-            to_delete.append(r)
-    # for t in to_delete:
-    #    del annotatedReads[t]
     assert not len(annotatedReads) == 0
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
