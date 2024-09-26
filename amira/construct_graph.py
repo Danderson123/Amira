@@ -706,6 +706,7 @@ class GeneMerGraph:
         # store the new annotations in a list
         newAnnotations = []
         # iterate through the new readNodes
+        errored = False
         for n in range(len(listOfNodes) - 1):
             sourceNode = self.get_node_by_hash(listOfNodes[n])
             targetNode = self.get_node_by_hash(listOfNodes[n + 1])
@@ -720,15 +721,41 @@ class GeneMerGraph:
                     newAnnotations += self.get_reverse_gene_mer_genes(sourceNode)
             fw_genes = self.get_gene_mer_genes(targetNode)
             bw_genes = self.get_reverse_gene_mer_genes(targetNode)
-            if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1 :]:
-                newAnnotations.append(fw_genes[-1])
-            else:
-                assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1 :]
-                newAnnotations.append(bw_genes[-1])
-            # if edge.get_targetNodeDirection() == 1:
-            #     newAnnotations.append(self.get_gene_mer_genes(targetNode)[-1])
-            # else:
-            #     newAnnotations.append(self.get_reverse_gene_mer_genes(targetNode)[-1])
+            # Check if forward genes match, if not try reverse
+            try:
+                if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]:
+                    newAnnotations.append(fw_genes[-1])
+                else:
+                    assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]
+                    newAnnotations.append(bw_genes[-1])
+            except AssertionError:
+                errored = True
+                break
+
+        # Handle errors and try the alternative path
+        if errored:
+            newAnnotations = []
+            for n in range(len(listOfNodes) - 1):
+                sourceNode = self.get_node_by_hash(listOfNodes[n])
+                targetNode = self.get_node_by_hash(listOfNodes[n + 1])
+                # Get the edge between the source and target node
+                edgeHashes = self.get_edge_hashes_between_nodes(sourceNode, targetNode)
+                edge = self.get_edge_by_hash(edgeHashes[0])
+                # Add either forward or reverse gene mer depending on node direction (first node only)
+                if n == 0:
+                    newAnnotations += self.get_gene_mer_genes(sourceNode) if edge.get_sourceNodeDirection() == 1 else self.get_reverse_gene_mer_genes(sourceNode)
+                # Get forward and backward genes for target node
+                fw_genes = self.get_gene_mer_genes(targetNode)
+                bw_genes = self.get_reverse_gene_mer_genes(targetNode)
+                # Check if forward or backward genes match, and insert the appropriate gene at the start
+                try:
+                    if fw_genes[1:] == newAnnotations[:self.get_kmerSize()-1]:
+                        newAnnotations.insert(0, fw_genes[0])
+                    else:
+                        assert bw_genes[1:] == newAnnotations[:self.get_kmerSize()-1]
+                        newAnnotations.insert(0, bw_genes[0])
+                except AssertionError:
+                    raise ValueError("Gene sequences do not match in alternative path.")
         return newAnnotations
 
     def remove_short_linear_paths(self, min_length):
@@ -2555,7 +2582,7 @@ class GeneMerGraph:
                         )
         # Remove any core option that is fully contained within another
         paths_to_delete = set()
-        for c1 in clustered_paths:
+        for c1 in sorted(list(clustered_paths.keys()), key=len):
             c1_list = list(c1)
             rev_c1_list = list(reversed(c1_list))
             for c2 in clustered_paths:

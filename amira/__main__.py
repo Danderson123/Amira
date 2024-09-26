@@ -557,7 +557,7 @@ def downsample_reads(annotatedReads, max_reads=100000):
 
 
 def get_allele_component(amira_allele, allele_component_mapping):
-    return float(allele_component_mapping[amira_allele])
+    return allele_component_mapping[amira_allele]
 
 
 def main() -> None:
@@ -752,6 +752,17 @@ def main() -> None:
         node_min_coverage,
         1,
     )
+    # write out a fastq of the reads in each connected component
+    if not os.path.exists(os.path.join(args.output_dir, "component_fastqs")):
+        os.mkdir(os.path.join(args.output_dir, "component_fastqs"))
+    for component in graph.components():
+        node_hashes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
+        reads_in_component = graph.collect_reads_in_path(node_hashes_in_component)
+        component_fastq_data = {r: fastq_content[r] for f in reads_in_component}
+        write_fastq(
+            os.path.join(args.output_dir, "component_fastqs", f"{component}.fastq.gz"),
+            component_fastq_data,
+        )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
     (

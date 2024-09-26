@@ -5986,9 +5986,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
         paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 41.84688319548114 / 20)
-        for p in paths:
-            print(p)
-            print(graph.get_genes_in_unitig(p), len(paths[p]))
         self.assertEqual(len(paths), 1)
 
     # def test___weird(self):
@@ -6012,7 +6009,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     #     nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
     #     reads = graph.collect_reads_in_path(nodeHashesOfInterest)
     #     # execution
-    #     paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 32.50926869016093 / 20)
+    #     paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 9.636605415860735 / 20)
     #     for p in paths:
     #         print(p)
     #         print(graph.get_genes_in_unitig(p), len(paths[p]))
