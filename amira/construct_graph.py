@@ -723,10 +723,10 @@ class GeneMerGraph:
             bw_genes = self.get_reverse_gene_mer_genes(targetNode)
             # Check if forward genes match, if not try reverse
             try:
-                if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]:
+                if fw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1 :]:
                     newAnnotations.append(fw_genes[-1])
                 else:
-                    assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1:]
+                    assert bw_genes[:-1] == newAnnotations[-self.get_kmerSize() + 1 :]
                     newAnnotations.append(bw_genes[-1])
             except AssertionError:
                 errored = True
@@ -741,18 +741,22 @@ class GeneMerGraph:
                 # Get the edge between the source and target node
                 edgeHashes = self.get_edge_hashes_between_nodes(sourceNode, targetNode)
                 edge = self.get_edge_by_hash(edgeHashes[0])
-                # Add either forward or reverse gene mer depending on node direction (first node only)
+                # Add either forward or reverse gene mer depending on first node direction
                 if n == 0:
-                    newAnnotations += self.get_gene_mer_genes(sourceNode) if edge.get_sourceNodeDirection() == 1 else self.get_reverse_gene_mer_genes(sourceNode)
+                    newAnnotations += (
+                        self.get_gene_mer_genes(sourceNode)
+                        if edge.get_sourceNodeDirection() == 1
+                        else self.get_reverse_gene_mer_genes(sourceNode)
+                    )
                 # Get forward and backward genes for target node
                 fw_genes = self.get_gene_mer_genes(targetNode)
                 bw_genes = self.get_reverse_gene_mer_genes(targetNode)
-                # Check if forward or backward genes match, and insert the appropriate gene at the start
+                # Check if forward or backward genes match
                 try:
-                    if fw_genes[1:] == newAnnotations[:self.get_kmerSize()-1]:
+                    if fw_genes[1:] == newAnnotations[: self.get_kmerSize() - 1]:
                         newAnnotations.insert(0, fw_genes[0])
                     else:
-                        assert bw_genes[1:] == newAnnotations[:self.get_kmerSize()-1]
+                        assert bw_genes[1:] == newAnnotations[: self.get_kmerSize() - 1]
                         newAnnotations.insert(0, bw_genes[0])
                 except AssertionError:
                     raise ValueError("Gene sequences do not match in alternative path.")
