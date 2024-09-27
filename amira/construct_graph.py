@@ -642,12 +642,15 @@ class GeneMerGraph:
         node_entry += "\t]"
         return node_entry
 
-    def write_edge_entry(self, source_node, target_node, edge_direction, edge_coverage):
+    def write_edge_entry(
+        self, source_node, target_node, source_edge_direction, target_edge_direction, edge_coverage
+    ):
         """return a string of a gml edge entry"""
         edge_entry = "\tedge\t[\n"
         edge_entry += "\t\tsource\t" + str(source_node) + "\n"
         edge_entry += "\t\ttarget\t" + str(target_node) + "\n"
-        edge_entry += "\t\tdirection\t" + str(edge_direction) + "\n"
+        edge_entry += "\t\tsource_direction\t" + str(source_edge_direction) + "\n"
+        edge_entry += "\t\ttarget_direction\t" + str(target_edge_direction) + "\n"
         edge_entry += "\t\tweight\t" + str(edge_coverage) + "\n"
         edge_entry += "\t]"
         return edge_entry
@@ -958,6 +961,7 @@ class GeneMerGraph:
                 edgeEntry = self.write_edge_entry(
                     sourceNode.get_node_Id(),
                     targetNode.get_node_Id(),
+                    edge.get_sourceNodeDirection(),
                     edge.get_targetNodeDirection(),
                     edge.get_edge_coverage(),
                 )

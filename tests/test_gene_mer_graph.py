@@ -1907,41 +1907,43 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         source_fw = "+gene1~~~-gene2~~~+gene3"
         target_bw = "+gene4~~~-gene3~~~+gene2"
         target_fw = "-gene2~~~+gene3~~~-gene4"
+        sd_str = "source_direction"
+        td_str = "target_direction"
         expected_writtenGraph = [
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t1{gap}{td_str}\t-1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t1{gap}{td_str}\t-1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t1{gap}{td_str}\t-1{gap}weight\t1\n\t]",
                 "]",
             ],
         ]
