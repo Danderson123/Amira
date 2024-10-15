@@ -765,23 +765,39 @@ class GeneMerGraph:
                     raise ValueError("Gene sequences do not match in alternative path.")
         return newAnnotations
 
-    def remove_short_linear_paths(self, min_length):
+    def remove_short_linear_paths(self, min_length, sample_genesOfInterest={}):
         """remove nodeHashes on reads if on a linear path of length < min_length. \
             Returns a list of nodeHashes that have bene removed"""
-        paths_to_remove = []
+        paths_to_remove = {}
         for node in self.all_nodes():
             if self.get_degree(node) == 1:
                 path = self.get_linear_path_for_node(node)
                 if len(path) > 0 and (
                     len(path) < min_length
                 ):  # or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
-                    paths_to_remove.append(path)
+                    if node.get_component() not in paths_to_remove:
+                        paths_to_remove[node.get_component()] = []
+                    paths_to_remove[node.get_component()].append(path)
+        # get the nodes in the graph containing AMR genes
+        AMR_nodes = self.get_AMR_nodes(sample_genesOfInterest)
+        # remove paths that do not contain AMR genes
         removed = set()
-        for path in paths_to_remove:
-            for nodeHash in path:
-                if nodeHash not in removed:
-                    self.remove_node(self.get_node_by_hash(nodeHash))
-                    removed.add(nodeHash)
+        for component in paths_to_remove:
+            if component is not None:
+                nodes_in_component = set(self.get_nodes_in_component(component))
+            else:
+                nodes_in_component = []
+            for path in paths_to_remove[component]:
+                if component is not None and len(nodes_in_component.intersection(path)) == len(
+                    nodes_in_component
+                ):
+                    continue
+                for nodeHash in path:
+                    if nodeHash in AMR_nodes:
+                        continue
+                    if nodeHash not in removed:
+                        self.remove_node(self.get_node_by_hash(nodeHash))
+                        removed.add(nodeHash)
         return list(removed)
 
     def get_forward_node_from_node(self, sourceNode) -> list:

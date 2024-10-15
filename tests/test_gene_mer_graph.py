@@ -6002,18 +6002,17 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     #         "/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json"
     #     ) as i:
     #         positions = json.load(i)
-    #     graph = GeneMerGraph(calls, 3, positions)
+    #     graph = GeneMerGraph(calls, 7, positions)
     #     nodesOfInterest = []
     #     for geneOfInterest in [
-    #         "blaCMY54NG_0488491",
+    #         "mphANG_0479861",
     #     ]:
     #         nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
     #     nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
     #     reads = graph.collect_reads_in_path(nodeHashesOfInterest)
     #     # execution
-    #     paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 9.636605415860735 / 20)
+    #     paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 59.65759236344352 / 20)
     #     for p in paths:
-    #         print(p)
-    #         print(graph.get_genes_in_unitig(p), len(paths[p]))
+    #         print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
     #     self.assertEqual(len(paths), 1)
     #     ssss

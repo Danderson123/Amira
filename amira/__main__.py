@@ -4,6 +4,7 @@ import json
 import os
 import random
 import sys
+import time
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -449,6 +450,11 @@ def iterative_bubble_popping(
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )
+        graph.filter_graph(node_min_coverage, 1)
+        new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+        graph = build_multiprocessed_graph(
+            new_annotatedReads, geneMer_size, cores, new_gene_position_dict
+        )
         # check if the current number of nodes is equal to the previous number of nodes
         if len(graph.get_nodes()) == prev_nodes:
             sys.stderr.write(f"\n\tAmira: terminating cleaning at iteration {this_iteration+1}\n")
@@ -561,6 +567,8 @@ def get_allele_component(amira_allele, allele_component_mapping):
 
 
 def main() -> None:
+    # get the runtime
+    start_time = time.time()
     # get command line options
     args = get_options()
     # set the seed
@@ -644,10 +652,10 @@ def main() -> None:
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
     overall_mean_node_coverage = graph.get_mean_node_coverage()
-    sys.stderr.write(f"\nAmira: mean node coverage = {overall_mean_node_coverage}\n")
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
     short_read_gene_positions = graph.get_short_read_gene_positions()
+    sys.stderr.write(f"\nAmira: mean node coverage = {overall_mean_node_coverage}\n")
     # mark nodes in the graph that contain at least 1 AMR gene
     graph.remove_non_AMR_associated_nodes(sample_genesOfInterest)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
@@ -923,7 +931,8 @@ def main() -> None:
         o.write(json.dumps(final_clusters_of_interest))
     # write the result tsv
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
-    # make the result table
+    # display the runtime
+    sys.stderr.write(f"\nAmira: Total runtime: {time.time() - start_time} seconds\n")
     sys.exit(0)
 
 
