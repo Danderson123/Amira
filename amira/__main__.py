@@ -1,11 +1,10 @@
 import argparse
-from collections import defaultdict
 import gzip
 import json
-import random
-import math
 import os
+import random
 import sys
+import time
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -178,6 +177,7 @@ def plot_read_length_distribution(annotatedReads, output_dir):
     plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
     plt.close()
 
+
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
     geneMer_size: int,
@@ -194,6 +194,7 @@ def write_debug_files(
         os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
     )
     return raw_graph
+
 
 def plot_node_coverages(unitig_coverages, filename):
     # Calculate the frequency of each coverage value with bins of width 5
@@ -324,6 +325,7 @@ def parse_fastq_lines(fh):
             # Yield the identifier, sequence and quality
             yield identifier, sequence, line.strip()
 
+
 def parse_fastq(fastq_file):
     # Initialize an empty dictionary to store the results
     results = {}
@@ -363,6 +365,7 @@ def write_fastq(fastq_file, data):
             fh.write("+\n")
             fh.write(f'{value["quality"]}\n')
 
+
 def process_reference_alelles(path_to_interesting_genes):
     # import the list of genes of interest
     with open(path_to_interesting_genes, "r") as i:
@@ -382,11 +385,14 @@ def process_reference_alelles(path_to_interesting_genes):
         reference_alleles[gene_name][allele_name] = sequence
     return reference_alleles, genesOfInterest
 
-def choose_kmer_size(overall_mean_node_coverage,
-                    new_annotatedReads,
-                    cores,
-                    new_gene_position_dict,
-                    sample_genesOfInterest):
+
+def choose_kmer_size(
+    overall_mean_node_coverage,
+    new_annotatedReads,
+    cores,
+    new_gene_position_dict,
+    sample_genesOfInterest,
+):
     geneMer_size = 3
     if overall_mean_node_coverage >= 20:
         for k in range(3, 16, 2):
@@ -397,10 +403,14 @@ def choose_kmer_size(overall_mean_node_coverage,
 
             def is_component_valid(component):
                 amr_nodes = {
-                    n.__hash__() for g in sample_genesOfInterest for n in graph.get_nodes_containing(g)
+                    n.__hash__()
+                    for g in sample_genesOfInterest
+                    for n in graph.get_nodes_containing(g)
                 }
                 nodes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
-                reads = graph.collect_reads_in_path([n for n in nodes_in_component if n in amr_nodes])
+                reads = graph.collect_reads_in_path(
+                    [n for n in nodes_in_component if n in amr_nodes]
+                )
                 lengths = [len(graph.get_reads()[r]) for r in reads]
                 if len(lengths) != 0:
                     return (
@@ -409,30 +419,39 @@ def choose_kmer_size(overall_mean_node_coverage,
                     )
                 else:
                     return True
+
             if all(is_component_valid(c) for c in graph.components()):
                 geneMer_size = k
             else:
                 break
     return geneMer_size
 
-def iterative_bubble_popping(new_annotatedReads,
-                            new_gene_position_dict,
-                            cleaning_iterations,
-                            geneMer_size,
-                            cores,
-                            short_reads,
-                            short_read_gene_positions,
-                            fastq_content,
-                            output_dir,
-                            node_min_coverage,
-                            sample_genesOfInterest,
-                            min_path_coverage):
+
+def iterative_bubble_popping(
+    new_annotatedReads,
+    new_gene_position_dict,
+    cleaning_iterations,
+    geneMer_size,
+    cores,
+    short_reads,
+    short_read_gene_positions,
+    fastq_content,
+    output_dir,
+    node_min_coverage,
+    sample_genesOfInterest,
+    min_path_coverage,
+):
     prev_nodes = 0
     components_to_skip = set()
     for this_iteration in range(cleaning_iterations):
         sys.stderr.write(
             f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}\n"
         )
+        graph = build_multiprocessed_graph(
+            new_annotatedReads, geneMer_size, cores, new_gene_position_dict
+        )
+        graph.filter_graph(node_min_coverage, 1)
+        new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )
@@ -462,10 +481,16 @@ def iterative_bubble_popping(new_annotatedReads,
         )
         new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
             graph.correct_low_coverage_paths(
-                fastq_content, sample_genesOfInterest, cores, min_path_coverage, components_to_skip, True
+                fastq_content,
+                sample_genesOfInterest,
+                cores,
+                min_path_coverage,
+                components_to_skip,
+                True,
             )
         )
     return new_annotatedReads, new_gene_position_dict
+
 
 def get_found_genes(clusters_of_interest):
     found_genes = set()
@@ -473,6 +498,7 @@ def get_found_genes(clusters_of_interest):
         for gene in clusters_of_interest[component_id]:
             found_genes.add(gene)
     return found_genes
+
 
 def add_amr_alleles(short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes):
     clusters_to_add = {}
@@ -486,18 +512,24 @@ def add_amr_alleles(short_reads, short_read_gene_positions, sample_genesOfIntere
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
     return clusters_to_add
 
+
 def calculate_cluster_copy_numbers(clusters_to_add, overall_mean_node_coverage):
     cluster_copy_numbers = {}
     for allele in clusters_to_add:
-        cluster_copy_numbers[allele] = max(1.0, len(clusters_to_add[allele]) / overall_mean_node_coverage)
+        cluster_copy_numbers[allele] = max(
+            1.0, len(clusters_to_add[allele]) / overall_mean_node_coverage
+        )
     return cluster_copy_numbers
 
-def process_reads(graph,
-                sample_genesOfInterest,
-                fastq_content,
-                short_reads,
-                short_read_gene_positions,
-                overall_mean_node_coverage):
+
+def process_reads(
+    graph,
+    sample_genesOfInterest,
+    fastq_content,
+    short_reads,
+    short_read_gene_positions,
+    overall_mean_node_coverage,
+):
     # Step 1: Assign reads to genes
     clusters_of_interest, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
         sample_genesOfInterest, fastq_content, {}, overall_mean_node_coverage
@@ -509,9 +541,18 @@ def process_reads(graph,
         short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes_of_interest
     )
     # Step 4: Calculate cluster copy numbers for newly added clusters
-    cluster_copy_numbers_to_add = calculate_cluster_copy_numbers(clusters_to_add, overall_mean_node_coverage)
+    cluster_copy_numbers_to_add = calculate_cluster_copy_numbers(
+        clusters_to_add, overall_mean_node_coverage
+    )
     # Return the processed results
-    return clusters_to_add, cluster_copy_numbers_to_add, clusters_of_interest, cluster_copy_numbers, allele_counts
+    return (
+        clusters_to_add,
+        cluster_copy_numbers_to_add,
+        clusters_of_interest,
+        cluster_copy_numbers,
+        allele_counts,
+    )
+
 
 def downsample_reads(annotatedReads, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads
@@ -520,10 +561,14 @@ def downsample_reads(annotatedReads, max_reads=100000):
         return annotatedReads
     return dict(random.sample(annotatedReads.items(), min(len(annotatedReads), max_reads)))
 
+
 def get_allele_component(amira_allele, allele_component_mapping):
-    return float(allele_component_mapping[amira_allele])
+    return allele_component_mapping[amira_allele]
+
 
 def main() -> None:
+    # get the runtime
+    start_time = time.time()
     # get command line options
     args = get_options()
     # set the seed
@@ -607,10 +652,10 @@ def main() -> None:
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
     overall_mean_node_coverage = graph.get_mean_node_coverage()
-    sys.stderr.write(f"\nAmira: mean node coverage = {overall_mean_node_coverage}\n")
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
     short_read_gene_positions = graph.get_short_read_gene_positions()
+    sys.stderr.write(f"\nAmira: mean node coverage = {overall_mean_node_coverage}\n")
     # mark nodes in the graph that contain at least 1 AMR gene
     graph.remove_non_AMR_associated_nodes(sample_genesOfInterest)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
@@ -642,8 +687,7 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    graph = build_multiprocessed_graph(    # mark nodes in the graph that contain at least 1 read with an AMR gene
-
+    graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
     # collect the reads that have fewer than k genes
@@ -664,26 +708,30 @@ def main() -> None:
         sys.exit(0)
     # choose a value for k
     sys.stderr.write("\nAmira: selecting a gene-mer size (k)\n")
-    geneMer_size = choose_kmer_size(overall_mean_node_coverage,
-                                new_annotatedReads,
-                                args.cores,
-                                new_gene_position_dict,
-                                sample_genesOfInterest)
+    geneMer_size = choose_kmer_size(
+        overall_mean_node_coverage,
+        new_annotatedReads,
+        args.cores,
+        new_gene_position_dict,
+        sample_genesOfInterest,
+    )
     sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n")
     # parse the original fastq file
     cleaning_iterations = 30
-    new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(new_annotatedReads,
-                                                                        new_gene_position_dict,
-                                                                        cleaning_iterations,
-                                                                        geneMer_size,
-                                                                        args.cores,
-                                                                        short_reads,
-                                                                        short_read_gene_positions,
-                                                                        fastq_content,
-                                                                        args.output_dir,
-                                                                        node_min_coverage,
-                                                                        sample_genesOfInterest,
-                                                                        min_path_coverage)
+    new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
+        new_annotatedReads,
+        new_gene_position_dict,
+        cleaning_iterations,
+        geneMer_size,
+        args.cores,
+        short_reads,
+        short_read_gene_positions,
+        fastq_content,
+        args.output_dir,
+        node_min_coverage,
+        sample_genesOfInterest,
+        min_path_coverage,
+    )
     # build the corrected gene-mer graph
     sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
     with open(os.path.join(args.output_dir, "corrected_gene_calls_after_filtering.json"), "w") as o:
@@ -712,14 +760,33 @@ def main() -> None:
         node_min_coverage,
         1,
     )
+    # write out a fastq of the reads in each connected component
+    if not os.path.exists(os.path.join(args.output_dir, "component_fastqs")):
+        os.mkdir(os.path.join(args.output_dir, "component_fastqs"))
+    for component in graph.components():
+        node_hashes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
+        reads_in_component = graph.collect_reads_in_path(node_hashes_in_component)
+        component_fastq_data = {r: fastq_content[r] for r in reads_in_component}
+        write_fastq(
+            os.path.join(args.output_dir, "component_fastqs", f"{component}.fastq.gz"),
+            component_fastq_data,
+        )
     # assign reads to AMR genes by path
     sys.stderr.write("\nAmira: clustering reads\n")
-    clusters_to_add, cluster_copy_numbers_to_add, clusters_of_interest, cluster_copy_numbers, allele_counts = process_reads(graph,
-                                                                                                                    sample_genesOfInterest,
-                                                                                                                    fastq_content,
-                                                                                                                    short_reads,
-                                                                                                                    short_read_gene_positions,
-                                                                                                                    overall_mean_node_coverage)
+    (
+        clusters_to_add,
+        cluster_copy_numbers_to_add,
+        clusters_of_interest,
+        cluster_copy_numbers,
+        allele_counts,
+    ) = process_reads(
+        graph,
+        sample_genesOfInterest,
+        fastq_content,
+        short_reads,
+        short_read_gene_positions,
+        overall_mean_node_coverage,
+    )
     # write out the fastq files
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
@@ -731,7 +798,10 @@ def main() -> None:
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
             for allele in clusters_of_interest[component][gene]:
-                if len(clusters_of_interest[component][gene][allele]) > overall_mean_node_coverage / 20:
+                if (
+                    len(clusters_of_interest[component][gene][allele])
+                    > overall_mean_node_coverage / 20
+                ):
                     files_to_assemble.append(
                         write_allele_fastq(
                             clusters_of_interest[component][gene][allele],
@@ -746,9 +816,10 @@ def main() -> None:
                     # store the component of the allele
                     allele_component_mapping[allele] = component
                 else:
-                    sys.stderr.write(
-                    f"Amira: allele {allele} filtered due to an insufficient number of reads ({len(clusters_of_interest[component][gene][allele])}).\n"
-                )
+                    message = f"\nAmira: allele {allele} removed "
+                    message += "due to an insufficient number of reads "
+                    message += f"({len(clusters_of_interest[component][gene][allele])}).\n"
+                    sys.stderr.write(message)
     # add the genes from the short reads
     for allele in clusters_to_add:
         if len(clusters_to_add[allele]) > overall_mean_node_coverage / 20:
@@ -758,9 +829,9 @@ def main() -> None:
             supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
             allele_component_mapping[allele] = None
         else:
-            sys.stderr.write(
-                f"Amira: allele {allele} filtered due to an insufficient number of reads ({len(clusters_to_add[allele])}).\n"
-            )
+            message = f"\nAmira: allele {allele} removed "
+            message += f"due to an insufficient number of reads ({len(clusters_to_add[allele])}).\n"
+            sys.stderr.write(message)
     # run racon to polish the pandora consensus
     sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
     result_df = graph.get_alleles(
@@ -793,9 +864,7 @@ def main() -> None:
     )
     # get the component of each allele
     result_df["Component ID"] = result_df.apply(
-        lambda row: get_allele_component(
-            row["Amira allele"], allele_component_mapping
-        ),
+        lambda row: get_allele_component(row["Amira allele"], allele_component_mapping),
         axis=1,
     )
     # remove genes that do not have sufficient mapping coverage
@@ -817,11 +886,14 @@ def main() -> None:
         # check if filter contaminants is on
         if args.filter_contamination is True:
             # remove alleles where all of the reads just contain AMR genes
-            reads = supplemented_clusters_of_interest[row['Amira allele']]
-            if all(all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]]) for r in reads):
+            reads = supplemented_clusters_of_interest[row["Amira allele"]]
+            if all(
+                all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
+                for r in reads
+            ):
                 alleles_to_delete.append(row["Amira allele"])
                 message = f"\nAmira: allele {row['Amira allele']} removed "
-                message += f"due to suspected contamination.\n"
+                message += "due to suspected contamination.\n"
                 sys.stderr.write(message)
                 continue
     # remove genes as necessary
@@ -859,7 +931,8 @@ def main() -> None:
         o.write(json.dumps(final_clusters_of_interest))
     # write the result tsv
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
-    # make the result table
+    # display the runtime
+    sys.stderr.write(f"\nAmira: Total runtime: {time.time() - start_time} seconds\n")
     sys.exit(0)
 
 

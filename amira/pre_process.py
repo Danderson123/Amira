@@ -148,7 +148,6 @@ def remove_poorly_mapped_genes(
     os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
     os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
     os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
-    return minimap2_annotatedReads
 
 
 def convert_pandora_output(
@@ -168,7 +167,7 @@ def convert_pandora_output(
     gene_position_dict: dict[str, list[tuple[int, int]]] = {}
     geneCounts: dict[str, int] = {}
     # remove genes that have a high proportion of unmapped bases in the pandora consensus
-    minimap2_annotatedReads = remove_poorly_mapped_genes(
+    remove_poorly_mapped_genes(
         pandora_consensus,
         0.2,
         genesOfInterest,
@@ -194,7 +193,7 @@ def convert_pandora_output(
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
             # skip this read if there are no reads with >= 80% coverage
-            #if read.query_name not in minimap2_annotatedReads:
+            # if read.query_name not in minimap2_annotatedReads:
             #    continue
             # exclude genes that do not have a pandora consensus
             if strandlessGene in genesOfInterest or (

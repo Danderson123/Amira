@@ -1907,41 +1907,43 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         source_fw = "+gene1~~~-gene2~~~+gene3"
         target_bw = "+gene4~~~-gene3~~~+gene2"
         target_fw = "-gene2~~~+gene3~~~-gene4"
+        sd_str = "source_direction"
+        td_str = "target_direction"
         expected_writtenGraph = [
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t1{gap}{td_str}\t-1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t-1{gap}{td_str}\t1{gap}weight\t1\n\t]",
                 "]",
             ],
             [
                 "graph\t[",
                 "multigraph 1",
                 f'{node_prefix}0{gap}label\t"{source_fw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}0{gap}target\t1{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}0{gap}target\t1{gap}{sd_str}\t1{gap}{td_str}\t-1{gap}weight\t1\n\t]",
                 f'{node_prefix}1{gap}label\t"{target_bw}"{gap}coverage\t1{gap}reads\t""\n\t]',
-                f"{edge_prefix}1{gap}target\t0{gap}direction\t-1{gap}weight\t1\n\t]",
+                f"{edge_prefix}1{gap}target\t0{gap}{sd_str}\t1{gap}{td_str}\t-1{gap}weight\t1\n\t]",
                 "]",
             ],
         ]
@@ -5065,18 +5067,10 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("gene5")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         paths, path_coverages = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
-        fastq_content = {
-            "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
-            "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
-            "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
-        }
         # execution
-        actual_final_paths, _ = graph.split_into_subpaths(
-            "gene5", paths, path_coverages
-        )
+        actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages)
         # assertion
         self.assertEqual(len(actual_final_paths), 2)
         for k in actual_final_paths:
@@ -5133,18 +5127,10 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("gene5")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        anchor_nodes, junction_nodes = graph.get_anchors_of_interest(nodeHashesOfInterest)
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         paths, path_coverages = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 1)
-        fastq_content = {
-            "read1": {"sequence": "ACTGACTGACTGACTGATGC"},
-            "read2": {"sequence": "ACTGACTGACTGACTGATGC"},
-            "read3": {"sequence": "ACTGACTGACTGACTGATGC"},
-        }
         # execution
-        actual_final_paths, _ = graph.split_into_subpaths(
-            "gene5", paths, path_coverages
-        )
+        actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages)
         # assertion
         self.assertEqual(len(actual_final_paths), 3)
         for k in actual_final_paths:
@@ -5720,31 +5706,30 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(trimmed_graph.get_nodes()), 66)
 
-    # def test___get_paths_for_gene_complex_one(self):
-    #     # setup
-    #     import json
+    def test___get_paths_for_gene_complex_one(self):
+        # setup
+        import json
 
-    #     call_file = "tests/complex_gene_calls_one.json"
-    #     position_file = "tests/complex_gene_positions_one.json"
-    #     with open(call_file) as i:
-    #         calls = json.load(i)
-    #     with open(position_file) as i:
-    #         positions = json.load(i)
-    #     filtered_calls = {}
-    #     for r in calls:
-    #         if any(g[1:] == "mphANG_0479861" for g in calls[r]):
-    #             filtered_calls[r] = calls[r]
-    #     graph = GeneMerGraph(filtered_calls, 3, positions)
-    #     nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
-    #     # execution
-    #     actual_paths, actual_path_coverages = graph.get_paths_for_gene(
-    #         graph.collect_reads_in_path(nodehashes),
-    #         nodehashes,
-    #         max(5, graph.get_mean_node_coverage() / 5)
-    #     )
-    #     # assertion
-    #     self.assertEqual(len(actual_paths), 2)
-    #     self.assertTrue(all(len(actual_paths[p]) in {26, 24} for p in actual_paths))
+        call_file = "tests/complex_gene_calls_one.json"
+        position_file = "tests/complex_gene_positions_one.json"
+        with open(call_file) as i:
+            calls = json.load(i)
+        with open(position_file) as i:
+            positions = json.load(i)
+        filtered_calls = {}
+        for r in calls:
+            if any(g[1:] == "mphANG_0479861" for g in calls[r]):
+                filtered_calls[r] = calls[r]
+        graph = GeneMerGraph(filtered_calls, 3, positions)
+        nodehashes = [n.__hash__() for n in graph.get_nodes_containing("mphANG_0479861")]
+        # execution
+        actual_paths, actual_path_coverages = graph.get_paths_for_gene(
+            graph.collect_reads_in_path(nodehashes),
+            nodehashes,
+            max(5, graph.get_mean_node_coverage() / 5),
+        )
+        # assertion
+        self.assertEqual(len(actual_paths), 2)
 
     def test___get_paths_for_gene_diverging_paths_at_terminals(self):
         # setup
@@ -5822,8 +5807,12 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         self.assertTrue((0, 1, 2, 3, 4) in actual_clusters)
         self.assertTrue((5, 6, 3, 4) in actual_clusters)
         self.assertTrue((5, 3, 2, 4) in actual_clusters)
-        self.assertTrue(all(r in actual_clusters[(0, 1, 2, 3, 4)]["reads"] for r in {"read1", "read2", "read3"}))
-        self.assertTrue(all(r in actual_clusters[(5, 6, 3, 4)]["reads"] for r in {"read4", "read5", "read6"}))
+        self.assertTrue(
+            all(r in actual_clusters[(0, 1, 2, 3, 4)]["reads"] for r in {"read1", "read2", "read3"})
+        )
+        self.assertTrue(
+            all(r in actual_clusters[(5, 6, 3, 4)]["reads"] for r in {"read4", "read5", "read6"})
+        )
         self.assertTrue(all(r in actual_clusters[(5, 3, 2, 4)]["reads"] for r in {"read7"}))
         self.assertEqual(actual_clusters[(0, 1, 2, 3, 4)]["shortest"], (2, 3, 4))
         self.assertEqual(actual_clusters[(5, 6, 3, 4)]["shortest"], (6, 3, 4))
@@ -5942,15 +5931,15 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         graph = GeneMerGraph(calls, 3, positions)
         nodesOfInterest = []
         for geneOfInterest in [
-                            'mphANG_0479861',
-                        ]:
+            "mphANG_0479861",
+        ]:
             nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
         nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.get_paths_for_gene(reads,
-            nodeHashesOfInterest,
-            max(5, graph.get_mean_node_coverage() / 10))
+        paths, _ = graph.get_paths_for_gene(
+            reads, nodeHashesOfInterest, max(5, graph.get_mean_node_coverage() / 10)
+        )
         # assertion
         self.assertEqual(len(paths), 2)
         self.assertTrue(all(len(paths[p]) in {121, 79} for p in paths))
@@ -5958,6 +5947,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___correct_low_coverage_paths(self):
         # setup
         import json
+
         with open("tests/complex_gene_calls_four.json") as i:
             calls = json.load(i)
         with open("tests/complex_gene_positions_four.json") as i:
@@ -5979,50 +5969,50 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_paths_for_gene_edge_case_one(self):
         # setup
         import json
-        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_calls_after_five.json") as i:
+
+        with open(
+            "/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_calls_after_five.json"
+        ) as i:
             calls = json.load(i)
-        with open("/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_positions_five.json") as i:
+        with open(
+            "/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_positions_five.json"
+        ) as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 3, positions)
         nodesOfInterest = []
         for geneOfInterest in [
-                            'blaCTXM110NG_0489052',
-                        ]:
+            "blaCTXM110NG_0489052",
+        ]:
             nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
         nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
         reads = graph.collect_reads_in_path(nodeHashesOfInterest)
         # execution
-        paths, _ = graph.get_paths_for_gene(reads,
-            nodeHashesOfInterest,
-            41.84688319548114 / 20
-        )
-        for p in paths:
-            print(p)
-            print(graph.get_genes_in_unitig(p), len(paths[p]))
+        paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 41.84688319548114 / 20)
         self.assertEqual(len(paths), 1)
 
-    def test___weird(self):
-        # setup
-        import json
-        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json") as i:
-            calls = json.load(i)
-        with open("/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json") as i:
-            positions = json.load(i)
-        graph = GeneMerGraph(calls, 3, positions)
-        nodesOfInterest = []
-        for geneOfInterest in [
-                            'blaCMY54NG_0488491',
-                        ]:
-            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
-        reads = graph.collect_reads_in_path(nodeHashesOfInterest)
-        # execution
-        paths, _ = graph.get_paths_for_gene(reads,
-            nodeHashesOfInterest,
-            32.50926869016093 / 20
-        )
-        for p in paths:
-            print(p)
-            print(graph.get_genes_in_unitig(p), len(paths[p]))
-        self.assertEqual(len(paths), 1)
-        ssss
+    # def test___weird(self):
+    #     # setup
+    #     import json
+
+    #     with open(
+    #         "/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_calls_after_filtering.json"
+    #     ) as i:
+    #         calls = json.load(i)
+    #     with open(
+    #         "/home/daniel/Documents/GitHub/amira_prototype/test/corrected_gene_positions_after_filtering.json"
+    #     ) as i:
+    #         positions = json.load(i)
+    #     graph = GeneMerGraph(calls, 7, positions)
+    #     nodesOfInterest = []
+    #     for geneOfInterest in [
+    #         "mphANG_0479861",
+    #     ]:
+    #         nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+    #     nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+    #     reads = graph.collect_reads_in_path(nodeHashesOfInterest)
+    #     # execution
+    #     paths, _ = graph.get_paths_for_gene(reads, nodeHashesOfInterest, 59.65759236344352 / 20)
+    #     for p in paths:
+    #         print(graph.get_genes_in_unitig(p), len(paths[p]), list(paths[p])[0])
+    #     self.assertEqual(len(paths), 1)
+    #     ssss
