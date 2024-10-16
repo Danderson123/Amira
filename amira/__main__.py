@@ -99,8 +99,14 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--racon-path",
         dest="racon_path",
-        help="Path to racon installation.",
+        help="Path to racon binary.",
         default="racon",
+    )
+    parser.add_argument(
+        "--minimap2-path",
+        dest="minimap2_path",
+        help="Path to minimap2 binary.",
+        default="minimap2",
     )
     parser.add_argument(
         "--seed",
@@ -466,7 +472,7 @@ def iterative_bubble_popping(
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
         graph.remove_short_linear_paths(geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-        sys.stderr.write(f"\n\tAmira: popping bubbles using {cores} CPUs\n")
+        sys.stderr.write("\n\tAmira: popping bubbles using 1 CPU\n")
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )
@@ -615,6 +621,7 @@ def main() -> None:
             args.readfile,
             args.cores,
             args.output_dir,
+            args.minimap2_path
         )
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -625,7 +632,7 @@ def main() -> None:
         # randomly sample 100,000 reads
         if args.sample_reads:
             annotatedReads = downsample_reads(annotatedReads, 100000)
-    print(list(sorted(list(sample_genesOfInterest))))
+    #print(list(sorted(list(sample_genesOfInterest))))
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
@@ -843,6 +850,7 @@ def main() -> None:
         pandora_consensus,
         args.phenotypes,
         args.debug,
+        args.minimap2_path
     )
     # return an empty DF if there are no AMR genes
     if len(result_df) == 0:
@@ -932,7 +940,7 @@ def main() -> None:
     # write the result tsv
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
     # display the runtime
-    sys.stderr.write(f"\nAmira: Total runtime: {time.time() - start_time} seconds\n")
+    sys.stderr.write(f"\nAmira: Total runtime {round(time.time() - start_time)} seconds\n")
     sys.exit(0)
 
 

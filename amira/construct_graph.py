@@ -3119,10 +3119,10 @@ class GeneMerGraph:
     def run_subprocess(self, command):
         subprocess.run(command, shell=True, check=True)
 
-    def map_reads(self, output_dir, reference_fasta, input_fasta, output_prefix, minimap_opts):
+    def map_reads(self, output_dir, reference_fasta, input_fasta, output_prefix, minimap_opts, minimap2_path):
         sam_file = os.path.join(output_dir, f"{output_prefix}.mapped.sam")
         bam_file = os.path.join(output_dir, f"{output_prefix}.mapped.bam")
-        map_command = f"minimap2 {minimap_opts} {reference_fasta} {input_fasta} > {sam_file}"
+        map_command = f"{minimap2_path} {minimap_opts} {reference_fasta} {input_fasta} > {sam_file}"
         self.run_subprocess(map_command)
         sort_and_index_command = (
             f"samtools sort {sam_file} > {bam_file} && samtools index {bam_file}"
@@ -3161,6 +3161,7 @@ class GeneMerGraph:
         sequence_to_polish,
         polished_sequence,
         window_size,
+        minimap2_path
     ):
         # run minimap2
         bam_file = self.map_reads(
@@ -3169,6 +3170,7 @@ class GeneMerGraph:
             read_file,
             sam_file.replace(".mapped.sam", ""),
             "-a --MD -t 1 -x map-ont --eqx",
+            minimap2_path
         )
         # run racon
         self.racon_polish(
@@ -3228,7 +3230,7 @@ class GeneMerGraph:
         return ref_allele_positions, cov_proportion
 
     def compare_reads_to_references(
-        self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes, debug
+        self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes, debug, minimap2_path
     ):
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         gene_name = "_".join(allele_name.split("_")[:-1])
@@ -3240,6 +3242,7 @@ class GeneMerGraph:
             allele_file,
             "02.read",
             "-a --MD -t 1 -x map-ont --eqx",
+            minimap2_path
         )
         ref_allele_positions, ref_cov_proportion = self.get_ref_allele_pileups(bam_file, output_dir)
         if debug is False:
@@ -3267,6 +3270,7 @@ class GeneMerGraph:
                         "03.sequence_to_polish.fasta",
                         "04.polished_sequence.fasta",
                         str(len(valid_allele_sequence)),
+                        minimap2_path
                     )
                 except subprocess.CalledProcessError:
                     return {
@@ -3286,6 +3290,7 @@ class GeneMerGraph:
                 os.path.join(output_dir, "04.polished_sequence.fasta"),
                 "05.read",
                 "-a --MD -t 1 --eqx",
+                minimap2_path
             )
             validity, references, _ = self.get_closest_allele(bam_file, "allele")
             closest_allele, match_proportion, match_length, coverage_proportion = references[0]
@@ -3340,6 +3345,7 @@ class GeneMerGraph:
         fastqContent,
         phenotypes_path,
         debug,
+        minimap2_path
     ):
         # import the phenotypes
         with open(phenotypes_path) as i:
@@ -3357,6 +3363,7 @@ class GeneMerGraph:
                     fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
                     phenotypes,
                     debug,
+                    minimap2_path
                 )
                 for r in subset
             )

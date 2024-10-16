@@ -94,10 +94,11 @@ def remove_poorly_mapped_genes(
     cores,
     output_dir,
     consensus_file,
+    minimap2_path
 ):
     sys.stderr.write("\nAmira: removing genes with low coverage\n")
     # map the reads to the pandora consensus
-    map_command = f"minimap2 -x map-ont -a --MD --secondary=no -t {cores} "
+    map_command = f"{minimap2_path} -x map-ont -a --MD --secondary=no -t {cores} "
     map_command += f"-o {os.path.join(output_dir, 'mapped_to_consensus.sam')} "
     map_command += f"{consensus_file} {read_path} && "
     map_command += (
@@ -160,6 +161,7 @@ def convert_pandora_output(
     read_path: str,
     cores: int,
     output_dir: str,
+    minimap2_path: str,
 ) -> tuple[dict[str, list[str]], list[str]]:
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
@@ -175,6 +177,7 @@ def convert_pandora_output(
         cores,
         output_dir,
         os.path.join(os.path.dirname(pandoraSam), "pandora.consensus.fq.gz"),
+        minimap2_path
     )
     # iterate through the read regions
     read_tracking = {}
