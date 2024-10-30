@@ -2605,6 +2605,8 @@ class GeneMerGraph:
                             + clustered_downstream[d]["shortest"]
                         )
         # Remove any core option that is fully contained within another
+        for p in clustered_paths:
+            print(self.get_genes_in_unitig(p), len(clustered_paths[p]["shared_reads"]), "\n")
         paths_to_delete = set()
         for c1 in sorted(list(clustered_paths.keys()), key=len):
             c1_list = list(c1)
@@ -2669,8 +2671,10 @@ class GeneMerGraph:
                         final_path_coverages[new_path] = [
                             self.get_node_by_hash(n).get_node_coverage() for n in list(new_path)
                         ]
-                        del longest_paths[clustered_paths[c1]["full_path"][0]]
-                        del longest_paths[clustered_paths[c2]["full_path"][0]]
+                        if clustered_paths[c1]["full_path"][0] in longest_paths:
+                            del longest_paths[clustered_paths[c1]["full_path"][0]]
+                        if clustered_paths[c2]["full_path"][0] in longest_paths:
+                            del longest_paths[clustered_paths[c2]["full_path"][0]]
                         seen_pairs.add(tuple(sorted([c1, c2])))
         # get the final paths
         for p in longest_paths:
@@ -3273,10 +3277,16 @@ class GeneMerGraph:
                         minimap2_path
                     )
                 except subprocess.CalledProcessError:
+                    try:
+                        gene_name = valid_allele.split(".")[0]
+                        closest_ref = valid_allele.split(".")[1]
+                    except:
+                        gene_name = "_".join(allele_name.split("_")[:-1])
+                        closest_ref = valid_allele
                     return {
-                        "Gene name": valid_allele.split(".")[0],
+                        "Gene name": gene_name,
                         "Sequence name": phenotypes[valid_allele],
-                        "Closest reference": valid_allele.split(".")[1],
+                        "Closest reference": closest_ref,
                         "Reference length": match_length,
                         "Identity (%)": 0,
                         "Coverage (%)": 0,
@@ -3300,10 +3310,16 @@ class GeneMerGraph:
                 os.path.join(output_dir, "06.final_sequence.fasta"),
                 [f">{closest_allele}\n{final_allele_sequence}"],
             )
+            try:
+                gene_name = closest_allele.split(".")[0]
+                closest_ref = closest_allele.split(".")[1]
+            except:
+                gene_name = "_".join(allele_name.split("_")[:-1])
+                closest_ref = closest_allele
             return {
-                "Gene name": closest_allele.split(".")[0],
+                "Gene name": gene_name,
                 "Sequence name": phenotypes[closest_allele],
-                "Closest reference": closest_allele.split(".")[1],
+                "Closest reference": closest_ref,
                 "Reference length": match_length,
                 "Identity (%)": round(match_proportion, 1),
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
@@ -3313,10 +3329,16 @@ class GeneMerGraph:
         else:
             if len(references) != 0:
                 invalid_allele, match_proportion, match_length, coverage_proportion = references[0]
+                try:
+                    gene_name = invalid_allele.split(".")[0]
+                    closest_ref = invalid_allele.split(".")[1]
+                except:
+                    gene_name = "_".join(allele_name.split("_")[:-1])
+                    closest_ref = invalid_allele
                 return {
-                    "Gene name": invalid_allele.split(".")[0],
+                    "Gene name": gene_name,
                     "Sequence name": phenotypes[invalid_allele],
-                    "Closest reference": invalid_allele.split(".")[1],
+                    "Closest reference": closest_ref,
                     "Reference length": match_length,
                     "Identity (%)": round(match_proportion, 1),
                     "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),

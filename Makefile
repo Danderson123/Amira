@@ -15,7 +15,7 @@ install:
 .PHONY: install-ci
 install-ci:
 	poetry install --no-interaction
-	poetry run amira_prototype --help
+	poetry run amira --help
 
 .PHONY: pre-commit
 pre-commit:
