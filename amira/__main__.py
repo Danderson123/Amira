@@ -632,7 +632,7 @@ def main() -> None:
             args.readfile,
             args.cores,
             args.output_dir,
-            args.minimap2_path
+            args.minimap2_path,
         )
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -643,7 +643,7 @@ def main() -> None:
         # randomly sample 100,000 reads
         if args.sample_reads:
             annotatedReads = downsample_reads(annotatedReads, 100000)
-    #print(list(sorted(list(sample_genesOfInterest))))
+    # print(list(sorted(list(sample_genesOfInterest))))
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
@@ -670,9 +670,10 @@ def main() -> None:
     graph = build_multiprocessed_graph(
         annotatedReads, args.geneMer_size, args.cores, gene_position_dict
     )
-    #overall_mean_node_coverage = graph.get_mean_node_coverage()
+    # overall_mean_node_coverage = graph.get_mean_node_coverage()
     overall_mean_node_coverages = {}
     import statistics
+
     for k in range(3, 16, 2):
         coverages = []
         for node in graph.all_nodes():
@@ -718,9 +719,9 @@ def main() -> None:
     )
     node_min_coverage = args.node_min_coverage
     if not args.quiet:
-        sys.stderr.write(
-            f"\nAmira: removing low coverage components and nodes with coverage < {node_min_coverage}\n"
-        )
+        message = "\nAmira: removing low coverage components "
+        message += f"and nodes with coverage < {node_min_coverage}\n"
+        sys.stderr.write(message)
     graph = build_multiprocessed_graph(
         new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
     )
@@ -894,7 +895,7 @@ def main() -> None:
         pandora_consensus,
         args.phenotypes,
         args.debug,
-        args.minimap2_path
+        args.minimap2_path,
     )
     # return an empty DF if there are no AMR genes
     if len(result_df) == 0:

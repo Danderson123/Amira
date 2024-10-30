@@ -94,7 +94,7 @@ def remove_poorly_mapped_genes(
     cores,
     output_dir,
     consensus_file,
-    minimap2_path
+    minimap2_path,
 ):
     sys.stderr.write("\nAmira: removing genes with low coverage\n")
     # map the reads to the pandora consensus
@@ -177,7 +177,7 @@ def convert_pandora_output(
         cores,
         output_dir,
         os.path.join(os.path.dirname(pandoraSam), "pandora.consensus.fq.gz"),
-        minimap2_path
+        minimap2_path,
     )
     # iterate through the read regions
     read_tracking = {}
