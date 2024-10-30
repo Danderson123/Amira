@@ -2605,8 +2605,6 @@ class GeneMerGraph:
                             + clustered_downstream[d]["shortest"]
                         )
         # Remove any core option that is fully contained within another
-        for p in clustered_paths:
-            print(self.get_genes_in_unitig(p), len(clustered_paths[p]["shared_reads"]), "\n")
         paths_to_delete = set()
         for c1 in sorted(list(clustered_paths.keys()), key=len):
             c1_list = list(c1)
