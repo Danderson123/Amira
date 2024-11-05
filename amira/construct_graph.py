@@ -3351,7 +3351,9 @@ class GeneMerGraph:
                     [f">{'/'.join(closest_allele)}\n{final_allele_sequence}"],
                 )
                 try:
-                    gene_names = "/".join(sorted(list(set([c.split(".")[0] for c in closest_allele]))))
+                    gene_names = "/".join(
+                        sorted(list(set([c.split(".")[0] for c in closest_allele])))
+                    )
                     closest_refs = "/".join([c.split(".")[1] for c in closest_allele])
                     phenotypes = "/".join([phenotypes[c] for c in closest_allele])
                 except IndexError:
@@ -3364,7 +3366,9 @@ class GeneMerGraph:
                     "Closest reference": closest_refs,
                     "Reference length": "/".join([str(m) for m in match_length]),
                     "Identity (%)": "/".join([str(round(p, 1)) for p in match_proportion]),
-                    "Coverage (%)": "/".join([str(min(100.0, round(p * 100, 1))) for p in coverage_proportion]),
+                    "Coverage (%)": "/".join(
+                        [str(min(100.0, round(p * 100, 1))) for p in coverage_proportion]
+                    ),
                     "Amira allele": allele_name,
                     "Number of reads": len(unique_reads),
                 }
