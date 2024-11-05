@@ -923,16 +923,24 @@ def main() -> None:
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     for index, row in result_df.iterrows():
-        if row["Identity (%)"] < 90:
+        if isinstance(row["Identity (%)"], str) and "/" in row["Identity (%)"]:
+            identity = float(row["Identity (%)"].split("/")[0])
+        else:
+            identity = row["Identity (%)"]
+        if identity < 90:
             message = f"\nAmira: allele {row['Amira allele']} removed "
-            message += f"due to insufficient similarity ({row['Identity (%)']}).\n"
+            message += f"due to insufficient similarity ({identity}).\n"
             sys.stderr.write(message)
             alleles_to_delete.append(row["Amira allele"])
             continue
         else:
-            if row["Coverage (%)"] < 90:
+            if isinstance(row["Coverage (%)"], str) and "/" in row["Coverage (%)"]:
+                coverage = float(row["Coverage (%)"].split("/")[0])
+            else:
+                coverage = row["Coverage (%)"]
+            if coverage < 90:
                 message = f"\nAmira: allele {row['Amira allele']} removed "
-                message += f"due to insufficient coverage ({row['Coverage (%)']}).\n"
+                message += f"due to insufficient coverage ({coverage}).\n"
                 sys.stderr.write(message)
                 alleles_to_delete.append(row["Amira allele"])
                 continue

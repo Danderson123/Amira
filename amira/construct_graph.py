@@ -3311,29 +3311,63 @@ class GeneMerGraph:
                 minimap2_path,
             )
             validity, references, _ = self.get_closest_allele(bam_file, "allele")
-            closest_allele, match_proportion, match_length, coverage_proportion = references[0]
-            with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
-                final_allele_sequence = "".join(i.read().split("\n")[1:])
-            self.write_fasta(
-                os.path.join(output_dir, "06.final_sequence.fasta"),
-                [f">{closest_allele}\n{final_allele_sequence}"],
-            )
-            try:
-                gene_name = closest_allele.split(".")[0]
-                closest_ref = closest_allele.split(".")[1]
-            except IndexError:
-                gene_name = "_".join(allele_name.split("_")[:-1])
-                closest_ref = closest_allele
-            return {
-                "Gene name": gene_name,
-                "Sequence name": phenotypes[closest_allele],
-                "Closest reference": closest_ref,
-                "Reference length": match_length,
-                "Identity (%)": round(match_proportion, 1),
-                "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
-                "Amira allele": allele_name,
-                "Number of reads": len(unique_reads),
-            }
+            max_similarity = references[0][1]
+            references = [r for r in references if r[1] == max_similarity]
+            if len(references) == 1:
+                closest_allele, match_proportion, match_length, coverage_proportion = references[0]
+                with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+                    final_allele_sequence = "".join(i.read().split("\n")[1:])
+                self.write_fasta(
+                    os.path.join(output_dir, "06.final_sequence.fasta"),
+                    [f">{closest_allele}\n{final_allele_sequence}"],
+                )
+                try:
+                    gene_name = closest_allele.split(".")[0]
+                    closest_ref = closest_allele.split(".")[1]
+                except IndexError:
+                    gene_name = "_".join(allele_name.split("_")[:-1])
+                    closest_ref = closest_allele
+                return {
+                    "Gene name": gene_name,
+                    "Sequence name": phenotypes[closest_allele],
+                    "Closest reference": closest_ref,
+                    "Reference length": match_length,
+                    "Identity (%)": round(match_proportion, 1),
+                    "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
+                    "Amira allele": allele_name,
+                    "Number of reads": len(unique_reads),
+                }
+            if len(references) > 1:
+                closest_allele, match_proportion, match_length, coverage_proportion = [], [], [], []
+                for r in references:
+                    closest_allele.append(r[0])
+                    match_proportion.append(r[1])
+                    match_length.append(r[2])
+                    coverage_proportion.append(r[3])
+                with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+                    final_allele_sequence = "".join(i.read().split("\n")[1:])
+                self.write_fasta(
+                    os.path.join(output_dir, "06.final_sequence.fasta"),
+                    [f">{'/'.join(closest_allele)}\n{final_allele_sequence}"],
+                )
+                try:
+                    gene_names = "/".join(sorted(list(set([c.split(".")[0] for c in closest_allele]))))
+                    closest_refs = "/".join([c.split(".")[1] for c in closest_allele])
+                    phenotypes = "/".join([phenotypes[c] for c in closest_allele])
+                except IndexError:
+                    gene_names = "_".join(allele_name.split("_")[:-1])
+                    closest_refs = "/".join(closest_allele)
+                    phenotypes = "/".join([phenotypes[c] for c in closest_allele])
+                return {
+                    "Gene name": gene_names,
+                    "Sequence name": phenotypes,
+                    "Closest reference": closest_refs,
+                    "Reference length": "/".join([str(m) for m in match_length]),
+                    "Identity (%)": "/".join([str(round(p, 1)) for p in match_proportion]),
+                    "Coverage (%)": "/".join([str(min(100.0, round(p * 100, 1))) for p in coverage_proportion]),
+                    "Amira allele": allele_name,
+                    "Number of reads": len(unique_reads),
+                }
         else:
             if len(references) != 0:
                 invalid_allele, match_proportion, match_length, coverage_proportion = references[0]
