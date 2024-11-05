@@ -14,9 +14,9 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 - **Python >=3.9,<3.13**.
 - **Poetry** to manage the Python dependencies.
-- **Pandora** binary to identify the genes on each sequencing read.
-- **minimap2** binary for sequence alignment.
-- **racon** binary for allele polishing.
+- **Pandora** to identify the genes on each sequencing read.
+- **minimap2** for sequence alignment.
+- **racon** for allele polishing.
 
 ## Installation
 
