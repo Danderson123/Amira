@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Amira is an AMR gene detection tool designed to work directly from bacterial long read sequences. Amira improces the user experience, reduces the time taken to get meaningful results and allows more accurate detection of the AMR genes in a sample than assembly.
+Amira is an AMR gene detection tool designed to work directly from bacterial long read sequences. Amira makes it easy to reliably identify the AMR genes in a bacterial sample, reduces the time taken to get meaningful results and allows more accurate detection of the AMR genes than assembly.
 
 ## Overview
 
