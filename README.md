@@ -40,7 +40,7 @@ Once Poetry is installed, use it to set up Amira’s dependencies:
 poetry install
 ```
 ###  Step 4: Install Non-Python Dependencies
-Amira requires minimap2 and racon for its core functionality. Follow the links below for instructions on building binaries for each tool:
+Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
 
 - [Pandora Installation Guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
 - [minimap2 Installation Guide](https://github.com/lh3/minimap2)
