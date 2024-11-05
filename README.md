@@ -49,7 +49,7 @@ Amira requires Pandora, minimap2 and racon. Follow the links below for instructi
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 
 ## Running Amira
-Amira can be run on the output of Pandora directly, or from JSON files listing gene sequences and positions. Below are instructions and an example command for running Amira with the JSON files.
+Amira can be run on the output of Pandora directly, or from JSON files listing the genes and gene positions on each sequencing read. Below are instructions and an example command for running Amira with the JSON files.
 
 ### Running with JSON
 To run Amira from the JSON files, you can use this command. You will need to replace `<PATH TO RACON BINARY>` with the absolute path to the racon binary you made earlier and replace `<PATH TO MINIMAP2 BINARY>` with the path to the minimap2 binary.
