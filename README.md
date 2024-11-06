@@ -91,6 +91,8 @@ For additional options and configurations, run:
 ```bash
 python3 amira/__main__.py --help
 ```
+## Citation
+TBD
 
 ## Contributing
 If you’d like to contribute to Amira, please follow these steps:
