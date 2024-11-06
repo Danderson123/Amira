@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.2.0](https://github.com/Danderson123/Amira/compare/v0.1.0...v0.2.0) (2024-11-06)
+
+
+### Documentation
+
+* update README ([162fb3b](https://github.com/Danderson123/Amira/commit/162fb3bcdc191c6059052dfc24e45ef3ec2cb6b8))
+* update README ([0d87fc7](https://github.com/Danderson123/Amira/commit/0d87fc7002e15ce0b60761071fe7d0f7df720d4f))
+* update README ([22be16a](https://github.com/Danderson123/Amira/commit/22be16a22807b92ad79aca166d569af0d08da1a4))
+
+
+### Features
+
+* display amira version ([bf241fb](https://github.com/Danderson123/Amira/commit/bf241fbdece7f0595b9cda5820a4765e475dee0d))
+
+
+### Bug Fixes
+
+* add version to init and pyproject ([eeecf4f](https://github.com/Danderson123/Amira/commit/eeecf4fb336b460128c662e6e3395b9d6f86fc53))
+* bypass subsampling from dictionary ([ac7604e](https://github.com/Danderson123/Amira/commit/ac7604eb2687b2225c6f291bc58abad3c1b969c5))
+
+
+### Styles
+
+* pre-commit recommendations ([6b808e1](https://github.com/Danderson123/Amira/commit/6b808e10dc9e9c090d1e0ce3ef10eb40e170548d))
+
 ## 0.1.0 (2024-11-06)
 
 
