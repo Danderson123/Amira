@@ -13,9 +13,9 @@ from joblib import Parallel, delayed
 from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
+from amira.__init__ import __version__
 from amira.construct_graph import GeneMerGraph, build_graph, merge_graphs
 from amira.pre_process import convert_pandora_output, process_pandora_json
-from amira.__init__ import __version__
 
 matplotlib.use("Agg")
 
@@ -151,8 +151,7 @@ def get_options() -> argparse.Namespace:
         default=False,
         help="Prevent trimming of the graph.",
     )
-    parser.add_argument('--version', action='version',
-                    version='%(prog)s v'+__version__)
+    parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
     if args.pandoraJSON and not args.gene_positions:
         parser.error("--gene-positions is required when --pandoraJSON is used.")
