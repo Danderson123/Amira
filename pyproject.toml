@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "amira"
+name = "amira-amr"
 version = "0.1.0"
-description = "amira"
+description = "Amira"
 authors = ["Daniel Anderson <dander@ebi.ac.uk>"]
-license = "MIT"
+license = "Apache-2.0"
 readme = "README.md"
 homepage = "https://github.com/Danderson123/amira"
 repository = "https://github.com/Danderson123/amira"
