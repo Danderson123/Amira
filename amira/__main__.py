@@ -572,11 +572,13 @@ def process_reads(
 
 def downsample_reads(annotatedReads, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads
-    print(annotatedReads)
     total_reads = len(annotatedReads)
     if total_reads <= max_reads:
         return annotatedReads
-    return dict(random.sample(annotatedReads.items(), min(len(annotatedReads), max_reads)))
+
+    # Convert the items to a list before sampling
+    sampled_items = random.sample(list(annotatedReads.items()), max_reads)
+    return dict(sampled_items)
 
 
 def get_allele_component(amira_allele, allele_component_mapping):
