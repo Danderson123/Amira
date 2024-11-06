@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 from amira.construct_graph import GeneMerGraph, build_graph, merge_graphs
 from amira.pre_process import convert_pandora_output, process_pandora_json
+from amira.__init__ import __version__
 
 matplotlib.use("Agg")
 
@@ -150,6 +151,8 @@ def get_options() -> argparse.Namespace:
         default=False,
         help="Prevent trimming of the graph.",
     )
+    parser.add_argument('--version', action='version',
+                    version='%(prog)s v'+__version__)
     args = parser.parse_args()
     if args.pandoraJSON and not args.gene_positions:
         parser.error("--gene-positions is required when --pandoraJSON is used.")
@@ -569,6 +572,7 @@ def process_reads(
 
 def downsample_reads(annotatedReads, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads
+    print(annotatedReads)
     total_reads = len(annotatedReads)
     if total_reads <= max_reads:
         return annotatedReads
