@@ -1,7 +1,9 @@
-import matplotlib.pyplot as plt
-import os
 import gzip
+import os
 import random
+
+import matplotlib.pyplot as plt
+
 
 def plot_read_length_distribution(annotatedReads, output_dir):
     read_lengths = []
@@ -14,6 +16,7 @@ def plot_read_length_distribution(annotatedReads, output_dir):
     plt.ylabel("Absolute frequency")
     plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
     plt.close()
+
 
 def parse_fastq_lines(fh):
     # Initialize a counter to keep track of the current line number
@@ -72,6 +75,7 @@ def write_fastq(fastq_file, data):
             # Write the placeholder quality lines
             fh.write("+\n")
             fh.write(f'{value["quality"]}\n')
+
 
 def downsample_reads(annotatedReads, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads

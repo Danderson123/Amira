@@ -1,4 +1,5 @@
 import os
+import statistics
 import sys
 
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ from amira.construct_graph import GeneMerGraph
 def build_graph(read_dict, kmer_size, gene_positions=None):
     graph = GeneMerGraph(read_dict, kmer_size, gene_positions)
     return graph
+
 
 def merge_nodes(sub_graphs, fastq_data=None):
     reference_graph = sub_graphs[0]
@@ -301,3 +303,20 @@ def choose_kmer_size(
             else:
                 break
     return geneMer_size
+
+
+def get_overall_mean_node_coverages(graph):
+    overall_mean_node_coverages = {}
+    for k in range(3, 16, 2):
+        coverages = []
+        for node in graph.all_nodes():
+            cov = 0
+            for read in node.get_reads():
+                if len(graph.get_reads()[read]) >= k:
+                    cov += 1
+            coverages.append(cov)
+        if not len(coverages) == 0:
+            overall_mean_node_coverages[k] = statistics.mean(coverages)
+        else:
+            overall_mean_node_coverages[k] = 0
+    return overall_mean_node_coverages
