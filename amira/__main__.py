@@ -13,6 +13,7 @@ from joblib import Parallel, delayed
 from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
+from amira.__init__ import __version__
 from amira.construct_graph import GeneMerGraph, build_graph, merge_graphs
 from amira.pre_process import convert_pandora_output, process_pandora_json
 
@@ -150,6 +151,7 @@ def get_options() -> argparse.Namespace:
         default=False,
         help="Prevent trimming of the graph.",
     )
+    parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
     if args.pandoraJSON and not args.gene_positions:
         parser.error("--gene-positions is required when --pandoraJSON is used.")
@@ -572,7 +574,10 @@ def downsample_reads(annotatedReads, max_reads=100000):
     total_reads = len(annotatedReads)
     if total_reads <= max_reads:
         return annotatedReads
-    return dict(random.sample(annotatedReads.items(), min(len(annotatedReads), max_reads)))
+
+    # Convert the items to a list before sampling
+    sampled_items = random.sample(list(annotatedReads.items()), max_reads)
+    return dict(sampled_items)
 
 
 def get_allele_component(amira_allele, allele_component_mapping):

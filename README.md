@@ -22,24 +22,26 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 Follow these steps to install Amira and its dependencies.
 
-### Step 1: Clone the Amira Repository
+### From source
+
+#### Step 1: Clone the Amira Repository
 
 Open a terminal and run the following command to clone the repository and navigate into it:
 ```bash
 git clone https://github.com/Danderson123/Amira && cd Amira
 ```
-### Step 2: Install Poetry
+#### Step 2: Install Poetry
 Amira’s dependencies are managed with Poetry. Install Poetry by running:
 ```bash
 pip install poetry
 ```
-### Step 3: Install Python Dependencies
+#### Step 3: Install Python Dependencies
 Once Poetry is installed, use it to set up Amira’s dependencies:
 
 ```bash
 poetry install
 ```
-###  Step 4: Install Non-Python Dependencies
+####  Step 4: Install Non-Python Dependencies
 Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
 
 - [Pandora Installation Guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
@@ -48,20 +50,30 @@ Amira requires Pandora, minimap2 and racon. Follow the links below for instructi
 
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 
+### From PyPI
+
+Amira can be installed from PyPI by running:
+```bash
+pip install amira-amr
+```
+Amira can then be run with:
+```bash
+amira --help
+```
 ## Running Amira
 Amira can be run on the output of Pandora directly, or from JSON files listing the genes and gene positions on each sequencing read. Below are instructions and an example command for running Amira with the JSON files.
 
-### Running with JSON
+### Running from JSON
 To run Amira from the JSON files, you can use this command. You will need to replace `<PATH TO RACON BINARY>` with the absolute path to the racon binary you made earlier and replace `<PATH TO MINIMAP2 BINARY>` with the path to the minimap2 binary.
 ```
 python3 amira/__main__.py --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSITION JSON> --pandoraConsensus <PATH TO PANDORA CONSENSUS FASTQ> --readfile <PATH TO READ FASTQ> --output <OUTPUT DIRECTORY> --gene-path <AMR GENE REFERENCE FASTA> --phenotypes <ALLELE-PHENOTYPE MAPPING JSON> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --sample-reads --filter-contaminants
 ```
 
-### JSON example
+####  JSON example
 
 Some example JSON data can be downloaded from [here](https://drive.google.com/drive/folders/1mQ8JmzVhFiNkgRy5_1iFQrqV2TLNnlQ4). Amira can then be run using this command:
 ```
-python3 amira/__main__.py --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --readfile test_data/SRR23044220_1.fastq.gz --output amira_output --gene-path test_data/AMR_gene_references.fa --phenotypes test_data/AMR_calls.json --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --sample-reads --filter-contaminants
+python3 amira/__main__.py --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --readfile test_data/SRR23044220_1.fastq.gz --output amira_output --gene-path AMR_alleles_unified.fa --phenotypes AMR_calls.json --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --sample-reads --filter-contaminants
 ```
 
 ### Running with Pandora
