@@ -22,24 +22,26 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 Follow these steps to install Amira and its dependencies.
 
-### Step 1: Clone the Amira Repository
+### From source
+
+#### Step 1: Clone the Amira Repository
 
 Open a terminal and run the following command to clone the repository and navigate into it:
 ```bash
 git clone https://github.com/Danderson123/Amira && cd Amira
 ```
-### Step 2: Install Poetry
+#### Step 2: Install Poetry
 Amira’s dependencies are managed with Poetry. Install Poetry by running:
 ```bash
 pip install poetry
 ```
-### Step 3: Install Python Dependencies
+#### Step 3: Install Python Dependencies
 Once Poetry is installed, use it to set up Amira’s dependencies:
 
 ```bash
 poetry install
 ```
-###  Step 4: Install Non-Python Dependencies
+####  Step 4: Install Non-Python Dependencies
 Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
 
 - [Pandora Installation Guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
@@ -48,6 +50,16 @@ Amira requires Pandora, minimap2 and racon. Follow the links below for instructi
 
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 
+### From PyPI
+
+Amira can be installed from PyPI by running:
+```bash
+pip install amira-amr
+```
+Amira can then be run with:
+```bash
+amira --help
+```
 ## Running Amira
 Amira can be run on the output of Pandora directly, or from JSON files listing the genes and gene positions on each sequencing read. Below are instructions and an example command for running Amira with the JSON files.
 
