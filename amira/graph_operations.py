@@ -1,11 +1,13 @@
-from joblib import Parallel, delayed
 import os
 import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
+from joblib import Parallel, delayed
 from scipy.signal import find_peaks, savgol_filter
 
 from amira.construct_graph import GeneMerGraph
+
 
 def build_graph(read_dict, kmer_size, gene_positions=None):
     graph = GeneMerGraph(read_dict, kmer_size, gene_positions)
@@ -46,6 +48,7 @@ def merge_nodes(sub_graphs, fastq_data=None):
                     node_positions_on_read[i],
                 )
     return reference_graph
+
 
 def merge_edges(sub_graphs, reference_graph):
     for graph in sub_graphs[1:]:
@@ -97,6 +100,7 @@ def merge_graphs(sub_graphs):
     reference_graph.assign_component_ids()
     return reference_graph
 
+
 def build_multiprocessed_graph(annotatedReads, geneMer_size, cores, gene_positions=None):
     batches = [set(list(annotatedReads.keys())[i::cores]) for i in range(cores)]
     if gene_positions is not None:
@@ -117,6 +121,7 @@ def build_multiprocessed_graph(annotatedReads, geneMer_size, cores, gene_positio
         )
     merged_graph = merge_graphs(sub_graphs)
     return merged_graph
+
 
 def iterative_bubble_popping(
     new_annotatedReads,
@@ -181,6 +186,7 @@ def iterative_bubble_popping(
             )
         )
     return new_annotatedReads, new_gene_position_dict
+
 
 def plot_node_coverages(unitig_coverages, filename):
     # Calculate the frequency of each coverage value with bins of width 5
@@ -254,6 +260,7 @@ def plot_node_coverages(unitig_coverages, filename):
     plt.close()
 
     return trough_value
+
 
 def choose_kmer_size(
     overall_mean_node_coverage,

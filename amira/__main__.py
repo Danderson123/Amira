@@ -1,5 +1,4 @@
 import argparse
-import gzip
 import json
 import os
 import random
@@ -7,7 +6,6 @@ import sys
 import time
 
 import matplotlib
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from amira.__init__ import __version__
@@ -18,7 +16,13 @@ from amira.graph_operations import (
     iterative_bubble_popping,
     plot_node_coverages,
 )
-from amira.pre_process import convert_pandora_output, process_pandora_json
+from amira.pre_process_operations import convert_pandora_output, process_pandora_json
+from amira.read_operations import (
+    downsample_reads,
+    parse_fastq,
+    plot_read_length_distribution,
+    write_fastq,
+)
 
 matplotlib.use("Agg")
 
@@ -161,19 +165,6 @@ def get_options() -> argparse.Namespace:
     return args
 
 
-def plot_read_length_distribution(annotatedReads, output_dir):
-    read_lengths = []
-    for read in annotatedReads:
-        read_lengths.append(len(annotatedReads[read]))
-    plt.figure(figsize=(10, 6))
-    plt.hist(read_lengths, bins=50, edgecolor="black")
-    plt.title("Number of genes per read")
-    plt.xlabel("Number of genes")
-    plt.ylabel("Absolute frequency")
-    plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
-    plt.close()
-
-
 def write_debug_files(
     annotatedReads: dict[str, list[str]],
     geneMer_size: int,
@@ -227,65 +218,6 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
         read_subset,
     )
     return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
-
-
-def parse_fastq_lines(fh):
-    # Initialize a counter to keep track of the current line number
-    line_number = 0
-    # Iterate over the lines in the file
-    for line in fh:
-        # Increment the line number
-        line_number += 1
-        # If the line number is divisible by 4, it's a sequence identifier line
-        if line_number % 4 == 1:
-            # Extract the identifier from the line
-            identifier = line.split(" ")[0][1:]
-        # If the line number is divisible by 4, it's a sequence line
-        elif line_number % 4 == 2:
-            sequence = line.strip()
-        elif line_number % 4 == 0:
-            # Yield the identifier, sequence and quality
-            yield identifier, sequence, line.strip()
-
-
-def parse_fastq(fastq_file):
-    # Initialize an empty dictionary to store the results
-    results = {}
-    # Open the fastq file
-    if ".gz" in fastq_file:
-        try:
-            with gzip.open(fastq_file, "rt") as fh:
-                # Iterate over the lines in the file
-                for identifier, sequence, quality in parse_fastq_lines(fh):
-                    # Add the identifier and sequence to the results dictionary
-                    results[identifier.replace("\n", "")] = {
-                        "sequence": sequence,
-                        "quality": quality,
-                    }
-            return results
-        except OSError:
-            pass
-    with open(fastq_file, "r") as fh:
-        # Iterate over the lines in the file
-        for identifier, sequence, quality in parse_fastq_lines(fh):
-            # Add the identifier and sequence to the results dictionary
-            results[identifier.replace("\n", "")] = {"sequence": sequence, "quality": quality}
-    # Return the dictionary of results
-    return results
-
-
-def write_fastq(fastq_file, data):
-    # Open the fastq file
-    with gzip.open(fastq_file, "wt") as fh:
-        # Iterate over the data
-        for identifier, value in data.items():
-            # Write the identifier line
-            fh.write(f"@{identifier}\n")
-            # Write the sequence line
-            fh.write(f'{value["sequence"]}\n')
-            # Write the placeholder quality lines
-            fh.write("+\n")
-            fh.write(f'{value["quality"]}\n')
 
 
 def process_reference_alleles(path_to_interesting_genes):
@@ -368,21 +300,6 @@ def process_reads(
         cluster_copy_numbers,
         allele_counts,
     )
-
-
-def downsample_reads(annotatedReads, max_reads=100000):
-    # If no downsampling is needed, return original annotatedReads
-    total_reads = len(annotatedReads)
-    if total_reads <= max_reads:
-        return annotatedReads
-
-    # Convert the items to a list before sampling
-    sampled_items = random.sample(list(annotatedReads.items()), max_reads)
-    return dict(sampled_items)
-
-
-def get_allele_component(amira_allele, allele_component_mapping):
-    return allele_component_mapping[amira_allele]
 
 
 def main() -> None:
@@ -495,15 +412,6 @@ def main() -> None:
     # collect the reads that have fewer than k genes
     short_reads = graph.get_short_read_annotations()
     short_read_gene_positions = graph.get_short_read_gene_positions()
-    ################################################
-    # graph.remove_short_linear_paths(args.geneMer_size + 1)
-    # new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-    # graph = build_multiprocessed_graph(
-    #     new_annotatedReads, args.geneMer_size, args.cores, new_gene_position_dict
-    # )
-    ################################################
-    # if not args.quiet:
-    #     sys.stderr.write(f"\nAmira: mean node coverage = {overall_mean_node_coverage}\n")
     # mark nodes in the graph that contain at least 1 AMR gene
     if not args.no_trim:
         graph.remove_non_AMR_associated_nodes(sample_genesOfInterest)
@@ -723,7 +631,7 @@ def main() -> None:
     )
     # get the component of each allele
     result_df["Component ID"] = result_df.apply(
-        lambda row: get_allele_component(row["Amira allele"], allele_component_mapping),
+        lambda row: allele_component_mapping[row["Amira allele"]],
         axis=1,
     )
     # remove genes that do not have sufficient mapping coverage
