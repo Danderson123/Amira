@@ -127,3 +127,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# CI
+poetry.lock
+.isort.cfg
+
+# test
+test
+scripts
+test_data
+analyses

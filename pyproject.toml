@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "amira"
-version = "0.0.0"
+version = "0.1.0"
 description = "amira"
 authors = ["Daniel Anderson <dander@ebi.ac.uk>"]
 license = "MIT"
