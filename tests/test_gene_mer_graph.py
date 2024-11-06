@@ -5970,13 +5970,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # setup
         import json
 
-        with open(
-            "/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_calls_after_five.json"
-        ) as i:
+        with open("tests/complex_gene_calls_after_five.json") as i:
             calls = json.load(i)
-        with open(
-            "/home/daniel/Documents/GitHub/amira_prototype/tests/complex_gene_positions_five.json"
-        ) as i:
+        with open("tests/complex_gene_positions_five.json") as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 3, positions)
         nodesOfInterest = []

@@ -2605,8 +2605,6 @@ class GeneMerGraph:
                             + clustered_downstream[d]["shortest"]
                         )
         # Remove any core option that is fully contained within another
-        for p in clustered_paths:
-            print(self.get_genes_in_unitig(p), len(clustered_paths[p]["shared_reads"]), "\n")
         paths_to_delete = set()
         for c1 in sorted(list(clustered_paths.keys()), key=len):
             c1_list = list(c1)
@@ -3123,7 +3121,9 @@ class GeneMerGraph:
     def run_subprocess(self, command):
         subprocess.run(command, shell=True, check=True)
 
-    def map_reads(self, output_dir, reference_fasta, input_fasta, output_prefix, minimap_opts, minimap2_path):
+    def map_reads(
+        self, output_dir, reference_fasta, input_fasta, output_prefix, minimap_opts, minimap2_path
+    ):
         sam_file = os.path.join(output_dir, f"{output_prefix}.mapped.sam")
         bam_file = os.path.join(output_dir, f"{output_prefix}.mapped.bam")
         map_command = f"{minimap2_path} {minimap_opts} {reference_fasta} {input_fasta} > {sam_file}"
@@ -3165,7 +3165,7 @@ class GeneMerGraph:
         sequence_to_polish,
         polished_sequence,
         window_size,
-        minimap2_path
+        minimap2_path,
     ):
         # run minimap2
         bam_file = self.map_reads(
@@ -3174,7 +3174,7 @@ class GeneMerGraph:
             read_file,
             sam_file.replace(".mapped.sam", ""),
             "-a --MD -t 1 -x map-ont --eqx",
-            minimap2_path
+            minimap2_path,
         )
         # run racon
         self.racon_polish(
@@ -3234,7 +3234,15 @@ class GeneMerGraph:
         return ref_allele_positions, cov_proportion
 
     def compare_reads_to_references(
-        self, allele_file, output_dir, reference_genes, racon_path, fastqContent, phenotypes, debug, minimap2_path
+        self,
+        allele_file,
+        output_dir,
+        reference_genes,
+        racon_path,
+        fastqContent,
+        phenotypes,
+        debug,
+        minimap2_path,
     ):
         allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
         gene_name = "_".join(allele_name.split("_")[:-1])
@@ -3246,7 +3254,7 @@ class GeneMerGraph:
             allele_file,
             "02.read",
             "-a --MD -t 1 -x map-ont --eqx",
-            minimap2_path
+            minimap2_path,
         )
         ref_allele_positions, ref_cov_proportion = self.get_ref_allele_pileups(bam_file, output_dir)
         if debug is False:
@@ -3274,13 +3282,13 @@ class GeneMerGraph:
                         "03.sequence_to_polish.fasta",
                         "04.polished_sequence.fasta",
                         str(len(valid_allele_sequence)),
-                        minimap2_path
+                        minimap2_path,
                     )
                 except subprocess.CalledProcessError:
                     try:
                         gene_name = valid_allele.split(".")[0]
                         closest_ref = valid_allele.split(".")[1]
-                    except:
+                    except IndexError:
                         gene_name = "_".join(allele_name.split("_")[:-1])
                         closest_ref = valid_allele
                     return {
@@ -3300,39 +3308,77 @@ class GeneMerGraph:
                 os.path.join(output_dir, "04.polished_sequence.fasta"),
                 "05.read",
                 "-a --MD -t 1 --eqx",
-                minimap2_path
+                minimap2_path,
             )
             validity, references, _ = self.get_closest_allele(bam_file, "allele")
-            closest_allele, match_proportion, match_length, coverage_proportion = references[0]
-            with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
-                final_allele_sequence = "".join(i.read().split("\n")[1:])
-            self.write_fasta(
-                os.path.join(output_dir, "06.final_sequence.fasta"),
-                [f">{closest_allele}\n{final_allele_sequence}"],
-            )
-            try:
-                gene_name = closest_allele.split(".")[0]
-                closest_ref = closest_allele.split(".")[1]
-            except:
-                gene_name = "_".join(allele_name.split("_")[:-1])
-                closest_ref = closest_allele
-            return {
-                "Gene name": gene_name,
-                "Sequence name": phenotypes[closest_allele],
-                "Closest reference": closest_ref,
-                "Reference length": match_length,
-                "Identity (%)": round(match_proportion, 1),
-                "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
-                "Amira allele": allele_name,
-                "Number of reads": len(unique_reads),
-            }
+            max_similarity = references[0][1]
+            references = [r for r in references if r[1] == max_similarity]
+            if len(references) == 1:
+                closest_allele, match_proportion, match_length, coverage_proportion = references[0]
+                with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+                    final_allele_sequence = "".join(i.read().split("\n")[1:])
+                self.write_fasta(
+                    os.path.join(output_dir, "06.final_sequence.fasta"),
+                    [f">{closest_allele}\n{final_allele_sequence}"],
+                )
+                try:
+                    gene_name = closest_allele.split(".")[0]
+                    closest_ref = closest_allele.split(".")[1]
+                except IndexError:
+                    gene_name = "_".join(allele_name.split("_")[:-1])
+                    closest_ref = closest_allele
+                return {
+                    "Gene name": gene_name,
+                    "Sequence name": phenotypes[closest_allele],
+                    "Closest reference": closest_ref,
+                    "Reference length": match_length,
+                    "Identity (%)": round(match_proportion, 1),
+                    "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
+                    "Amira allele": allele_name,
+                    "Number of reads": len(unique_reads),
+                }
+            if len(references) > 1:
+                closest_allele, match_proportion, match_length, coverage_proportion = [], [], [], []
+                for r in references:
+                    closest_allele.append(r[0])
+                    match_proportion.append(r[1])
+                    match_length.append(r[2])
+                    coverage_proportion.append(r[3])
+                with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
+                    final_allele_sequence = "".join(i.read().split("\n")[1:])
+                self.write_fasta(
+                    os.path.join(output_dir, "06.final_sequence.fasta"),
+                    [f">{'/'.join(closest_allele)}\n{final_allele_sequence}"],
+                )
+                try:
+                    gene_names = "/".join(
+                        sorted(list(set([c.split(".")[0] for c in closest_allele])))
+                    )
+                    closest_refs = "/".join([c.split(".")[1] for c in closest_allele])
+                    phenotypes = "/".join([phenotypes[c] for c in closest_allele])
+                except IndexError:
+                    gene_names = "_".join(allele_name.split("_")[:-1])
+                    closest_refs = "/".join(closest_allele)
+                    phenotypes = "/".join([phenotypes[c] for c in closest_allele])
+                return {
+                    "Gene name": gene_names,
+                    "Sequence name": phenotypes,
+                    "Closest reference": closest_refs,
+                    "Reference length": "/".join([str(m) for m in match_length]),
+                    "Identity (%)": "/".join([str(round(p, 1)) for p in match_proportion]),
+                    "Coverage (%)": "/".join(
+                        [str(min(100.0, round(p * 100, 1))) for p in coverage_proportion]
+                    ),
+                    "Amira allele": allele_name,
+                    "Number of reads": len(unique_reads),
+                }
         else:
             if len(references) != 0:
                 invalid_allele, match_proportion, match_length, coverage_proportion = references[0]
                 try:
                     gene_name = invalid_allele.split(".")[0]
                     closest_ref = invalid_allele.split(".")[1]
-                except:
+                except IndexError:
                     gene_name = "_".join(allele_name.split("_")[:-1])
                     closest_ref = invalid_allele
                 return {
@@ -3367,7 +3413,7 @@ class GeneMerGraph:
         fastqContent,
         phenotypes_path,
         debug,
-        minimap2_path
+        minimap2_path,
     ):
         # import the phenotypes
         with open(phenotypes_path) as i:
@@ -3385,7 +3431,7 @@ class GeneMerGraph:
                     fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
                     phenotypes,
                     debug,
-                    minimap2_path
+                    minimap2_path,
                 )
                 for r in subset
             )
