@@ -1,5 +1,7 @@
 import os
+
 from amira.read_operations import write_fastq
+
 
 def get_found_genes(clusters_of_interest):
     found_genes = set()
@@ -61,6 +63,7 @@ def process_reads(
         cluster_copy_numbers,
         allele_counts,
     )
+
 
 def estimate_copy_number(amira_allele, copy_numbers_per_component, additional_copy_numbers):
     copy_numbers = {}
