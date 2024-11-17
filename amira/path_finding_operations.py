@@ -160,11 +160,9 @@ def get_start_stop_indices(binary_list):
         indices.append((start, len(binary_list) - 1))
     return indices
 
-
 def get_full_paths(tree, reads, nodeAnchors, threshold):
     # Store full and partial blocks using the suffix tree
     full_blocks = {}
-
     # Iterate through the anchors
     for a1 in nodeAnchors:
         # Extract paths and build a subtree

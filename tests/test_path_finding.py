@@ -359,6 +359,27 @@ class TestPathFindingConstructor(unittest.TestCase):
         self.assertEqual(len(nodeAnchors), 1)
         self.assertEqual(len(full_blocks), 0)
 
+    def test___get_singleton_paths(self):
+        # setup
+        genes1 = [
+            "+gene7",
+            "-gene4",
+            "-gene13",
+        ]
+        graph = GeneMerGraph({"read1": genes1, "read2": genes1}, 3)
+        nodesOfInterest = graph.get_nodes_containing("gene7")
+        tree = construct_suffix_tree(graph.get_readNodes())
+        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
+        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        # execution
+        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        graph.get_singleton_paths(full_blocks, nodeAnchors)
+        # assertion
+        self.assertEqual(len(nodeAnchors), 1)
+        self.assertEqual(len(full_blocks), 1)
+        for f in full_blocks:
+            self.assertEqual(len(full_blocks[f]), 2)
+
     def test___find_full_paths_branching_path(self):
         # setup
         genes1 = [

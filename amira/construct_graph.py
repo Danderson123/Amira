@@ -2688,6 +2688,14 @@ class GeneMerGraph:
                     nodeAnchors.add(nodeHash)
         return nodeAnchors
 
+    def get_singleton_paths(self, final_paths, nodeAnchors):
+        all_seen_nodes = set()
+        for p in final_paths:
+            all_seen_nodes.update(p)
+        for a in nodeAnchors:
+            if a not in all_seen_nodes:
+                final_paths[tuple([a])] = set(self.get_node_by_hash(a).get_list_of_reads())
+
     def get_paths_for_gene(
         self,
         suffix_tree,
@@ -2696,6 +2704,7 @@ class GeneMerGraph:
     ):
         nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
         final_paths = get_full_paths(suffix_tree, self.get_readNodes(), nodeAnchors, threshold)
+        self.get_singleton_paths(final_paths, nodeAnchors)
         final_path_coverages = {}
         for path in final_paths:
             final_path_coverages[path] = [
