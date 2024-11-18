@@ -19,101 +19,9 @@ from amira.construct_gene import convert_int_strand_to_string
 from amira.construct_gene_mer import GeneMer
 from amira.construct_node import Node
 from amira.construct_read import Read
+from amira.path_finding_operations import construct_suffix_tree, get_full_paths
 
 sys.setrecursionlimit(50000)
-
-
-def build_graph(read_dict, kmer_size, gene_positions=None):
-    graph = GeneMerGraph(read_dict, kmer_size, gene_positions)
-    return graph
-
-
-def merge_nodes(sub_graphs, fastq_data=None):
-    reference_graph = sub_graphs[0]
-    # iterate through the subgraphs
-    for graph in sub_graphs[1:]:
-        # iterate through the reads in the subgraph
-        for read_id in graph.get_readNodes():
-            # get the nodes on each read
-            node_hashes_on_read = graph.get_readNodes()[read_id]
-            # get the direction of each node on each read
-            node_directions_on_read = graph.get_readNodeDirections()[read_id]
-            # get the positions of each node on each read
-            node_positions_on_read = graph.get_readNodePositions()[read_id]
-            # iterate through the nodes
-            for i in range(len(node_hashes_on_read)):
-                # get the node object
-                node_in_subgraph = graph.get_node_by_hash(node_hashes_on_read[i])
-                # add the node to the reference graph
-                node_in_reference = reference_graph.add_node(
-                    node_in_subgraph.get_geneMer(), node_in_subgraph.get_reads()
-                )
-                # add to the minhash
-                if fastq_data is not None:
-                    if node_in_reference.get_minhash() is None:
-                        node_in_reference.set_minhash(node_in_subgraph.get_minhash())
-                    node_in_reference.get_minhash().add_many(node_in_subgraph.get_minhash())
-                # increment the node coverage
-                node_in_reference.increment_node_coverage()
-                # add the node to the read in the reference graph
-                reference_graph.add_node_to_read(
-                    node_in_reference,
-                    read_id,
-                    node_directions_on_read[i],
-                    node_positions_on_read[i],
-                )
-    return reference_graph
-
-
-def merge_edges(sub_graphs, reference_graph):
-    for graph in sub_graphs[1:]:
-        for edge_hash in graph.get_edges():
-            if edge_hash not in reference_graph.get_edges():
-                # get the edge object in the subgraph
-                edge_in_subgraph = graph.get_edge_by_hash(edge_hash)
-                # change the source and target node to those in the reference graph
-                reference_source_node = edge_in_subgraph.set_sourceNode(
-                    reference_graph.get_node_by_hash(edge_in_subgraph.get_sourceNode().__hash__())
-                )
-                edge_in_subgraph.set_targetNode(
-                    reference_graph.get_node_by_hash(edge_in_subgraph.get_targetNode().__hash__())
-                )
-                # add the edge to the node
-                reference_graph.add_edge_to_node(reference_source_node, edge_in_subgraph)
-                # add the edge object to the graph
-                reference_graph.get_edges()[edge_hash] = edge_in_subgraph
-            else:
-                # get the reference edge
-                reference_edge = reference_graph.get_edge_by_hash(edge_hash)
-                # extend the coverage
-                reference_edge.extend_edge_coverage(reference_edge.get_edge_coverage())
-
-
-def merge_reads(sub_graphs, reference_graph):
-    for graph in sub_graphs[1:]:
-        for read in graph.get_reads():
-            reference_graph.get_reads()[read] = graph.get_reads()[read]
-            if reference_graph.get_gene_positions() is not None:
-                reference_graph.get_gene_positions()[read] = graph.get_gene_positions()[read]
-        for read in graph.get_short_read_annotations():
-            reference_graph.get_short_read_annotations()[read] = graph.get_short_read_annotations()[
-                read
-            ]
-            if graph.get_gene_positions() is not None:
-                reference_graph.get_short_read_gene_positions()[
-                    read
-                ] = graph.get_short_read_gene_positions()[read]
-
-
-def merge_graphs(sub_graphs):
-    # merge the nodes
-    reference_graph = merge_nodes(sub_graphs)
-    # merge the edges
-    merge_edges(sub_graphs, reference_graph)
-    # merge the reads
-    merge_reads(sub_graphs, reference_graph)
-    reference_graph.assign_component_ids()
-    return reference_graph
 
 
 class GeneMerGraph:
@@ -1051,29 +959,6 @@ class GeneMerGraph:
             for node in nodesOfInterest:
                 AMR_nodes[node.__hash__()] = node
         return AMR_nodes
-
-    def get_AMR_anchors_and_junctions(self, AMRNodes):
-        # initialise the node anchor and junction sets
-        nodeAnchors = set()
-        nodeJunctions = set()
-        # get nodes that are anchors for traversing in the forward direction of the graph
-        for nodeHash in AMRNodes:
-            node = AMRNodes[nodeHash]
-            if not self.get_degree(node) > 2:
-                # get the forward neighbors for this node
-                forward_neighbors = self.get_forward_neighbors(node)
-                # get the backward neighbors for this node
-                backward_neighbors = self.get_backward_neighbors(node)
-                # get the forward neighbors that contain an AMR gene
-                forwardAMRNodes = [n for n in forward_neighbors if n.__hash__() in AMRNodes]
-                # get the backward neighbors that contain an AMR gene
-                backwardAMRNodes = [n for n in backward_neighbors if n.__hash__() in AMRNodes]
-                if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
-                    nodeAnchors.add(nodeHash)
-            # if the number of backward neighbors is not 1 or 0 then this is a forward anchor
-            else:
-                nodeJunctions.add(nodeHash)
-        return nodeAnchors, nodeJunctions
 
     def create_adjacency_matrix(self, nodeHashesOfInterest):
         size = len(nodeHashesOfInterest)
@@ -2496,218 +2381,16 @@ class GeneMerGraph:
         replacement = {"A": "T", "T": "A", "C": "G", "G": "C"}
         return "".join([replacement[b] for b in reversed_seq])
 
-    def get_paths_for_gene(
-        self,
-        reads,
-        nodeHashesOfInterest,
-        threshold,
-    ):
-        paths = {}
-        # convert to a set for faster lookup
-        nodeHashesOfInterest = set(nodeHashesOfInterest)
-        # iterate through the reads
-        for read in reads:
-            # get the nodes on this read
-            nodes_on_read = self.get_readNodes()[read]
-            # iterate through the nodes to see if they contain AMR genes
-            AMR_indices = [1 if n_hash in nodeHashesOfInterest else 0 for n_hash in nodes_on_read]
-            # get the index of the first node containing an AMR gene
-            first_one_index = AMR_indices.index(1)
-            # get the index of the last node containing an AMR gene
-            last_one_index = len(AMR_indices) - 1 - AMR_indices[::-1].index(1)
-            # get the nodes between the first and last AMR node inclusive
-            core = nodes_on_read[first_one_index : last_one_index + 1]
-            # convert to a tuple
-            sorted_core = sorted([core, list(reversed(core))])[0]
-            core_tuple = tuple(sorted_core)
-            # get the upstream nodes
-            upstream = nodes_on_read[:first_one_index]
-            # get the downstream nodes
-            downstream = nodes_on_read[last_one_index + 1 :]
-            # make the up and downstream nodes relative to the sorted core
-            if len(core) == 1:
-                core_genes = self.get_genes_in_unitig(sorted_core)
-                fw_sublist = self.is_sublist(self.get_reads()[read], core_genes)
-                rv_sublist = self.is_sublist(
-                    self.get_reads()[read], self.reverse_list_of_genes(core_genes)
-                )
-                if fw_sublist is True and rv_sublist is False:
-                    upstream_tuple = tuple(upstream)
-                    downstream_tuple = tuple(downstream)
-                elif rv_sublist is True and fw_sublist is False:
-                    upstream_tuple = tuple(list(reversed(downstream)))
-                    downstream_tuple = tuple(list(reversed(upstream)))
+    def merge_dict(self, dict1, dict2):
+        merged_dict = {}
+        # Iterate over each dictionary and merge
+        for d in [dict1, dict2]:
+            for key, value in d.items():
+                if key in merged_dict:
+                    merged_dict[key].update(value)  # Merge sets if key already exists
                 else:
-                    message = "Cannot determine core AMR path direction, "
-                    message += "please submit a GitHub issue at https://github.com/Danderson123/"
-                    raise ValueError(message)
-            else:
-                # Make the upstream and downstream nodes relative to the sorted core
-                if sorted_core == core:
-                    upstream_tuple = tuple(upstream)
-                    downstream_tuple = tuple(downstream)
-                else:
-                    upstream_tuple = tuple(list(reversed(downstream)))
-                    downstream_tuple = tuple(list(reversed(upstream)))
-            # add the path to the dictionary of all paths
-            if core_tuple not in paths:
-                paths[core_tuple] = {"upstream": {}, "downstream": {}, "reads": set()}
-            # add the up and down paths to the nested dictionary
-            if upstream_tuple not in paths[core_tuple]["upstream"]:
-                paths[core_tuple]["upstream"][upstream_tuple] = set()
-            if downstream_tuple not in paths[core_tuple]["downstream"]:
-                paths[core_tuple]["downstream"][downstream_tuple] = set()
-            # add the reads to the nested dictionary
-            paths[core_tuple]["upstream"][upstream_tuple].add(read)
-            paths[core_tuple]["downstream"][downstream_tuple].add(read)
-            paths[core_tuple]["reads"].add(read)
-        # Filter out core options below threshold
-        core_to_delete = [c for c, data in paths.items() if len(data["reads"]) < threshold]
-        for c in core_to_delete:
-            del paths[c]
-        # iterate through the remaining paths
-        clustered_paths = {}
-        longest_paths = {}
-        longest_shortest_mapping = {}
-        for c in paths:
-            # cluster the upstream paths based on the underlying path they support
-            clustered_upstream = self.cluster_adjacent_paths(paths[c]["upstream"])
-            # cluster the downstream paths based on the underlying path they support
-            clustered_downstream = self.cluster_adjacent_paths(paths[c]["downstream"])
-            # get all combinations of valid paths
-            for u in clustered_upstream:
-                for d in clustered_downstream:
-                    shared_reads = clustered_upstream[u]["reads"].intersection(
-                        clustered_downstream[d]["reads"]
-                    )
-                    if len(shared_reads) > 0:
-                        long_path = u + c + d
-                        # skip this path if it starts and ends at the same AMR gene
-                        unitig_genes = self.get_genes_in_unitig(long_path)
-                        if len(long_path) > 1 and unitig_genes[0][1:] == unitig_genes[-1][1:]:
-                            continue
-                        if c not in clustered_paths:
-                            clustered_paths[c] = {
-                                "upstream": [],
-                                "downstream": [],
-                                "shared_reads": [],
-                                "full_path": [],
-                            }
-                        clustered_paths[c]["upstream"].append(u)
-                        clustered_paths[c]["downstream"].append(d)
-                        clustered_paths[c]["shared_reads"].append(shared_reads)
-                        clustered_paths[c]["full_path"].append(long_path)
-                        longest_paths[long_path] = shared_reads
-                        # make a mapping of the longest to shortest representation of this path
-                        longest_shortest_mapping[long_path] = (
-                            clustered_upstream[u]["shortest"]
-                            + c
-                            + clustered_downstream[d]["shortest"]
-                        )
-        # Remove any core option that is fully contained within another
-        paths_to_delete = set()
-        for c1 in sorted(list(clustered_paths.keys()), key=len):
-            c1_list = list(c1)
-            rev_c1_list = list(reversed(c1_list))
-            for c2 in clustered_paths:
-                if c1 == c2:
-                    continue
-                c2_list = list(c2)
-                c2_upstream = clustered_paths[c2]["upstream"]
-                c2_downstream = clustered_paths[c2]["downstream"]
-
-                def check_and_add(c1_path, c2_list, u1, d1):
-                    if len(u1) == 0 or len(d1) == 0:
-                        paths_to_delete.add((c1, c1_path))
-                        return True
-                    if any(
-                        self.is_sublist(list(u2), u1)
-                        or self.is_sublist(u1, list(u2))
-                        or self.is_sublist(c2_list, u1)
-                        for u2 in c2_upstream
-                    ) and any(
-                        self.is_sublist(list(d2), d1)
-                        or self.is_sublist(d1, list(d2))
-                        or self.is_sublist(c2_list, d1)
-                        for d2 in c2_downstream
-                    ):
-                        paths_to_delete.add((c1, c1_path))
-                        return True
-                    return False
-
-                if self.is_sublist(c2_list, c1_list):
-                    for i, c1_path in enumerate(clustered_paths[c1]["full_path"]):
-                        u1 = list(clustered_paths[c1]["upstream"][i])
-                        d1 = list(clustered_paths[c1]["downstream"][i])
-                        check_and_add(c1_path, c2_list, u1, d1)
-
-                if self.is_sublist(c2_list, rev_c1_list):
-                    for i, c1_path in enumerate(clustered_paths[c1]["full_path"]):
-                        d1 = list(reversed(clustered_paths[c1]["downstream"][i]))
-                        u1 = list(reversed(clustered_paths[c1]["upstream"][i]))
-                        check_and_add(c1_path, c2_list, d1, u1)
-        for core_p, long_p in paths_to_delete:
-            del longest_paths[long_p]
-            if core_p in clustered_paths:
-                del clustered_paths[core_p]
-        # account for edge cases where there are no reads spanning all k gene-mers
-        final_paths, final_path_coverages = {}, {}
-        seen_pairs = set()
-        for c1 in clustered_paths:
-            for c2 in clustered_paths:
-                if c1 != c2 and tuple(sorted([c1, c2])) not in seen_pairs:
-                    if (
-                        len(c1) < self.get_kmerSize()
-                        and len(c2) < self.get_kmerSize()
-                        and len(clustered_paths[c1]["full_path"]) == 1
-                        and len(clustered_paths[c2]["full_path"]) == 1
-                    ):
-                        new_path = tuple([n for n in list(c1) if n in set(c2)])
-                        final_paths[new_path] = clustered_paths[c1]["shared_reads"][0].union(
-                            clustered_paths[c2]["shared_reads"][0]
-                        )
-                        final_path_coverages[new_path] = [
-                            self.get_node_by_hash(n).get_node_coverage() for n in list(new_path)
-                        ]
-                        if clustered_paths[c1]["full_path"][0] in longest_paths:
-                            del longest_paths[clustered_paths[c1]["full_path"][0]]
-                        if clustered_paths[c2]["full_path"][0] in longest_paths:
-                            del longest_paths[clustered_paths[c2]["full_path"][0]]
-                        seen_pairs.add(tuple(sorted([c1, c2])))
-        # get the final paths
-        for p in longest_paths:
-            shortest_path = longest_shortest_mapping[p]
-            final_paths[shortest_path] = longest_paths[p]
-            final_path_coverages[shortest_path] = [
-                self.get_node_by_hash(n).get_node_coverage() for n in list(shortest_path)
-            ]
-        return final_paths, final_path_coverages
-
-    def cluster_adjacent_paths(self, adjacent_paths):
-        # sort the subpaths from longest to shortest
-        sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
-        # cluster the sorted paths
-        clustered_sub_paths = {}
-        for p in sorted_paths:
-            list_p = list(p)
-            paths_supported = []
-            for c in clustered_sub_paths:
-                list_c = list(c)
-                if self.is_sublist(list_c, list_p):  # or len(list_p) == 0:
-                    paths_supported.append(c)
-            if len(paths_supported) == 0:
-                clustered_sub_paths[p] = {"reads": adjacent_paths[p], "paths": {p}}
-            if len(paths_supported) == 1:
-                clustered_sub_paths[paths_supported[0]]["reads"].update(adjacent_paths[p])
-                clustered_sub_paths[paths_supported[0]]["paths"].add(p)
-        # choose the shortest subpath in a cluster as the representative
-        final_clusters = {}
-        for c in clustered_sub_paths:
-            final_clusters[max(list(clustered_sub_paths[c]["paths"]), key=len)] = {
-                "shortest": min(list(clustered_sub_paths[c]["paths"]), key=len),
-                "reads": clustered_sub_paths[c]["reads"],
-            }
-        return final_clusters
+                    merged_dict[key] = value.copy()
+        return merged_dict
 
     def split_into_subpaths(
         self,
@@ -2946,6 +2629,89 @@ class GeneMerGraph:
             self.remove_node(node)
         return self
 
+    def get_AMR_anchors(self, AMRNodes):
+        # Initialize the node anchor set
+        nodeAnchors = set()
+        # Iterate over all AMR node hashes
+        for nodeHash in AMRNodes:
+            node = self.get_node_by_hash(nodeHash)
+            is_anchor = False  # Assume the node is not an anchor until proven otherwise
+            singletons = []
+            terminals = []
+            # double check that there are no fw or reverse AMR connections
+            forward_neighbors = self.get_forward_neighbors(node)
+            # get the backward neighbors for this node
+            backward_neighbors = self.get_backward_neighbors(node)
+            # get the forward neighbors that contain an AMR gene
+            fw_non_self = [n for n in forward_neighbors if n.__hash__() != nodeHash]
+            # get the backward neighbors that contain an AMR gene
+            bw_non_self = [n for n in forward_neighbors if n.__hash__() != nodeHash]
+            if len(fw_non_self) == 0 or len(bw_non_self) == 0:
+                nodeAnchors.add(nodeHash)
+            # Iterate through all reads associated with the current AMR node
+            for r in node.get_reads():
+                read_nodes = self.get_readNodes()[r]
+                # If the read has only one node, it is isolated
+                if len(read_nodes) == 1 and read_nodes[0] == nodeHash:
+                    singletons.append(True)
+                    terminals.append(True)
+                    break
+                else:
+                    singletons.append(False)
+                    # Identify all AMR node positions in the read
+                    AMR_indices = [1 if n in AMRNodes else 0 for n in read_nodes]
+                    # Check all occurrences of nodeHash in the read
+                    for index in [i for i, n in enumerate(read_nodes) if n == nodeHash]:
+                        # Check if the nodeHash is isolated in this read
+                        if index != 0 and index != len(read_nodes) - 1:
+                            if (index != 0 and AMR_indices[index - 1] == 0) or (
+                                index != len(read_nodes) - 1 and AMR_indices[index + 1] == 0
+                            ):
+                                is_anchor = True
+                                break
+                            terminals.append(False)
+                        else:
+                            terminals.append(True)
+                if is_anchor:
+                    nodeAnchors.add(nodeHash)
+                    break
+            if all(s is True for s in singletons) or all(t is True for t in terminals):
+                # double check that there are no fw or reverse AMR connections
+                forward_neighbors = self.get_forward_neighbors(node)
+                # get the backward neighbors for this node
+                backward_neighbors = self.get_backward_neighbors(node)
+                # get the forward neighbors that contain an AMR gene
+                forwardAMRNodes = [n for n in forward_neighbors if n.__hash__() in AMRNodes]
+                # get the backward neighbors that contain an AMR gene
+                backwardAMRNodes = [n for n in backward_neighbors if n.__hash__() in AMRNodes]
+                if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
+                    nodeAnchors.add(nodeHash)
+        return nodeAnchors
+
+    def get_singleton_paths(self, final_paths, nodeAnchors):
+        all_seen_nodes = set()
+        for p in final_paths:
+            all_seen_nodes.update(p)
+        for a in nodeAnchors:
+            if a not in all_seen_nodes:
+                final_paths[tuple([a])] = set(self.get_node_by_hash(a).get_list_of_reads())
+
+    def get_paths_for_gene(
+        self,
+        suffix_tree,
+        nodeHashesOfInterest,
+        threshold,
+    ):
+        nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
+        final_paths = get_full_paths(suffix_tree, self.get_readNodes(), nodeAnchors, threshold)
+        self.get_singleton_paths(final_paths, nodeAnchors)
+        final_path_coverages = {}
+        for path in final_paths:
+            final_path_coverages[path] = [
+                self.get_node_by_hash(n).get_node_coverage() for n in path
+            ]
+        return final_paths, final_path_coverages
+
     def assign_reads_to_genes(
         self, listOfGenes, fastq_dict, allele_counts={}, mean_node_coverage=None, path_threshold=5
     ):
@@ -2955,6 +2721,8 @@ class GeneMerGraph:
         # get the mean node coverage if it is not specified
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
+        # construct a suffix tree of the nodes on the reads
+        suffix_tree = construct_suffix_tree(self.get_readNodes())
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
@@ -2971,13 +2739,11 @@ class GeneMerGraph:
             # iterate through the components
             for component in component_nodeHashesOfInterest:
                 nodeHashesOfInterest = component_nodeHashesOfInterest[component]
-                # get the nodes that contain this gene but are at the end of a path
-                anchor_nodes, junction_nodes = self.get_anchors_of_interest(nodeHashesOfInterest)
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
                 # get the paths containing this gene
                 pathsOfInterest, pathCoverages = self.get_paths_for_gene(
-                    reads,
+                    suffix_tree,
                     nodeHashesOfInterest,
                     mean_node_coverage / 20,
                     # max(5, mean_node_coverage / 20),
