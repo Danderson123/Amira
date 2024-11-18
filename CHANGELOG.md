@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Danderson123/Amira/compare/v0.3.0...v0.3.1) (2024-11-18)
+
+
+### Build System
+
+* **deps:** bump tqdm from 4.64.1 to 4.66.3 ([ee877f1](https://github.com/Danderson123/Amira/commit/ee877f1d1c4ef0732af88bea88b4d7e358787416))
+
 ## [0.3.0](https://github.com/Danderson123/Amira/compare/v0.2.0...v0.3.0) (2024-11-18)
 
 
