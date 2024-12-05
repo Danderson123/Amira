@@ -127,7 +127,8 @@ def get_full_path_contexts(positions_of_path, contexts, reads, read_id, block_re
         rv_down = set()
         for d in down_options:
             rv_down.add(tuple(reversed(list(d))))
-        contexts[canonical_tuple] = {"upstream": rv_down, "downstream": rv_up}
+        contexts[canonical_tuple]["upstream"].update(rv_down)
+        contexts[canonical_tuple]["downstream"].update(rv_up)
 
 
 def orient_nodes_on_read(nodes_on_read, start, end, AMR_indices):

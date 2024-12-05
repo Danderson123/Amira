@@ -13,13 +13,13 @@ import pysam
 import sourmash
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from suffix_tree import Tree
 
 from amira.construct_edge import Edge
 from amira.construct_gene import convert_int_strand_to_string
 from amira.construct_gene_mer import GeneMer
 from amira.construct_node import Node
 from amira.construct_read import Read
-from amira.path_finding_operations import construct_suffix_tree, get_full_paths
 
 sys.setrecursionlimit(50000)
 
@@ -1684,7 +1684,6 @@ class GeneMerGraph:
                         len(fastq_data[read_id]["sequence"]) - 1,
                     )
                 else:
-                    print(new_positions)
                     raise AttributeError("Could not find a valid gene start or end position.")
                 assert None not in list(new_positions[i]), new_positions
         return new_positions
@@ -2408,7 +2407,7 @@ class GeneMerGraph:
         # iterate through the paths
         for path in pathsOfinterest:
             # get the genes in the path
-            genes_in_path = self.get_genes_in_unitig(list(path))
+            genes_in_path = path
             reverse_genes_in_path = self.reverse_list_of_genes(genes_in_path)
             # make a separate cluster for each allele
             fw_indices_in_path = {}
@@ -2688,28 +2687,330 @@ class GeneMerGraph:
                     nodeAnchors.add(nodeHash)
         return nodeAnchors
 
-    def get_singleton_paths(self, final_paths, nodeAnchors):
-        all_seen_nodes = set()
-        for p in final_paths:
-            all_seen_nodes.update(p)
-        for a in nodeAnchors:
-            if a not in all_seen_nodes:
-                final_paths[tuple([a])] = set(self.get_node_by_hash(a).get_list_of_reads())
+    def get_all_context_options(self, nodes_on_reads, start, end):
+        up_options = set()
+        up = nodes_on_reads[:start]
+        for i in range(1, len(up) + 1):
+            sub_up = tuple(up[-i:])  # Simplified indexing
+            up_options.add(sub_up)
+        down = nodes_on_reads[end + 1 :]
+        down_options = set()
+        # Process downstream reads
+        for i in range(1, len(down) + 1):
+            sub_down = tuple(down[:i])  # Simplified indexing
+            down_options.add(sub_down)
+        up_options.add(())
+        down_options.add(())
+        return up_options, down_options
+
+    def get_read_blocks(self, suffix_tree, geneOfInterest):
+        suffixes = {}
+        for read_id, path in suffix_tree.find_all([f"+{geneOfInterest}"]):
+            string_path = str(path).split(" ")
+            path_list = [n for n in string_path if n != "$"]
+            strandless = [g[1:] for g in path_list]
+            first_index = 0
+            last_index = len(strandless) - 1 - strandless[::-1].index(geneOfInterest)
+            core = path_list[first_index: last_index+1]
+            if read_id not in suffixes:
+                suffixes[read_id] = core
+            else:
+                if len(core) > len(suffixes[read_id]):
+                    suffixes[read_id] = core
+        for read_id, path in suffix_tree.find_all([f"-{geneOfInterest}"]):
+            string_path = str(path).split(" ")
+            path_list = [n for n in string_path if n != "$"]
+            strandless = [g[1:] for g in path_list]
+            first_index = 0
+            last_index = len(strandless) - 1 - strandless[::-1].index(geneOfInterest)
+            core = path_list[first_index: last_index+1]
+            if read_id not in suffixes:
+                suffixes[read_id] = core
+            else:
+                if len(core) > len(suffixes[read_id]):
+                    suffixes[read_id] = core
+        return suffixes
+
+    def build_suffix_tree(self, calls):
+        new_calls = calls.copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = self.reverse_list_of_genes(calls[r])
+        new_calls.update(rc_reads)
+        suffix_tree = Tree(calls)
+        return suffix_tree, new_calls
+
+    def get_block_contexts(self, calls, suffixes, threshold):
+        contexts = {}
+        for read_id in suffixes:
+            #canonical = sorted([suffixes[read_id], graph.reverse_list_of_genes(suffixes[read_id])])[0]
+            canonical = suffixes[read_id]
+            canonical_tuple = tuple(canonical)
+            positions_of_path = self.find_sublist_indices(calls[read_id], suffixes[read_id])
+            if len(positions_of_path) == 1:
+                start, end = positions_of_path[0]
+                up_options, down_options = self.get_all_context_options(calls[read_id], start, end)
+                if canonical == suffixes[read_id]:
+                    if canonical_tuple not in contexts:
+                        contexts[canonical_tuple] = {"upstream": set(), "downstream": set(), "reads": set()}
+                    contexts[canonical_tuple]["upstream"].update(up_options)
+                    contexts[canonical_tuple]["downstream"].update(down_options)
+                    contexts[canonical_tuple]["reads"].add(read_id)
+                else:
+                    if canonical_tuple not in contexts:
+                        contexts[canonical_tuple] = {"upstream": set(), "downstream": set(), "reads": set()}
+                    rv_up = set()
+                    for u in up_options:
+                        rv_up.add(tuple(self.reverse_list_of_genes(u)))
+                    rv_down = set()
+                    for d in down_options:
+                        rv_down.add(tuple(self.reverse_list_of_genes(d)))
+                    contexts[canonical_tuple]["upstream"].update(rv_down)
+                    contexts[canonical_tuple]["downstream"].update(rv_up)
+                    contexts[canonical_tuple]["reads"].add(read_id)
+        cores_to_delete = set()
+        for c in contexts:
+            if len(contexts[c]["reads"]) < threshold:
+                cores_to_delete.add(c)
+        for c in cores_to_delete:
+            del contexts[c]
+        return contexts
+
+    def cluster_upstream_paths(self, adjacent_paths):
+        # sort the subpaths from longest to shortest
+        sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
+        # cluster the sorted paths
+        clustered_sub_paths = {}
+        for p in sorted_paths:
+            list_p = list(p)
+            paths_supported = []
+            for c in clustered_sub_paths:
+                list_c = list(c)
+                if list_p and list_p == list_c[-len(list_p):]:
+                    paths_supported.append(c)
+                elif not list_p:
+                    paths_supported.append(c)
+            if len(paths_supported) == 0:
+                clustered_sub_paths[p] = {p}
+            if len(paths_supported) == 1:
+                clustered_sub_paths[paths_supported[0]].add(p)
+        # choose the shortest subpath in a cluster as the representative
+        final_clusters = {}
+        for c in clustered_sub_paths:
+            final_clusters[min(list(clustered_sub_paths[c]), key=len)] = list(clustered_sub_paths[c]) #"longest": max(list(clustered_sub_paths[c]), key=len),
+        return final_clusters
+
+    def cluster_downstream_paths(self, adjacent_paths):
+        # sort the subpaths from longest to shortest
+        sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
+        # cluster the sorted paths
+        clustered_sub_paths = {}
+        for p in sorted_paths:
+            list_p = list(p)
+            paths_supported = []
+            for c in clustered_sub_paths:
+                list_c = list(c)
+                if list_p and list_p == list_c[:len(list_p)]:
+                    paths_supported.append(c)
+                elif not list_p:
+                    paths_supported.append(c)
+            if len(paths_supported) == 0:
+                clustered_sub_paths[p] = {p}
+            if len(paths_supported) == 1:
+                clustered_sub_paths[paths_supported[0]].add(p)
+        # choose the shortest subpath in a cluster as the representative
+        final_clusters = {}
+        for c in clustered_sub_paths:
+            final_clusters[min(list(clustered_sub_paths[c]), key=len)] = list(clustered_sub_paths[c]) #"longest": max(list(clustered_sub_paths[c]), key=len),
+        return final_clusters
+
+    def get_paths_from_context(self, contexts):
+        full_paths = {}
+        for c in contexts:
+            upstream_clusters = self.cluster_upstream_paths(contexts[c]["upstream"])
+            downstream_clusters = self.cluster_downstream_paths(contexts[c]["downstream"])
+            for u in upstream_clusters:
+                longest_u = max(upstream_clusters[u], key=len)
+                for d in downstream_clusters:
+                    longest_d = max(downstream_clusters[d], key=len)
+                    full_paths[longest_u + c + longest_d] = {"core": c, "up": upstream_clusters[u], "down": downstream_clusters[d]}
+        return full_paths
+
+    def filter_full_paths(self, full_paths, threshold, suffix_tree):
+        filtered_paths = {}
+        for f in full_paths:
+            reads_with_full_path = set()
+            for read_id, path in suffix_tree.find_all(list(f)):
+                new_read_id = read_id.replace("_reverse", "")
+                reads_with_full_path.add(new_read_id)
+            if len(reads_with_full_path) >= threshold:
+                filtered_paths[f] = reads_with_full_path
+        return filtered_paths
+
+    def get_reads_supporting_path(self, path, suffix_tree):
+        #shortest_differentiating_path = f_min_up + full_paths[f]["core"] + f_min_down
+        reads_with_full_path = set()
+        for read_id, path in suffix_tree.find_all(list(path)):
+            new_read_id = read_id.replace("_reverse", "")
+            reads_with_full_path.add(new_read_id)
+        return reads_with_full_path
+
+    def get_final_paths(self, full_paths, threshold, suffix_tree):
+        all_options = {}
+        # get all the possible options for the paths
+        for f in full_paths:
+            if not tuple(self.reverse_list_of_genes(f)) in all_options:
+                all_options[f] = set()
+                f_max_up = list(max(full_paths[f]["up"], key=len))
+                f_max_down = list(max(full_paths[f]["down"], key=len))
+                up_options = set()
+                for i in range(0, len(f_max_up) + 1):
+                    sub_up = tuple(f_max_up[-i:])  # Simplified indexing
+                    up_options.add(sub_up)
+                down_options = set()
+                # Process downstream reads
+                for i in range(0, len(f_max_down) + 1):
+                    sub_down = tuple(f_max_down[:i])  # Simplified indexing
+                    down_options.add(sub_down)
+                up_options.add(())
+                down_options.add(())
+                for u in up_options:
+                    for d in down_options:
+                        all_options[f].add(u + full_paths[f]["core"] + d)
+        # remove the options that do not differentiate this path from another
+        differentiating = {}
+        for f1 in all_options:
+            differentiating[f1] = set()
+            for o1 in all_options[f1]:
+                if not any(
+                    self.is_sublist(list(f2), list(o1)) or self.is_sublist(list(f2), self.reverse_list_of_genes(list(o1)))
+                        for f2 in all_options if f1 != f2
+                    ):
+                    differentiating[f1].add(o1)
+        # choose the path with the most reads supporting
+        final_paths = {}
+        for f in differentiating:
+            option_counts = []
+            for o in differentiating[f]:
+                reads_supporting = self.get_reads_supporting_path(o, suffix_tree)
+                option_counts.append((o, reads_supporting))
+            selected_path, path_reads = sorted(option_counts, key=lambda x: (len(x[1]), len(x[0])), reverse=True)[0]
+            if len(path_reads) >= threshold:
+                final_paths[selected_path] = path_reads
+        return final_paths
+
+    def filter_partially_overlapping_paths(self, full_paths):
+        paths_to_delete = set()
+        for f1 in sorted(list(full_paths.keys()), key=len):
+            f1_max_up = list(max(full_paths[f1]["up"], key=len))
+            f1_max_down = list(max(full_paths[f1]["down"], key=len))
+            partial = False
+            for f2 in sorted(list(full_paths.keys()), key=len, reverse=True):
+                if f2 in paths_to_delete:
+                    continue
+                if f1 != f2:
+                    if partial is False:
+                        # if the partial path is fully contained in the core
+                        # UUUCCCDDD
+                        # ---CCC---
+                        if self.is_sublist(list(f2), list(f1)) or self.is_sublist(list(full_paths[f2]["core"]), list(f1)):
+                            partial = True
+                    if partial is False:
+                        f2_max_up = list(max(full_paths[f2]["up"], key=len))
+                        # if the partial path overlaps with the core + upstream
+                        # -UUUCCCDDD
+                        # UUUUCC----
+                        if self.is_sublist(list(full_paths[f2]["core"]), list(full_paths[f1]["core"])) and \
+                            (self.is_sublist(f1_max_up, f2_max_up) or self.is_sublist(f2_max_up, f1_max_up)) \
+                            and self.is_sublist(list(full_paths[f2]["core"]), f1_max_down) \
+                            and not (self.is_sublist(f1_max_down, f2_max_down) or self.is_sublist(f1_max_down, f2_max_down)):
+                            partial = True
+                    if partial is False:
+                        f2_max_down = list(max(full_paths[f2]["down"], key=len))
+                        # if the partial path overlaps with the core + downstream
+                        # UUUCCCDDD-
+                        # ----CCDDDD
+                        if self.is_sublist(list(full_paths[f2]["core"]), list(full_paths[f1]["core"])) and \
+                            (self.is_sublist(f1_max_down, f2_max_down) or self.is_sublist(f2_max_down, f1_max_down)) \
+                            and self.is_sublist(list(full_paths[f2]["core"]), f1_max_up) \
+                            and not (self.is_sublist(f1_max_up, f2_max_up) or self.is_sublist(f2_max_up, f1_max_up)):
+                            partial = True
+            if partial is True:
+                del full_paths[f1]
+
+    def get_full_paths(self, suffix_tree, geneOfInterest, calls, threshold):
+        # get the blocks for the gene of interest
+        suffixes = self.get_read_blocks(suffix_tree, geneOfInterest)
+        # get the contexts for each block
+        contexts = self.get_block_contexts(calls, suffixes, threshold)
+        # get the full paths
+        full_paths = self.get_paths_from_context(contexts)
+        # filter paths that partially overlap with eachother
+        self.filter_partially_overlapping_paths(full_paths)
+        # now we have to remove partial paths that overlap with partial paths
+        # when they overlap, a decision has to be made to keep the path with the most gene copies
+        # CCCCCCDD--
+        # --UCCCCCCD
+        # paths_to_delete = set()
+        def find_overlap(path1, path2):
+            # Find the largest overlap between the end of path1 and the start of path2
+            max_overlap = min(len(path1), len(path2))
+            for i in range(max_overlap, 0, -1):
+                if path1[-i:] == path2[:i]:
+                    return i
+            return 0
+        removed_paths = {}
+        # Pre-compute counts and sort keys once
+        keys_with_counts = [
+            (key, key.count(f"+{geneOfInterest}") + key.count(f"-{geneOfInterest}"))
+            for key in full_paths.keys()
+        ]
+        sorted_keys_asc = sorted(keys_with_counts, key=lambda x: x[1])
+        sorted_keys_desc = sorted(keys_with_counts, key=lambda x: x[1], reverse=True)
+        # Extract just the keys
+        sorted_keys_asc = [key for key, _ in sorted_keys_asc]
+        sorted_keys_desc = [key for key, _ in sorted_keys_desc]
+        # Iterate through f1 and f2
+        keys_to_remove = []
+        for f1 in tqdm(sorted_keys_asc):
+            overlaps = False
+            for f2 in sorted_keys_desc:
+                if overlaps:
+                    break
+                if f1 == f2:
+                    continue
+                # Check overlaps
+                fw_overlap = find_overlap(f1, f2)
+                rv_overlap = find_overlap(f2, f1)
+                if fw_overlap > 0 or rv_overlap > 0:
+                    overlaps = True
+            if overlaps:
+                keys_to_remove.append(f1)
+        # Remove keys after the loop
+        for key in keys_to_remove:
+            removed_paths[key] = full_paths[key].copy()
+            del full_paths[key]
+        if len(full_paths) == 0:
+            longest_overlapping = sorted(list(removed_paths.keys()), key=lambda x: x.count(f"+{geneOfInterest}") + x.count(f"-{geneOfInterest}"), reverse=True)[0]
+            full_paths[longest_overlapping] = removed_paths[longest_overlapping]
+        final_paths = self.get_final_paths(full_paths, threshold, suffix_tree)
+        final_path_coverages = {}
+        for f in final_paths:
+            final_path_coverages[f] = [len(final_paths[f])]
+        return final_paths, final_path_coverages
 
     def get_paths_for_gene(
         self,
         suffix_tree,
-        nodeHashesOfInterest,
+        geneOfInterest,
         threshold,
     ):
-        nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
-        final_paths = get_full_paths(suffix_tree, self.get_readNodes(), nodeAnchors, threshold)
-        self.get_singleton_paths(final_paths, nodeAnchors)
-        final_path_coverages = {}
-        for path in final_paths:
-            final_path_coverages[path] = [
-                self.get_node_by_hash(n).get_node_coverage() for n in path
-            ]
+        calls = self.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = self.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        final_paths, final_path_coverages = self.get_full_paths(suffix_tree, geneOfInterest, calls, threshold)
         return final_paths, final_path_coverages
 
     def assign_reads_to_genes(
@@ -2722,7 +3023,7 @@ class GeneMerGraph:
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
         # construct a suffix tree of the nodes on the reads
-        suffix_tree = construct_suffix_tree(self.get_readNodes())
+        suffix_tree, new_calls = self.build_suffix_tree(self.get_reads())
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
@@ -2744,7 +3045,7 @@ class GeneMerGraph:
                 # get the paths containing this gene
                 pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                     suffix_tree,
-                    nodeHashesOfInterest,
+                    geneOfInterest,
                     mean_node_coverage / 20,
                     # max(5, mean_node_coverage / 20),
                 )

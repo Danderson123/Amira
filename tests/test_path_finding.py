@@ -3,9 +3,9 @@ import unittest
 from amira.construct_graph import GeneMerGraph
 from amira.path_finding_operations import (
     cluster_adjacent_paths,
-    construct_suffix_tree,
-    get_full_paths,
+    construct_suffix_tree
 )
+from suffix_tree import Tree
 
 
 class TestPathFindingConstructor(unittest.TestCase):
@@ -33,16 +33,18 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes3}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 1)
-        for k in full_blocks:
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 1)
+        for k in f_paths:
+            self.assertEqual(len(f_paths[k]), 4)
 
     def test___find_full_paths_no_adjacent_paths(self):
         # setup
@@ -57,17 +59,18 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes1, "read4": genes1}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 1)
-        for k in full_blocks:
-            self.assertEqual(len(full_blocks[k]), 4)
+        self.assertEqual(len(f_paths), 1)
+        for k in f_paths:
+            self.assertEqual(len(f_paths[k]), 4)
 
     def test___find_full_paths_one_adjacent_path(self):
         # setup
@@ -88,17 +91,18 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 1)
-        for k in full_blocks:
-            self.assertEqual(len(full_blocks[k]), 4)
+        self.assertEqual(len(f_paths), 1)
+        for k in f_paths:
+            self.assertEqual(len(f_paths[k]), 4)
 
     def test___find_full_paths_linear_path_duplicates_simple(self):
         # setup
@@ -124,17 +128,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes3}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 1)
-        for k in full_blocks:
-            self.assertEqual(len(k), 4)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 1)
+        for k in f_paths:
+            self.assertEqual(len(k), 7)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_linear_path_contained(self):
         # setup
@@ -155,17 +161,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 3 or len(k) == 6)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertTrue(len(k) == 11 or len(k) == 8)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_linear_path_contained_two(self):
         # setup
@@ -201,17 +209,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 10 or len(k) == 7)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertTrue(len(k) == 11 or len(k) == 14)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_terminate_at_junction(self):
         # setup
@@ -264,17 +274,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "blaCMY54NG_0488491", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 3 or len(k) == 18)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertTrue(len(k) == 18 or len(k) == 24)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_terminate_and_start_at_junction(self):
         # setup
@@ -329,56 +341,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("blaCMY54NG_0488491")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "blaCMY54NG_0488491", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 18 or len(k) == 3)
-            self.assertEqual(len(full_blocks[k]), 2)
-
-    def test___find_full_paths_singleton(self):
-        # setup
-        genes1 = [
-            "+gene7",
-            "-gene4",
-            "-gene13",
-        ]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes1}, 3)
-        nodesOfInterest = graph.get_nodes_containing("gene7")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
-        # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
-        # assertion
-        self.assertEqual(len(nodeAnchors), 1)
-        self.assertEqual(len(full_blocks), 0)
-
-    def test___get_singleton_paths(self):
-        # setup
-        genes1 = [
-            "+gene7",
-            "-gene4",
-            "-gene13",
-        ]
-        graph = GeneMerGraph({"read1": genes1, "read2": genes1}, 3)
-        nodesOfInterest = graph.get_nodes_containing("gene7")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
-        # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
-        graph.get_singleton_paths(full_blocks, nodeAnchors)
-        # assertion
-        self.assertEqual(len(nodeAnchors), 1)
-        self.assertEqual(len(full_blocks), 1)
-        for f in full_blocks:
-            self.assertEqual(len(full_blocks[f]), 2)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertTrue(len(k) == 18 or len(k) == 26)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_branching_path(self):
         # setup
@@ -416,17 +391,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes2, "read5": genes3}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene7")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 3 or len(k) == 6)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertTrue(len(k) == 3 or len(k) == 11)
+            self.assertTrue(len(f_paths[k]) == 2 or len(f_paths[k]) == 3)
 
     def test___find_full_paths_triangle(self):
         # setup
@@ -483,17 +460,19 @@ class TestPathFindingConstructor(unittest.TestCase):
             },
             3,
         )
-        nodesOfInterest = graph.get_nodes_containing("gene5")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 3)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 3 or len(k) == 7 or len(k) == 5)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 3)
+        for k in f_paths:
+            self.assertTrue(len(k) == 12 or len(k) == 14 or len(k) == 10)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_linear_path_duplicates_long_reads(self):
         # setup
@@ -525,17 +504,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         graph = GeneMerGraph(
             {"read1": genes1, "read2": genes1, "read3": genes2, "read4": genes3}, 3
         )
-        nodesOfInterest = graph.get_nodes_containing("gene4")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 1)
-        for k in full_blocks:
-            self.assertEqual(len(k), 9)
-            self.assertEqual(len(full_blocks[k]), 2)
+        self.assertEqual(len(f_paths), 1)
+        for k in f_paths:
+            self.assertEqual(len(k), 13)
+            self.assertEqual(len(f_paths[k]), 2)
 
     def test___find_full_paths_complex_one(self):
         # setup
@@ -552,17 +533,19 @@ class TestPathFindingConstructor(unittest.TestCase):
             if any(g[1:] == "mphANG_0479861" for g in calls[r]):
                 filtered_calls[r] = calls[r]
         graph = GeneMerGraph(filtered_calls, 3, positions)
-        nodesOfInterest = graph.get_nodes_containing("mphANG_0479861")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "mphANG_0479861", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertTrue(len(k) == 17 or len(k) == 9)
-            self.assertTrue(len(full_blocks[k]) == 3 or len(full_blocks[k]) == 18)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertTrue(len(k) == 16 or len(k) == 43)
+            self.assertTrue(len(f_paths[k]) == 2 or len(f_paths[k]) == 7)
 
     def test___find_full_paths_diverging_paths_at_terminals(self):
         # setup
@@ -611,17 +594,19 @@ class TestPathFindingConstructor(unittest.TestCase):
             },
             3,
         )
-        nodesOfInterest = graph.get_nodes_containing("gene8")
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene7", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for k in full_blocks:
-            self.assertEqual(len(k), 7)
-            self.assertEqual(len(full_blocks[k]), 3)
+        self.assertEqual(len(f_paths), 2)
+        for k in f_paths:
+            self.assertEqual(len(k), 15)
+            self.assertEqual(len(f_paths[k]), 3)
 
     def test___find_full_paths_edge_case_one(self):
         # setup
@@ -632,20 +617,18 @@ class TestPathFindingConstructor(unittest.TestCase):
         with open("tests/complex_gene_positions_five.json") as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 3, positions)
-        nodesOfInterest = []
-        for geneOfInterest in [
-            "blaCTXM110NG_0489052",
-        ]:
-            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
-        self.assertEqual(len(full_blocks), 1)
-        for f in full_blocks:
-            self.assertEqual(len(f), 3)
-            self.assertEqual(len(full_blocks[f]), 2)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "blaCTXM110NG_0489052", 1)
+        self.assertEqual(len(f_paths), 1)
+        for f in f_paths:
+            self.assertEqual(len(f), 1)
+            self.assertEqual(len(f_paths[f]), 44)
 
     def test___find_full_paths_variant(self):
         # setup
@@ -656,19 +639,42 @@ class TestPathFindingConstructor(unittest.TestCase):
         with open("tests/complex_gene_positions_six.json") as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 3, positions)
-        nodesOfInterest = []
-        for geneOfInterest in ["blaTEM239NG_0766451"]:
-            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "blaTEM239NG_0766451", 1)
         # assertion
-        self.assertEqual(len(full_blocks), 2)
-        for f in full_blocks:
-            self.assertEqual(len(f), 3)
-            self.assertTrue(len(full_blocks[f]) == 2 or len(full_blocks[f]) == 9)
+        self.assertEqual(len(f_paths), 2)
+        for f in f_paths:
+            self.assertEqual(len(f), 2)
+            self.assertTrue(len(f_paths[f]) == 30 or len(f_paths[f]) == 9)
+
+    def test___find_full_paths_multi_variants(self):
+        # setup
+        import json
+
+        with open("/home/daniel/Documents/GitHub/Amira/test_data/WM/SRR30896056/corrected_gene_calls_after_filtering.json") as i:
+            calls = json.load(i)
+        with open("/home/daniel/Documents/GitHub/Amira/test_data/WM/SRR30896056/corrected_gene_positions_after_filtering.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
+        # execution
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "blaTEM239NG_0766451", 10)
+        # assertion
+        self.assertEqual(len(f_paths), 2)
+        for f in f_paths:
+            self.assertTrue(len(f) == 8 or len(f) == 19)
+            self.assertTrue(len(f_paths[f]) == 28 or len(f_paths[f]) == 49)
 
     def test___find_full_paths_multi_tandem(self):
         # setup
@@ -737,17 +743,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         read7 = ["-gene4", "-gene4", "-gene4"]
         read8 = ["+gene3", "-gene4", "-gene4", "-gene4", "-gene4", "-gene4", "-gene4", "+gene5"]
         read9 = ["-gene10", "+gene4", "-gene11"]
-        read10 = [
-            "-gene4",
-            "-gene4",
-            "-gene4",
-            "-gene4",
-            "-gene4",
-            "-gene4",
-            "-gene4",
-            "-gene4",
-            "-gene4",
-        ]
+        read10 = ["-gene4", "-gene4", "-gene4", "-gene4", "-gene4", "-gene4", "-gene4", "-gene4", "-gene4"]
         calls = {
             "read1": read1,
             "read2": read2,
@@ -764,20 +760,18 @@ class TestPathFindingConstructor(unittest.TestCase):
             "read13": read10,
         }
         graph = GeneMerGraph(calls, 3)
-        nodesOfInterest = []
-        for geneOfInterest in [
-            "gene4",
-        ]:
-            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
-        self.assertEqual(len(full_blocks), 2)
-        for f in full_blocks:
-            self.assertTrue(len(f) == 8 or len(f) == 11)
-            self.assertTrue(len(full_blocks[f]) == 1 or len(full_blocks[f]) == 2)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "gene4", 2)
+        self.assertEqual(len(f_paths), 2)
+        for f in f_paths:
+            self.assertTrue(len(f) == 8 or len(f) == 9)
+            self.assertTrue(len(f_paths[f]) == 3 or len(f_paths[f]) == 6)
 
     def test___find_full_paths_end_with_self_loop(self):
         # setup
@@ -788,21 +782,19 @@ class TestPathFindingConstructor(unittest.TestCase):
         with open("tests/complex_gene_positions_seven.json") as i:
             positions = json.load(i)
         graph = GeneMerGraph(calls, 3, positions)
-        nodesOfInterest = []
-        for geneOfInterest in [
-            "blaIMI9NG_0491711",
-        ]:
-            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        tree = construct_suffix_tree(graph.get_readNodes())
-        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
-        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        tree = Tree(calls)
         # execution
-        full_blocks = get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 3)
+        f_paths, f_path_coverages = graph.get_paths_for_gene(tree, "blaIMI9NG_0491711", 5)
         # assertion
-        self.assertEqual(len(full_blocks), 1)
-        for f in full_blocks:
-            self.assertEqual(len(f), 3)
-            self.assertEqual(len(full_blocks[f]), 5)
+        self.assertEqual(len(f_paths), 1)
+        for f in f_paths:
+            self.assertEqual(len(f), 5)
+            self.assertEqual(len(f_paths[f]), 9)
 
     def test___cluster_adjacent_paths(self):
         # setup
@@ -819,7 +811,6 @@ class TestPathFindingConstructor(unittest.TestCase):
         actual_clusters = cluster_adjacent_paths(adjacent_paths)
         # assertion
         self.assertEqual(len(actual_clusters), 3)
-        print(actual_clusters)
         self.assertTrue((2, 3, 4) in actual_clusters)
         self.assertTrue((6, 3, 4) in actual_clusters)
         self.assertTrue((5, 3, 2, 4) in actual_clusters)
