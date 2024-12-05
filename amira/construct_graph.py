@@ -5,7 +5,7 @@ import statistics
 import subprocess
 import sys
 from collections import Counter, defaultdict, deque
-from itertools import product
+from itertools import product, combinations
 
 import numpy as np
 import pandas as pd
@@ -13,13 +13,14 @@ import pysam
 import sourmash
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from suffix_tree import Tree
 
 from amira.construct_edge import Edge
 from amira.construct_gene import convert_int_strand_to_string
 from amira.construct_gene_mer import GeneMer
 from amira.construct_node import Node
 from amira.construct_read import Read
-from amira.path_finding_operations import construct_suffix_tree, get_full_paths
+from amira.path_finding_operations import construct_suffix_tree, get_suffixes_from_initial_tree, process_anchors, filter_blocks
 
 sys.setrecursionlimit(50000)
 
@@ -2408,7 +2409,7 @@ class GeneMerGraph:
         # iterate through the paths
         for path in pathsOfinterest:
             # get the genes in the path
-            genes_in_path = self.get_genes_in_unitig(list(path))
+            genes_in_path = list(path)
             reverse_genes_in_path = self.reverse_list_of_genes(genes_in_path)
             # make a separate cluster for each allele
             fw_indices_in_path = {}
@@ -2696,19 +2697,89 @@ class GeneMerGraph:
             if a not in all_seen_nodes:
                 final_paths[tuple([a])] = set(self.get_node_by_hash(a).get_list_of_reads())
 
+    def get_all_sublists(self, lst):
+        # Generate all possible sublists
+        sublists = []
+        for i in range(1, len(lst) + 1):
+            sublists.extend([list(comb) for comb in combinations(lst, i)])
+        return sublists
+
+    def get_reads_supporting_path(self, path, suffix_tree):
+        #shortest_differentiating_path = f_min_up + full_paths[f]["core"] + f_min_down
+        reads_with_full_path = set()
+        for read_id, path in suffix_tree.find_all(list(path)):
+            new_read_id = read_id.replace("_reverse", "")
+            reads_with_full_path.add(new_read_id)
+        return reads_with_full_path
+
+    def get_full_paths(self, node_tree, reads, nodeAnchors, threshold, gene_tree, geneOfInterest):
+        # Store full and partial blocks using the suffix tree
+        full_blocks = {}
+        # Iterate through the anchors
+        for a1 in nodeAnchors:
+            # Extract paths and build a subtree
+            suffixes = get_suffixes_from_initial_tree(node_tree, a1)
+            reversed_suffixes = {}
+            for read in suffixes:
+                reversed_suffixes[read] = list(reversed(suffixes[read]))
+            sub_tree = Tree(reversed_suffixes)
+            process_anchors(sub_tree, nodeAnchors, a1, full_blocks, reads, node_tree, threshold)
+        # get all of the subpath options
+        gene_blocks = {}
+        for f in full_blocks:
+            genes_in_path = self.get_genes_in_unitig(f)
+            all_sublists = self.get_all_sublists(genes_in_path)
+            all_sublists_with_coverages = {}
+            for s in all_sublists:
+                reads_with_path = self.get_reads_supporting_path(s, gene_tree)
+                if len(reads_with_path) >= threshold:
+                    all_sublists_with_coverages[tuple(s)] = reads_with_path
+            if len(all_sublists_with_coverages) > 0:
+                gene_blocks[f] = all_sublists_with_coverages
+        # Filter and return the blocks
+        filtered_blocks = filter_blocks({f: full_blocks[f] for f in gene_blocks})
+        final_paths = {}
+        for f1 in filtered_blocks:
+            differentiating_paths = set()
+            if not f1 in gene_blocks:
+                continue
+            for o1 in gene_blocks[f1]:
+                # for f2 in filtered_blocks:
+                #     if f2 != f1:
+                #         print(f1, f2)
+                #         if self.is_sublist(self.get_genes_in_unitig(list(f2)), list(o1)) or self.is_sublist(self.get_genes_in_unitig(list(f2)), self.reverse_list_of_genes(list(o1))):
+                #             print(self.get_genes_in_unitig(f2), o1)
+                if not any(
+                    self.is_sublist(self.get_genes_in_unitig(list(f2)), list(o1)) \
+                        or self.is_sublist(self.get_genes_in_unitig(list(f2)), self.reverse_list_of_genes(list(o1)))
+                        for f2 in filtered_blocks if f1 != f2
+                    ):
+                    differentiating_paths.add(o1)
+            # print(self.get_genes_in_unitig(f1))
+            # for b in gene_blocks[f1]:
+            #     print(b, len(gene_blocks[f1][b]))
+            # print("\n")
+            selected_path = sorted(list(differentiating_paths),
+                                key=lambda x: (x.count(f"+{geneOfInterest}") + x.count(f"-{geneOfInterest}"), len(gene_blocks[f1][x]), len(x)),
+                                reverse=True)[0]
+            final_paths[selected_path] = gene_blocks[f1][selected_path]
+        return final_paths
+
     def get_paths_for_gene(
         self,
-        suffix_tree,
+        node_suffix_tree,
+        gene_suffix_tree,
         nodeHashesOfInterest,
         threshold,
+        geneOfInterest
     ):
         nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
-        final_paths = get_full_paths(suffix_tree, self.get_readNodes(), nodeAnchors, threshold)
-        self.get_singleton_paths(final_paths, nodeAnchors)
+        final_paths = self.get_full_paths(node_suffix_tree, self.get_readNodes(), nodeAnchors, threshold, gene_suffix_tree, geneOfInterest)
+        #self.get_singleton_paths(final_paths, nodeAnchors)
         final_path_coverages = {}
         for path in final_paths:
             final_path_coverages[path] = [
-                self.get_node_by_hash(n).get_node_coverage() for n in path
+                len(final_paths[path])
             ]
         return final_paths, final_path_coverages
 
@@ -2722,36 +2793,78 @@ class GeneMerGraph:
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
         # construct a suffix tree of the nodes on the reads
-        suffix_tree = construct_suffix_tree(self.get_readNodes())
+        node_suffix_tree = construct_suffix_tree(self.get_readNodes())
+        calls = self.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = self.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        gene_suffix_tree = Tree(calls)
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
             nodesOfInterest = self.get_nodes_containing(geneOfInterest)
             # get the node hashes containing this gene
             nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+            # get the paths containing this gene
+            pathsOfInterest, pathCoverages = self.get_paths_for_gene(
+                node_suffix_tree,
+                gene_suffix_tree,
+                nodeHashesOfInterest,
+                mean_node_coverage / 20,
+                geneOfInterest
+                # max(5, mean_node_coverage / 20),
+            )
+            # split the paths into subpaths
+            finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
+                geneOfInterest, pathsOfInterest, pathCoverages, mean_node_coverage
+            )
+            # iterate through the alleles
+            for allele in finalAllelesOfInterest:
+                # get the component of this allele
+                for read_id in finalAllelesOfInterest[allele]:
+                    for node_hash in self.get_readNodes()["_".join(read_id.split("_")[:-2])]:
+                        component = self.get_node_by_hash(node_hash).get_component()
+                        break
+                    break
+                underscore_split = allele.split("_")
+                gene_name = "_".join(underscore_split[:-1])
+                if gene_name not in allele_counts:
+                    allele_counts[gene_name] = 1
+                # add this allele if there are 5 or more reads
+                if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:
+                    if component not in clustered_reads:
+                        clustered_reads[component] = {}
+                        cluster_copy_numbers[component] = {}
+                    if geneOfInterest not in clustered_reads[component]:
+                        clustered_reads[component][geneOfInterest] = {}
+                        cluster_copy_numbers[component][geneOfInterest] = {}
+                    clustered_reads[component][geneOfInterest][
+                        f"{gene_name}_{allele_counts[gene_name]}"
+                    ] = finalAllelesOfInterest[allele]
+                    # get the copy number estimates
+                    cluster_copy_numbers[component][geneOfInterest][
+                        f"{gene_name}_{allele_counts[gene_name]}"
+                    ] = copy_numbers[allele]
+                    # increment the allele count
+                    allele_counts[gene_name] += 1
+                else:
+                    message = f"Amira: allele {allele} in component {component} "
+                    message += "filtered due to an insufficient number of reads "
+                    message += f"({len(finalAllelesOfInterest[allele])}).\n"
+                    sys.stderr.write(message)
             # assign node hashes to components
             component_nodeHashesOfInterest = {}
             for n in nodeHashesOfInterest:
                 node_component = self.get_node_by_hash(n).get_component()
                 if node_component not in component_nodeHashesOfInterest:
-                    component_nodeHashesOfInterest[node_component] = []
-                component_nodeHashesOfInterest[node_component].append(n)
+                    component_nodeHashesOfInterest[node_component] = set()
+                component_nodeHashesOfInterest[node_component].add(n)
             # iterate through the components
             for component in component_nodeHashesOfInterest:
                 nodeHashesOfInterest = component_nodeHashesOfInterest[component]
                 # get the reads containing the nodes
                 reads = self.collect_reads_in_path(nodeHashesOfInterest)
-                # get the paths containing this gene
-                pathsOfInterest, pathCoverages = self.get_paths_for_gene(
-                    suffix_tree,
-                    nodeHashesOfInterest,
-                    mean_node_coverage / 20,
-                    # max(5, mean_node_coverage / 20),
-                )
-                # split the paths into subpaths
-                finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
-                    geneOfInterest, pathsOfInterest, pathCoverages, mean_node_coverage
-                )
                 # add the component to the clustered reads
                 if component not in clustered_reads:
                     clustered_reads[component] = {}
@@ -2759,28 +2872,6 @@ class GeneMerGraph:
                 if geneOfInterest not in clustered_reads[component]:
                     clustered_reads[component][geneOfInterest] = {}
                     cluster_copy_numbers[component][geneOfInterest] = {}
-                # iterate through the alleles
-                for allele in finalAllelesOfInterest:
-                    underscore_split = allele.split("_")
-                    gene_name = "_".join(underscore_split[:-1])
-                    if gene_name not in allele_counts:
-                        allele_counts[gene_name] = 1
-                    # add this allele if there are 5 or more reads
-                    if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:
-                        clustered_reads[component][geneOfInterest][
-                            f"{gene_name}_{allele_counts[gene_name]}"
-                        ] = finalAllelesOfInterest[allele]
-                        # get the copy number estimates
-                        cluster_copy_numbers[component][geneOfInterest][
-                            f"{gene_name}_{allele_counts[gene_name]}"
-                        ] = copy_numbers[allele]
-                        # increment the allele count
-                        allele_counts[gene_name] += 1
-                    else:
-                        message = f"Amira: allele {allele} in component {component} "
-                        message += "filtered due to an insufficient number of reads "
-                        message += f"({len(finalAllelesOfInterest[allele])}).\n"
-                        sys.stderr.write(message)
                 # collect all of the reads containing the gene
                 if (
                     component in clustered_reads

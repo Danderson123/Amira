@@ -7,8 +7,7 @@ def is_sublist(long_list, sub_list):
     len_sub = len(sub_list)
     return any(sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1))
 
-
-def cluster_adjacent_paths(adjacent_paths):
+def cluster_downstream_adjacent_paths(adjacent_paths):
     # sort the subpaths from longest to shortest
     sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
     # cluster the sorted paths
@@ -18,7 +17,36 @@ def cluster_adjacent_paths(adjacent_paths):
         paths_supported = []
         for c in clustered_sub_paths:
             list_c = list(c)
-            if is_sublist(list_c, list_p):
+            if list_p and list_p == list_c[:len(list_p)]:
+                paths_supported.append(c)
+            elif not list_p:
+                paths_supported.append(c)
+        if len(paths_supported) == 0:
+            clustered_sub_paths[p] = {p}
+        if len(paths_supported) == 1:
+            clustered_sub_paths[paths_supported[0]].add(p)
+    # choose the shortest subpath in a cluster as the representative
+    final_clusters = {}
+    for c in clustered_sub_paths:
+        final_clusters[min(list(clustered_sub_paths[c]), key=len)] = {
+            "longest": max(list(clustered_sub_paths[c]), key=len),
+            "all": list(clustered_sub_paths[c]),
+        }
+    return final_clusters
+
+def cluster_upstream_adjacent_paths(adjacent_paths):
+    # sort the subpaths from longest to shortest
+    sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
+    # cluster the sorted paths
+    clustered_sub_paths = {}
+    for p in sorted_paths:
+        list_p = list(p)
+        paths_supported = []
+        for c in clustered_sub_paths:
+            list_c = list(c)
+            if list_p and list_p == list_c[-len(list_p):]:
+                paths_supported.append(c)
+            elif not list_p:
                 paths_supported.append(c)
         if len(paths_supported) == 0:
             clustered_sub_paths[p] = {p}
@@ -160,24 +188,6 @@ def get_start_stop_indices(binary_list):
         indices.append((start, len(binary_list) - 1))
     return indices
 
-
-def get_full_paths(tree, reads, nodeAnchors, threshold):
-    # Store full and partial blocks using the suffix tree
-    full_blocks = {}
-    # Iterate through the anchors
-    for a1 in nodeAnchors:
-        # Extract paths and build a subtree
-        suffixes = get_suffixes_from_initial_tree(tree, a1)
-        reversed_suffixes = {}
-        for read in suffixes:
-            reversed_suffixes[read] = list(reversed(suffixes[read]))
-        sub_tree = Tree(reversed_suffixes)
-        process_anchors(sub_tree, nodeAnchors, a1, full_blocks, reads, tree, threshold)
-    # Filter and return the blocks
-    filtered_blocks = filter_blocks(full_blocks)
-    return filtered_blocks
-
-
 def process_anchors(sub_tree, nodeAnchors, a1, full_blocks, reads, tree, threshold):
     for a2 in nodeAnchors:
         if a1 != a2:
@@ -212,8 +222,8 @@ def update_duplicates(block_duplicates, canonical_tuple, positions_of_path):
 def generate_full_paths(contexts, block_duplicates, full_blocks, tree, threshold):
     for c in contexts:
         if block_duplicates[c] is False:
-            upstream_clusters = cluster_adjacent_paths(contexts[c]["upstream"])
-            downstream_clusters = cluster_adjacent_paths(contexts[c]["downstream"])
+            upstream_clusters = cluster_upstream_adjacent_paths(contexts[c]["upstream"])
+            downstream_clusters = cluster_downstream_adjacent_paths(contexts[c]["downstream"])
             full_paths = build_full_paths(upstream_clusters, downstream_clusters, c)
             update_full_blocks(full_paths, tree, threshold, full_blocks, c)
 
@@ -227,7 +237,7 @@ def update_full_blocks(full_paths, tree, threshold, full_blocks, c):
         reads_with_full_path = set()
         for read_id, path in tree.find_all(f):
             reads_with_full_path.add(read_id.replace("_reverse", ""))
-        if len(reads_with_full_path) >= threshold:
+        if len(reads_with_full_path) > 0:
             full_blocks[tuple(f)] = reads_with_full_path
 
 
