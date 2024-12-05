@@ -2689,13 +2689,10 @@ class GeneMerGraph:
                     nodeAnchors.add(nodeHash)
         return nodeAnchors
 
-    def get_singleton_paths(self, final_paths, nodeAnchors):
-        all_seen_nodes = set()
-        for p in final_paths:
-            all_seen_nodes.update(p)
+    def get_singleton_paths(self, all_seen_nodes, nodeAnchors, final_paths):
         for a in nodeAnchors:
             if a not in all_seen_nodes:
-                final_paths[tuple([a])] = set(self.get_node_by_hash(a).get_list_of_reads())
+                final_paths[tuple(self.get_genes_in_unitig([a]))] = set(self.get_node_by_hash(a).get_list_of_reads())
 
     def get_all_sublists(self, lst):
         # Generate all possible sublists
@@ -2739,31 +2736,24 @@ class GeneMerGraph:
         # Filter and return the blocks
         filtered_blocks = filter_blocks({f: full_blocks[f] for f in gene_blocks})
         final_paths = {}
+        seen_nodes = set()
         for f1 in filtered_blocks:
+            seen_nodes.update(f1)
             differentiating_paths = set()
             if not f1 in gene_blocks:
                 continue
             for o1 in gene_blocks[f1]:
-                # for f2 in filtered_blocks:
-                #     if f2 != f1:
-                #         print(f1, f2)
-                #         if self.is_sublist(self.get_genes_in_unitig(list(f2)), list(o1)) or self.is_sublist(self.get_genes_in_unitig(list(f2)), self.reverse_list_of_genes(list(o1))):
-                #             print(self.get_genes_in_unitig(f2), o1)
                 if not any(
                     self.is_sublist(self.get_genes_in_unitig(list(f2)), list(o1)) \
                         or self.is_sublist(self.get_genes_in_unitig(list(f2)), self.reverse_list_of_genes(list(o1)))
                         for f2 in filtered_blocks if f1 != f2
                     ):
                     differentiating_paths.add(o1)
-            # print(self.get_genes_in_unitig(f1))
-            # for b in gene_blocks[f1]:
-            #     print(b, len(gene_blocks[f1][b]))
-            # print("\n")
             selected_path = sorted(list(differentiating_paths),
                                 key=lambda x: (x.count(f"+{geneOfInterest}") + x.count(f"-{geneOfInterest}"), len(gene_blocks[f1][x]), len(x)),
                                 reverse=True)[0]
             final_paths[selected_path] = gene_blocks[f1][selected_path]
-        return final_paths
+        return final_paths, seen_nodes
 
     def get_paths_for_gene(
         self,
@@ -2774,8 +2764,8 @@ class GeneMerGraph:
         geneOfInterest
     ):
         nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
-        final_paths = self.get_full_paths(node_suffix_tree, self.get_readNodes(), nodeAnchors, threshold, gene_suffix_tree, geneOfInterest)
-        #self.get_singleton_paths(final_paths, nodeAnchors)
+        final_paths, seen_nodes = self.get_full_paths(node_suffix_tree, self.get_readNodes(), nodeAnchors, threshold, gene_suffix_tree, geneOfInterest)
+        self.get_singleton_paths(seen_nodes, nodeAnchors, final_paths)
         final_path_coverages = {}
         for path in final_paths:
             final_path_coverages[path] = [
