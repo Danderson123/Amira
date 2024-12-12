@@ -5,22 +5,27 @@ import statistics
 import subprocess
 import sys
 from collections import Counter, defaultdict, deque
-from itertools import product, combinations
+from itertools import combinations, product
 
 import numpy as np
 import pandas as pd
 import pysam
 import sourmash
 from joblib import Parallel, delayed
-from tqdm import tqdm
 from suffix_tree import Tree
+from tqdm import tqdm
 
 from amira.construct_edge import Edge
 from amira.construct_gene import convert_int_strand_to_string
 from amira.construct_gene_mer import GeneMer
 from amira.construct_node import Node
 from amira.construct_read import Read
-from amira.path_finding_operations import construct_suffix_tree, get_suffixes_from_initial_tree, process_anchors, filter_blocks
+from amira.path_finding_operations import (
+    construct_suffix_tree,
+    filter_blocks,
+    get_suffixes_from_initial_tree,
+    process_anchors,
+)
 
 sys.setrecursionlimit(50000)
 
@@ -693,7 +698,9 @@ class GeneMerGraph:
         removed = set()
         for component in paths_to_remove:
             if component is not None:
-                nodes_in_component = set(self.get_nodes_in_component(component))
+                nodes_in_component = set(
+                    [n.__hash__() for n in self.get_nodes_in_component(component)]
+                )
             else:
                 nodes_in_component = []
             for path in paths_to_remove[component]:
@@ -2692,7 +2699,9 @@ class GeneMerGraph:
     def get_singleton_paths(self, all_seen_nodes, nodeAnchors, final_paths):
         for a in nodeAnchors:
             if a not in all_seen_nodes:
-                final_paths[tuple(self.get_genes_in_unitig([a]))] = set(self.get_node_by_hash(a).get_list_of_reads())
+                final_paths[tuple(self.get_genes_in_unitig([a]))] = len(
+                    set(self.get_node_by_hash(a).get_list_of_reads())
+                )
 
     def get_all_sublists(self, lst):
         # Generate all possible sublists
@@ -2702,7 +2711,7 @@ class GeneMerGraph:
         return sublists
 
     def get_reads_supporting_path(self, path, suffix_tree):
-        #shortest_differentiating_path = f_min_up + full_paths[f]["core"] + f_min_down
+        # shortest_differentiating_path = f_min_up + full_paths[f]["core"] + f_min_down
         reads_with_full_path = set()
         for read_id, path in suffix_tree.find_all(list(path)):
             new_read_id = read_id.replace("_reverse", "")
@@ -2730,7 +2739,7 @@ class GeneMerGraph:
             for s in all_sublists:
                 reads_with_path = self.get_reads_supporting_path(s, gene_tree)
                 if len(reads_with_path) >= threshold:
-                    all_sublists_with_coverages[tuple(s)] = reads_with_path
+                    all_sublists_with_coverages[tuple(s)] = len(reads_with_path)
             if len(all_sublists_with_coverages) > 0:
                 gene_blocks[f] = all_sublists_with_coverages
         # Filter and return the blocks
@@ -2740,37 +2749,47 @@ class GeneMerGraph:
         for f1 in filtered_blocks:
             seen_nodes.update(f1)
             differentiating_paths = set()
-            if not f1 in gene_blocks:
+            if f1 not in gene_blocks:
                 continue
             for o1 in gene_blocks[f1]:
                 if not any(
-                    self.is_sublist(self.get_genes_in_unitig(list(f2)), list(o1)) \
-                        or self.is_sublist(self.get_genes_in_unitig(list(f2)), self.reverse_list_of_genes(list(o1)))
-                        for f2 in filtered_blocks if f1 != f2
-                    ):
+                    self.is_sublist(self.get_genes_in_unitig(list(f2)), list(o1))
+                    or self.is_sublist(
+                        self.get_genes_in_unitig(list(f2)), self.reverse_list_of_genes(list(o1))
+                    )
+                    for f2 in filtered_blocks
+                    if f1 != f2
+                ):
                     differentiating_paths.add(o1)
-            selected_path = sorted(list(differentiating_paths),
-                                key=lambda x: (x.count(f"+{geneOfInterest}") + x.count(f"-{geneOfInterest}"), len(gene_blocks[f1][x]), len(x)),
-                                reverse=True)[0]
-            final_paths[selected_path] = gene_blocks[f1][selected_path]
+            if len(differentiating_paths) > 0:
+                selected_path = sorted(
+                    list(differentiating_paths),
+                    key=lambda x: (
+                        x.count(f"+{geneOfInterest}") + x.count(f"-{geneOfInterest}"),
+                        gene_blocks[f1][x],
+                        len(x),
+                    ),
+                    reverse=True,
+                )[0]
+                final_paths[selected_path] = gene_blocks[f1][selected_path]
         return final_paths, seen_nodes
 
     def get_paths_for_gene(
-        self,
-        node_suffix_tree,
-        gene_suffix_tree,
-        nodeHashesOfInterest,
-        threshold,
-        geneOfInterest
+        self, node_suffix_tree, gene_suffix_tree, nodeHashesOfInterest, threshold, geneOfInterest
     ):
         nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
-        final_paths, seen_nodes = self.get_full_paths(node_suffix_tree, self.get_readNodes(), nodeAnchors, threshold, gene_suffix_tree, geneOfInterest)
+        final_paths, seen_nodes = self.get_full_paths(
+            node_suffix_tree,
+            self.get_readNodes(),
+            nodeAnchors,
+            threshold,
+            gene_suffix_tree,
+            geneOfInterest,
+        )
         self.get_singleton_paths(seen_nodes, nodeAnchors, final_paths)
         final_path_coverages = {}
         for path in final_paths:
-            final_path_coverages[path] = [
-                len(final_paths[path])
-            ]
+            final_path_coverages[path] = [final_paths[path]]
         return final_paths, final_path_coverages
 
     def assign_reads_to_genes(
@@ -2784,25 +2803,28 @@ class GeneMerGraph:
             mean_node_coverage = self.get_mean_node_coverage()
         # construct a suffix tree of the nodes on the reads
         node_suffix_tree = construct_suffix_tree(self.get_readNodes())
-        calls = self.get_reads().copy()
-        rc_reads = {}
-        for r in calls:
-            rc_reads[r + "_reverse"] = self.reverse_list_of_genes(calls[r])
-        calls.update(rc_reads)
-        gene_suffix_tree = Tree(calls)
         # iterate through the genes we are interested in
         for geneOfInterest in tqdm(listOfGenes):
             # get the graph nodes containing this gene
             nodesOfInterest = self.get_nodes_containing(geneOfInterest)
             # get the node hashes containing this gene
             nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+            # build a gene-based suffix tree
+            calls = {
+                r: self.get_reads()[r] for r in self.collect_reads_in_path(nodeHashesOfInterest)
+            }
+            rc_reads = {}
+            for r in calls:
+                rc_reads[r + "_reverse"] = self.reverse_list_of_genes(calls[r])
+            calls.update(rc_reads)
+            gene_suffix_tree = Tree(calls)
             # get the paths containing this gene
             pathsOfInterest, pathCoverages = self.get_paths_for_gene(
                 node_suffix_tree,
                 gene_suffix_tree,
                 nodeHashesOfInterest,
                 mean_node_coverage / 20,
-                geneOfInterest
+                geneOfInterest,
                 # max(5, mean_node_coverage / 20),
             )
             # split the paths into subpaths
@@ -2991,7 +3013,7 @@ class GeneMerGraph:
         output_fasta,
         window_length,
     ):
-        racon_command = f"{racon_path} -t 1 --no-trimming -w {window_length} {input_fasta} "
+        racon_command = f"{racon_path} -u -t 1 --no-trimming -w {window_length} {input_fasta} "
         racon_command += f"{sam_file} {reference_fasta} > {output_fasta}"
         self.run_subprocess(racon_command)
 
@@ -3119,7 +3141,8 @@ class GeneMerGraph:
                 os.path.join(output_dir, "03.sequence_to_polish.fasta"),
                 [f">{valid_allele}\n{valid_allele_sequence[first_base: last_base+1]}"],
             )
-            for _ in range(5):
+            iterations = 5
+            for _ in range(iterations):
                 try:
                     self.racon_one_iteration(
                         output_dir,
@@ -3148,7 +3171,6 @@ class GeneMerGraph:
                         "Amira allele": allele_name,
                         "Number of reads": len(unique_reads),
                     }
-
             bam_file = self.map_reads(
                 output_dir,
                 os.path.join(output_dir, "01.reference_alleles.fasta"),

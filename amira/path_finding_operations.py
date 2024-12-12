@@ -7,6 +7,7 @@ def is_sublist(long_list, sub_list):
     len_sub = len(sub_list)
     return any(sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1))
 
+
 def cluster_downstream_adjacent_paths(adjacent_paths):
     # sort the subpaths from longest to shortest
     sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
@@ -17,7 +18,7 @@ def cluster_downstream_adjacent_paths(adjacent_paths):
         paths_supported = []
         for c in clustered_sub_paths:
             list_c = list(c)
-            if list_p and list_p == list_c[:len(list_p)]:
+            if list_p and list_p == list_c[: len(list_p)]:
                 paths_supported.append(c)
             elif not list_p:
                 paths_supported.append(c)
@@ -34,6 +35,7 @@ def cluster_downstream_adjacent_paths(adjacent_paths):
         }
     return final_clusters
 
+
 def cluster_upstream_adjacent_paths(adjacent_paths):
     # sort the subpaths from longest to shortest
     sorted_paths = sorted([k for k in adjacent_paths], key=len, reverse=True)
@@ -44,7 +46,7 @@ def cluster_upstream_adjacent_paths(adjacent_paths):
         paths_supported = []
         for c in clustered_sub_paths:
             list_c = list(c)
-            if list_p and list_p == list_c[-len(list_p):]:
+            if list_p and list_p == list_c[-len(list_p) :]:
                 paths_supported.append(c)
             elif not list_p:
                 paths_supported.append(c)
@@ -187,6 +189,7 @@ def get_start_stop_indices(binary_list):
     if start is not None:
         indices.append((start, len(binary_list) - 1))
     return indices
+
 
 def process_anchors(sub_tree, nodeAnchors, a1, full_blocks, reads, tree, threshold):
     for a2 in nodeAnchors:

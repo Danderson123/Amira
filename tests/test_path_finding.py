@@ -1,12 +1,10 @@
 import unittest
 
-from amira.construct_graph import GeneMerGraph
-from amira.path_finding_operations import (
-    cluster_upstream_adjacent_paths,
-    cluster_downstream_adjacent_paths,
-    construct_suffix_tree,
-)
 from suffix_tree import Tree
+
+from amira.construct_graph import GeneMerGraph
+from amira.path_finding_operations import cluster_upstream_adjacent_paths, construct_suffix_tree
+
 
 class TestPathFindingConstructor(unittest.TestCase):
 
@@ -44,7 +42,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 1)
         for k in full_blocks:
@@ -74,7 +74,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 1)
         for k in full_blocks:
@@ -110,7 +112,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 1)
         for k in full_blocks:
@@ -151,7 +155,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 1)
         for k in full_blocks:
@@ -188,7 +194,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -240,7 +248,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -309,7 +319,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaCMY54NG_0488491")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaCMY54NG_0488491"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -380,7 +392,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaCMY54NG_0488491")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaCMY54NG_0488491"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -406,7 +420,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene7")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene7"
+        )
         # assertion
         self.assertEqual(len(nodeAnchors), 1)
         self.assertEqual(len(full_blocks), 0)
@@ -424,7 +440,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
+        full_blocks, _ = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1)
         graph.get_singleton_paths(full_blocks, nodeAnchors)
         # assertion
         self.assertEqual(len(nodeAnchors), 1)
@@ -479,7 +495,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 2, gene_tree, "gene7")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 2, gene_tree, "gene7"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -552,7 +570,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene5")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene5"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 3)
         for k in full_blocks:
@@ -600,7 +620,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 1)
         for k in full_blocks:
@@ -633,7 +655,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "mphANG_0479861")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "mphANG_0479861"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -698,7 +722,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene8")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene8"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
@@ -729,7 +755,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaCTXM110NG_0489052")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaCTXM110NG_0489052"
+        )
         # assertion
         for k in full_blocks:
             print(k, len(k), len(full_blocks[k]))
@@ -760,7 +788,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaTEM239NG_0766451")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "blaTEM239NG_0766451"
+        )
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for f in full_blocks:
@@ -876,7 +906,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4")
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 1, gene_tree, "gene4"
+        )
         self.assertEqual(len(full_blocks), 2)
         for f in full_blocks:
             self.assertTrue(len(f) == 9 or len(f) == 8)
@@ -906,7 +938,9 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks = graph.get_full_paths(tree, graph.get_readNodes(), nodeAnchors, 8, gene_tree, geneOfInterest)
+        full_blocks, _ = graph.get_full_paths(
+            tree, graph.get_readNodes(), nodeAnchors, 8, gene_tree, geneOfInterest
+        )
         # assertion
         self.assertEqual(len(full_blocks), 1)
         for f in full_blocks:
@@ -925,7 +959,7 @@ class TestPathFindingConstructor(unittest.TestCase):
             (3, 4): {"read8"},
         }
         # execution
-        actual_clusters = cluster_adjacent_paths(adjacent_paths)
+        actual_clusters = cluster_upstream_adjacent_paths(adjacent_paths)
         # assertion
         self.assertEqual(len(actual_clusters), 3)
         print(actual_clusters)
@@ -942,7 +976,7 @@ class TestPathFindingConstructor(unittest.TestCase):
             (2, 3, 4, 7, 8, 9, 10): {"read8"},
         }
         # execution
-        actual_clusters = cluster_adjacent_paths(adjacent_paths)
+        actual_clusters = cluster_upstream_adjacent_paths(adjacent_paths)
         # assertion
         self.assertEqual(len(actual_clusters), 3)
         self.assertTrue((0, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
