@@ -4573,8 +4573,17 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("gene5")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
+        reads_with_gene = graph.collect_reads_in_path(nodeHashesOfInterest)
+        gene_call_subset = {
+            r: graph.get_reads()[r] for r in reads_with_gene
+        }
+        rc_reads = {}
+        for r in gene_call_subset:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(gene_call_subset[r])
+        gene_call_subset.update(rc_reads)
         suffix_tree = construct_suffix_tree(graph.get_readNodes())
-        paths, path_coverages = graph.get_paths_for_gene(suffix_tree, nodeHashesOfInterest, 1)
+        paths, path_coverages = graph.get_paths_for_gene(suffix_tree, gene_call_subset, nodeHashesOfInterest, 1, "gene5", 1)
+
         # execution
         actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages)
         # assertion
@@ -4633,9 +4642,16 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         nodesOfInterest = graph.get_nodes_containing("gene5")
         nodeHashesOfInterest = [n.__hash__() for n in nodesOfInterest]
-        # construct a suffix tree of the nodes on the reads
+        reads_with_gene = graph.collect_reads_in_path(nodeHashesOfInterest)
+        gene_call_subset = {
+            r: graph.get_reads()[r] for r in reads_with_gene
+        }
+        rc_reads = {}
+        for r in gene_call_subset:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(gene_call_subset[r])
+        gene_call_subset.update(rc_reads)
         suffix_tree = construct_suffix_tree(graph.get_readNodes())
-        paths, path_coverages = graph.get_paths_for_gene(suffix_tree, nodeHashesOfInterest, 1)
+        paths, path_coverages = graph.get_paths_for_gene(suffix_tree, gene_call_subset, nodeHashesOfInterest, 1, "gene5", 1)
         # execution
         actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages)
         # assertion
@@ -5295,12 +5311,22 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         ]:
             nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
         nodeHashesOfInterest = set([n.__hash__() for n in nodesOfInterest])
+        reads_with_gene = graph.collect_reads_in_path(nodeHashesOfInterest)
+        gene_call_subset = {
+            r: graph.get_reads()[r] for r in reads_with_gene
+        }
+        rc_reads = {}
+        for r in gene_call_subset:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(gene_call_subset[r])
+        gene_call_subset.update(rc_reads)
         # execution
         suffix_tree = construct_suffix_tree(graph.get_readNodes())
-        paths, path_coverages = graph.get_paths_for_gene(suffix_tree, nodeHashesOfInterest, 1)
+        paths, path_coverages = graph.get_paths_for_gene(suffix_tree, gene_call_subset, nodeHashesOfInterest, 1, geneOfInterest, 1)
         # assertion
+        for p in paths:
+            print(p, paths[p])
         self.assertEqual(len(paths), 4)
-        self.assertTrue(all(len(paths[p]) in {112, 79, 121, 133} for p in paths))
+        self.assertTrue(all(paths[p] in {112, 79, 121, 133} for p in paths))
 
     def test___correct_low_coverage_paths(self):
         # setup

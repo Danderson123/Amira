@@ -2736,12 +2736,6 @@ class GeneMerGraph:
         args_list = [(i, threshold, geneOfInterest, lst, gene_call_subset) for i in range(1, len(lst) + 1)]
         with Pool(processes=cores) as pool:
             results = pool.map(process_combinations_for_i, args_list)
-        # with Pool(processes=cores) as pool:
-        #     # Use tqdm with pool.imap_unordered for progress tracking
-        #     results = []
-        #     for result in tqdm(pool.imap_unordered(process_combinations_for_i, args_list), total=len(args_list)):
-        #         results.append(result)
-        # Collect results from all workers
         for i_result in results:
             for sub_list in i_result:
                 if sub_list:
