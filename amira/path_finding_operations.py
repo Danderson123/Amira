@@ -1,4 +1,5 @@
 from suffix_tree import Tree
+from itertools import combinations
 
 
 def is_sublist(long_list, sub_list):
@@ -34,7 +35,6 @@ def cluster_downstream_adjacent_paths(adjacent_paths):
             "all": list(clustered_sub_paths[c]),
         }
     return final_clusters
-
 
 def cluster_upstream_adjacent_paths(adjacent_paths):
     # sort the subpaths from longest to shortest
@@ -280,3 +280,24 @@ def filter_anchor_suffixes(anchor_suffixes, threshold):
                     filtered_anchor_suffixes[a] = {}
                 filtered_anchor_suffixes[a][f] = anchor_suffixes[a][f]
     return filtered_anchor_suffixes
+
+
+def get_reads_supporting_path(path, gene_tree):
+    reads_with_full_path = set()
+    for read_id, path in gene_tree.find_all(list(path)):
+        new_read_id = read_id.replace("_reverse", "")
+        reads_with_full_path.add(new_read_id)
+    return reads_with_full_path
+
+def process_combinations_for_i(args):
+    """Process all combinations for a specific i."""
+    i, threshold, geneOfInterest, lst, gene_call_subset = args
+    # build a gene-based suffix tree
+    gene_tree = Tree(gene_call_subset)
+    local_sublists = {}
+    for comb in combinations(lst, i):
+        if any(item in {f"+{geneOfInterest}", f"-{geneOfInterest}"} for item in comb):
+            reads_with_path = get_reads_supporting_path(comb, gene_tree)
+            if len(reads_with_path) >= threshold:
+                local_sublists[comb] = len(reads_with_path)
+    return local_sublists

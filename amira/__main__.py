@@ -166,6 +166,13 @@ def get_options() -> argparse.Namespace:
         default=False,
         help="Prevent trimming of the graph.",
     )
+    parser.add_argument(
+        "--component-fastqs",
+        dest="output_components",
+        action="store_true",
+        default=False,
+        help="Output FASTQs of the reads for each connected component in the graph.",
+    )
     parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
     if args.pandoraJSON and not args.gene_positions:
@@ -399,16 +406,17 @@ def main() -> None:
         1,
     )
     # write out a fastq of the reads in each connected component
-    if not os.path.exists(os.path.join(args.output_dir, "component_fastqs")):
-        os.mkdir(os.path.join(args.output_dir, "component_fastqs"))
-    for component in graph.components():
-        node_hashes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
-        reads_in_component = graph.collect_reads_in_path(node_hashes_in_component)
-        component_fastq_data = {r: fastq_content[r] for r in reads_in_component}
-        write_fastq(
-            os.path.join(args.output_dir, "component_fastqs", f"{component}.fastq.gz"),
-            component_fastq_data,
-        )
+    if args.output_components is True:
+        if not os.path.exists(os.path.join(args.output_dir, "component_fastqs")):
+            os.mkdir(os.path.join(args.output_dir, "component_fastqs"))
+        for component in graph.components():
+            node_hashes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
+            reads_in_component = graph.collect_reads_in_path(node_hashes_in_component)
+            component_fastq_data = {r: fastq_content[r] for r in reads_in_component}
+            write_fastq(
+                os.path.join(args.output_dir, "component_fastqs", f"{component}.fastq.gz"),
+                component_fastq_data,
+            )
     # assign reads to AMR genes by path
     if not args.quiet:
         sys.stderr.write("\nAmira: clustering reads\n")
@@ -421,7 +429,7 @@ def main() -> None:
     ) = process_reads(
         graph,
         sample_genesOfInterest,
-        fastq_content,
+        args.cores,
         short_reads,
         short_read_gene_positions,
         overall_mean_node_coverage,
