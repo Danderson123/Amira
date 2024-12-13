@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.3.1](https://github.com/Danderson123/Amira/compare/v0.3.0...v0.3.1) (2024-11-18)
+
+
+### Build System
+
+* **deps:** bump tqdm from 4.64.1 to 4.66.3 ([b4d9b4f](https://github.com/Danderson123/Amira/commit/b4d9b4fb9814a0bb343fba395451cf95a4c1a9fe))
+* **deps:** bump tqdm from 4.64.1 to 4.66.3 ([ee877f1](https://github.com/Danderson123/Amira/commit/ee877f1d1c4ef0732af88bea88b4d7e358787416))
+
+## [0.3.0](https://github.com/Danderson123/Amira/compare/v0.2.0...v0.3.0) (2024-11-18)
+
+
+### Miscellaneous Chores
+
+* version bump ([04b1bef](https://github.com/Danderson123/Amira/commit/04b1beffc4618dc42c33b103a56dbb3c70242185))
+
+
+### Documentation
+
+* add citation placeholder ([0e1168e](https://github.com/Danderson123/Amira/commit/0e1168e6347d47a9386f32b79d2c538afebb44d6))
+
+
+### Features
+
+* use suffix trees to obtain all paths that span from the start of a block of AMR genes to the end ([db6eb3c](https://github.com/Danderson123/Amira/commit/db6eb3c717227653485084b7c8a943261a0be31c))
+
+
+### Bug Fixes
+
+* supplement full paths with singleton nodes ([7f6e028](https://github.com/Danderson123/Amira/commit/7f6e028ce44ab3b1a3c373480e0c45d36f3b90af))
+
+
+### Code Refactoring
+
+* import modularity of graph operations ([a2ebde5](https://github.com/Danderson123/Amira/commit/a2ebde5ddf53e7dd7b56d3f928548d58c180f047))
+* improve modularity of read operations ([425370a](https://github.com/Danderson123/Amira/commit/425370aaa52b344a8ee8ae87f307c50451ad89a7))
+* improve modularity of result operations ([747276f](https://github.com/Danderson123/Amira/commit/747276f47ae5d117e69ee3a3a6faee7544ec18f4))
+
+
+### Styles
+
+* pre-commit reformatting ([580064a](https://github.com/Danderson123/Amira/commit/580064a5456c3dd1b2056744944c28e0d14f4cc4))
+
+
+### Tests
+
+* add missing test files ([aa552a1](https://github.com/Danderson123/Amira/commit/aa552a18dfa760c7a7fc6f34bcd2d6064f0e40c6))
+
 ## [0.2.0](https://github.com/Danderson123/Amira/compare/v0.1.0...v0.2.0) (2024-11-06)
 
 
