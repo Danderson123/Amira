@@ -295,10 +295,11 @@ def process_combinations_for_i(args):
     # build a gene-based suffix tree
     gene_tree = Tree(gene_call_subset)
     local_sublists = {}
-    gene_set = {f"+{geneOfInterest}", f"-{geneOfInterest}"}
+    lst_count = lst.count(f"+{geneOfInterest}") + lst.count(f"-{geneOfInterest}")
     for start in range(len(lst) - i + 1):
         comb = tuple(lst[start:start + i])
-        if any(item in gene_set for item in comb):
+        comb_count = comb.count(f"+{geneOfInterest}") + comb.count(f"-{geneOfInterest}")
+        if comb_count == lst_count:
             reads_with_path = get_reads_supporting_path(comb, gene_tree)
             if len(reads_with_path) >= threshold:
                 local_sublists[comb] = len(reads_with_path)
