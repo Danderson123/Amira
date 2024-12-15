@@ -36,14 +36,14 @@ def calculate_cluster_copy_numbers(clusters_to_add, overall_mean_node_coverage):
 def process_reads(
     graph,
     sample_genesOfInterest,
-    fastq_content,
+    cores,
     short_reads,
     short_read_gene_positions,
     overall_mean_node_coverage,
 ):
     # Step 1: Assign reads to genes
     clusters_of_interest, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
-        sample_genesOfInterest, fastq_content, {}, overall_mean_node_coverage
+        sample_genesOfInterest, cores, {}, overall_mean_node_coverage
     )
     # Step 2: Get the unique genes found in clusters of interest
     found_genes_of_interest = get_found_genes(clusters_of_interest)

@@ -142,9 +142,7 @@ def iterative_bubble_popping(
     prev_nodes = 0
     components_to_skip = set()
     for this_iteration in range(cleaning_iterations):
-        sys.stderr.write(
-            f"\nAmira: running graph cleaning iteration {this_iteration+1}/{cleaning_iterations}\n"
-        )
+        sys.stderr.write(f"\nAmira: running graph cleaning iteration {this_iteration+1}\n")
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )
@@ -152,6 +150,12 @@ def iterative_bubble_popping(
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
+        )
+        graph.generate_gml(
+            os.path.join(output_dir, f"pre_iterative_correction_{this_iteration}"),
+            geneMer_size,
+            node_min_coverage,
+            1,
         )
         # check if the current number of nodes is equal to the previous number of nodes
         if len(graph.get_nodes()) == prev_nodes:
@@ -172,7 +176,7 @@ def iterative_bubble_popping(
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
         graph.generate_gml(
-            os.path.join(output_dir, "intermediate_graph"),
+            os.path.join(output_dir, f"intermediate_graph_{this_iteration}"),
             geneMer_size,
             node_min_coverage,
             1,
