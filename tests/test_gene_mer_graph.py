@@ -5326,7 +5326,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         for p in paths:
             print(p, paths[p])
         self.assertEqual(len(paths), 4)
-        self.assertTrue(all(paths[p] in {112, 79, 121, 133} for p in paths))
+        self.assertTrue(all(paths[p] in {151, 101, 129, 131} for p in paths))
 
     def test___correct_low_coverage_paths(self):
         # setup

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "amira-amr"
-version = "0.4.5"
+version = "0.4.0"
 description = "Amira"
 authors = ["Daniel Anderson <dander@ebi.ac.uk>"]
 license = "Apache-2.0"
