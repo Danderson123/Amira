@@ -1,5 +1,4 @@
 from suffix_tree import Tree
-from itertools import combinations
 
 
 def is_sublist(long_list, sub_list):
@@ -35,6 +34,7 @@ def cluster_downstream_adjacent_paths(adjacent_paths):
             "all": list(clustered_sub_paths[c]),
         }
     return final_clusters
+
 
 def cluster_upstream_adjacent_paths(adjacent_paths):
     # sort the subpaths from longest to shortest
@@ -289,6 +289,7 @@ def get_reads_supporting_path(path, gene_tree):
         reads_with_full_path.add(new_read_id)
     return reads_with_full_path
 
+
 def process_combinations_for_i(args):
     """Process all combinations for a specific i."""
     i, threshold, geneOfInterest, lst, gene_call_subset = args
@@ -297,7 +298,7 @@ def process_combinations_for_i(args):
     local_sublists = {}
     lst_count = lst.count(f"+{geneOfInterest}") + lst.count(f"-{geneOfInterest}")
     for start in range(len(lst) - i + 1):
-        comb = tuple(lst[start:start + i])
+        comb = tuple(lst[start : start + i])
         comb_count = comb.count(f"+{geneOfInterest}") + comb.count(f"-{geneOfInterest}")
         if comb_count == lst_count:
             reads_with_path = get_reads_supporting_path(comb, gene_tree)

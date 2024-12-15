@@ -6,7 +6,7 @@ import subprocess
 import sys
 from collections import Counter, defaultdict, deque
 from itertools import combinations, product
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,7 @@ from amira.path_finding_operations import (
     filter_blocks,
     get_suffixes_from_initial_tree,
     process_anchors,
-    process_combinations_for_i
+    process_combinations_for_i,
 )
 
 sys.setrecursionlimit(50000)
@@ -2733,7 +2733,9 @@ class GeneMerGraph:
     def get_all_sublists(self, lst, gene_call_subset, threshold, geneOfInterest, cores):
         """Generate all sublists meeting the threshold criterion."""
         sublists = {}
-        args_list = [(i, threshold, geneOfInterest, lst, gene_call_subset) for i in range(1, len(lst) + 1)]
+        args_list = [
+            (i, threshold, geneOfInterest, lst, gene_call_subset) for i in range(1, len(lst) + 1)
+        ]
         with Pool(processes=cores) as pool:
             results = pool.map(process_combinations_for_i, args_list)
         for i_result in results:
@@ -2742,7 +2744,9 @@ class GeneMerGraph:
                     sublists[sub_list] = i_result[sub_list]
         return sublists
 
-    def get_full_paths(self, node_tree, reads, nodeAnchors, threshold, gene_call_subset, geneOfInterest, cores):
+    def get_full_paths(
+        self, node_tree, reads, nodeAnchors, threshold, gene_call_subset, geneOfInterest, cores
+    ):
         # Store full and partial blocks using the suffix tree
         full_blocks = {}
         # Iterate through the anchors
@@ -2758,7 +2762,9 @@ class GeneMerGraph:
         gene_blocks = {}
         for f in full_blocks:
             genes_in_path = self.get_genes_in_unitig(f)
-            all_sublists_with_coverages = self.get_all_sublists(genes_in_path, gene_call_subset, threshold, geneOfInterest, cores)
+            all_sublists_with_coverages = self.get_all_sublists(
+                genes_in_path, gene_call_subset, threshold, geneOfInterest, cores
+            )
             if len(all_sublists_with_coverages) > 0:
                 gene_blocks[f] = all_sublists_with_coverages
         # Filter and return the blocks
@@ -2794,7 +2800,13 @@ class GeneMerGraph:
         return final_paths, seen_nodes
 
     def get_paths_for_gene(
-        self, node_suffix_tree, gene_call_subset, nodeHashesOfInterest, threshold, geneOfInterest, cores
+        self,
+        node_suffix_tree,
+        gene_call_subset,
+        nodeHashesOfInterest,
+        threshold,
+        geneOfInterest,
+        cores,
     ):
         nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
         final_paths, seen_nodes = self.get_full_paths(
@@ -2804,7 +2816,7 @@ class GeneMerGraph:
             threshold,
             gene_call_subset,
             geneOfInterest,
-            cores
+            cores,
         )
         self.get_singleton_paths(seen_nodes, nodeAnchors, final_paths)
         final_path_coverages = {}
@@ -2830,11 +2842,11 @@ class GeneMerGraph:
             # get the reads containing the gene
             reads_with_gene = self.collect_reads_in_path(nodeHashesOfInterest)
             # construct a suffix tree of the nodes on the reads
-            node_suffix_tree = construct_suffix_tree({r: self.get_readNodes()[r] for r in reads_with_gene})
+            node_suffix_tree = construct_suffix_tree(
+                {r: self.get_readNodes()[r] for r in reads_with_gene}
+            )
             # build a gene-based suffix tree
-            gene_call_subset = {
-                r: self.get_reads()[r] for r in reads_with_gene
-            }
+            gene_call_subset = {r: self.get_reads()[r] for r in reads_with_gene}
             rc_reads = {}
             for r in gene_call_subset:
                 rc_reads[r + "_reverse"] = self.reverse_list_of_genes(gene_call_subset[r])
@@ -2846,7 +2858,7 @@ class GeneMerGraph:
                 nodeHashesOfInterest,
                 mean_node_coverage / 20,
                 geneOfInterest,
-                cores
+                cores,
                 # max(5, mean_node_coverage / 20),
             )
             # split the paths into subpaths

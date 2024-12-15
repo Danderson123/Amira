@@ -142,9 +142,7 @@ def iterative_bubble_popping(
     prev_nodes = 0
     components_to_skip = set()
     for this_iteration in range(cleaning_iterations):
-        sys.stderr.write(
-            f"\nAmira: running graph cleaning iteration {this_iteration+1}\n"
-        )
+        sys.stderr.write(f"\nAmira: running graph cleaning iteration {this_iteration+1}\n")
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )

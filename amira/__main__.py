@@ -410,7 +410,9 @@ def main() -> None:
         if not os.path.exists(os.path.join(args.output_dir, "component_fastqs")):
             os.mkdir(os.path.join(args.output_dir, "component_fastqs"))
         for component in graph.components():
-            node_hashes_in_component = [n.__hash__() for n in graph.get_nodes_in_component(component)]
+            node_hashes_in_component = [
+                n.__hash__() for n in graph.get_nodes_in_component(component)
+            ]
             reads_in_component = graph.collect_reads_in_path(node_hashes_in_component)
             component_fastq_data = {r: fastq_content[r] for r in reads_in_component}
             write_fastq(
