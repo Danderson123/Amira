@@ -2698,12 +2698,15 @@ class GeneMerGraph:
                     nodeAnchors.add(nodeHash)
         return nodeAnchors
 
-    def get_singleton_paths(self, all_seen_nodes, nodeAnchors, final_paths):
+    def get_singleton_paths(self, all_seen_nodes, nodeAnchors, final_paths, final_path_coverages):
         for a in nodeAnchors:
             if a not in all_seen_nodes:
                 final_paths[tuple(self.get_genes_in_unitig([a]))] = len(
                     set(self.get_node_by_hash(a).get_list_of_reads())
                 )
+                final_path_coverages[tuple(self.get_genes_in_unitig([a]))] = [
+                    self.get_node_by_hash(a).get_node_coverage()
+                ]
 
     def get_reads_supporting_path(self, path, suffix_tree):
         # shortest_differentiating_path = f_min_up + full_paths[f]["core"] + f_min_down
@@ -2770,6 +2773,7 @@ class GeneMerGraph:
         # Filter and return the blocks
         filtered_blocks = filter_blocks({f: full_blocks[f] for f in gene_blocks})
         final_paths = {}
+        final_path_coverages = {}
         seen_nodes = set()
         for f1 in filtered_blocks:
             seen_nodes.update(f1)
@@ -2797,7 +2801,10 @@ class GeneMerGraph:
                     reverse=True,
                 )[0]
                 final_paths[selected_path] = gene_blocks[f1][selected_path]
-        return final_paths, seen_nodes
+                final_path_coverages[selected_path] = [
+                    self.get_node_by_hash(n).get_node_coverage() for n in list(f1)
+                ]
+        return final_paths, seen_nodes, final_path_coverages
 
     def get_paths_for_gene(
         self,
@@ -2809,7 +2816,7 @@ class GeneMerGraph:
         cores,
     ):
         nodeAnchors = self.get_AMR_anchors(nodeHashesOfInterest)
-        final_paths, seen_nodes = self.get_full_paths(
+        final_paths, seen_nodes, final_path_coverages = self.get_full_paths(
             node_suffix_tree,
             self.get_readNodes(),
             nodeAnchors,
@@ -2818,10 +2825,7 @@ class GeneMerGraph:
             geneOfInterest,
             cores,
         )
-        self.get_singleton_paths(seen_nodes, nodeAnchors, final_paths)
-        final_path_coverages = {}
-        for path in final_paths:
-            final_path_coverages[path] = [final_paths[path]]
+        self.get_singleton_paths(seen_nodes, nodeAnchors, final_paths, final_path_coverages)
         return final_paths, final_path_coverages
 
     def assign_reads_to_genes(

@@ -39,7 +39,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -76,7 +76,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -119,7 +119,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -167,7 +167,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -211,7 +211,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -270,7 +270,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -346,7 +346,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -424,7 +424,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -457,7 +457,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -488,7 +488,7 @@ class TestPathFindingConstructor(unittest.TestCase):
             rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
         calls.update(rc_reads)
         # execution
-        full_blocks, seen_nodes = graph.get_full_paths(
+        full_blocks, seen_nodes, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -497,7 +497,7 @@ class TestPathFindingConstructor(unittest.TestCase):
             "gene7",
             1,
         )
-        graph.get_singleton_paths(seen_nodes, nodeAnchors, full_blocks)
+        graph.get_singleton_paths(seen_nodes, nodeAnchors, full_blocks, full_block_coverages)
         # assertion
         self.assertEqual(len(nodeAnchors), 1)
         self.assertEqual(len(full_blocks), 1)
@@ -550,7 +550,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -630,7 +630,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -685,7 +685,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -725,7 +725,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -797,7 +797,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -835,7 +835,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -871,7 +871,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -994,7 +994,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
@@ -1031,7 +1031,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         node_mapping = {n.__hash__(): n for n in nodesOfInterest}
         nodeAnchors = graph.get_AMR_anchors(node_mapping)
         # execution
-        full_blocks, _ = graph.get_full_paths(
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
             nodeAnchors,
