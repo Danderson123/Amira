@@ -2201,7 +2201,7 @@ class GeneMerGraph:
             for read in node.get_reads():
                 indices = [i for i, n in enumerate(self.get_readNodes()[read]) if n == node_hash]
                 positions = [self.get_readNodePositions()[read][i] for i in indices]
-                entire_read_sequence = fastq_data[read.split("_")[0]]["sequence"]
+                entire_read_sequence = fastq_data["_".join(read.split("_"))[:-1]]["sequence"]
                 for p in positions:
                     minhash.add_sequence(entire_read_sequence[p[0] : p[1] + 1], force=True)
             node_minhashes[node_hash] = minhash

@@ -275,6 +275,7 @@ def main() -> None:
         sys.exit(0)
     # load the fastq data
     fastq_content = parse_fastq(args.readfile)
+    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # write out debug files if specified
     if args.debug:
         plot_read_length_distribution(annotatedReads, args.output_dir)
