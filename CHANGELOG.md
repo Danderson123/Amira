@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Danderson123/Amira/compare/v0.4.0...v0.4.1) (2024-12-16)
+
+
+### Bug Fixes
+
+* use node-space path to estimate copy number in context ([1f58801](https://github.com/Danderson123/Amira/commit/1f58801ecccbec8347102009bc09e3a2df8a7e67))
+
 ## [0.4.0](https://github.com/Danderson123/Amira/compare/v0.3.1...v0.4.0) (2024-12-15)
 
 
