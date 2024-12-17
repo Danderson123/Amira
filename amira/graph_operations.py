@@ -1,4 +1,3 @@
-import os
 import statistics
 import sys
 
@@ -210,8 +209,8 @@ def plot_node_coverages(unitig_coverages, filename):
         align="center",
     )
     plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
-    plt.title("Histogram of mean unitig coverages with Smoothed Curve")
-    plt.xlabel("Unitig Coverage")
+    plt.title("Histogram of mean node coverages")
+    plt.xlabel("Node Coverage")
     plt.ylabel("Log of absolute frequency")
     plt.xlim([0, max(x_values) + 5])
     plt.legend()
