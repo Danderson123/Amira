@@ -516,10 +516,11 @@ def main() -> None:
         axis=1,
     )
     # get the component of each allele
-    result_df["Component ID"] = result_df.apply(
-        lambda row: allele_component_mapping[row["Amira allele"]],
-        axis=1,
-    )
+    if args.output_components is True:
+        result_df["Component ID"] = result_df.apply(
+            lambda row: allele_component_mapping[row["Amira allele"]],
+            axis=1,
+        )
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     for index, row in result_df.iterrows():

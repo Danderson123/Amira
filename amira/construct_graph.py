@@ -2716,23 +2716,6 @@ class GeneMerGraph:
             reads_with_full_path.add(new_read_id)
         return reads_with_full_path
 
-    def old_get_all_sublists(self, lst, gene_tree, threshold, geneOfInterest):
-        # Store sublists with their counts
-        sublists = {}
-        # Precompute supporting reads for all combinations
-        for i in range(len(lst), 0, -1):
-            for comb in combinations(lst, i):
-                # check if the AMR gene is in this subpath
-                if comb not in sublists:
-                    if any(item in {f"+{geneOfInterest}", f"-{geneOfInterest}"} for item in comb):
-                        # seen_sublists.add(comb)
-                        # Get reads supporting this path
-                        reads_with_path = self.get_reads_supporting_path(comb, gene_tree)
-                        # Only store if it meets the threshold
-                        if len(reads_with_path) >= threshold:
-                            sublists[comb] = len(reads_with_path)
-        return sublists
-
     def get_all_sublists(self, lst, gene_call_subset, threshold, geneOfInterest, cores):
         """Generate all sublists meeting the threshold criterion."""
         sublists = {}
