@@ -674,10 +674,10 @@ def genotype_promoters(
                 promoter_result["Component ID"] = row["Component ID"]
             if isinstance(promoter_result["Identity (%)"], float) or isinstance(promoter_result["Identity (%)"], int):
                 if float(promoter_result["Identity (%)"]) == 100:
-                    new_row = pd.DataFrame(promoter_result, index=[0])
+                    new_row = pd.DataFrame([promoter_result])
                     result_df = pd.concat([result_df, new_row], ignore_index=True)
             else:
                 if any(float(i) == 100 for i in promoter_result["Identity (%)"].split("/")):
-                    new_row = pd.DataFrame(promoter_result, index=[0])
+                    new_row = pd.DataFrame([promoter_result])
                     result_df = pd.concat([result_df, new_row], ignore_index=True)
     return result_df
