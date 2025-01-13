@@ -672,7 +672,7 @@ def genotype_promoters(
             promoter_result["Approximate copy number"] = row["Approximate copy number"]
             if output_components is True:
                 promoter_result["Component ID"] = row["Component ID"]
-            if "/" not in promoter_result["Identity (%)"]:
+            if isinstance(promoter_result["Identity (%)"], float):
                 if float(promoter_result["Identity (%)"]) == 100:
                     new_row = pd.DataFrame(promoter_result)
                     result_df = pd.concat([result_df, new_row], ignore_index=True)
