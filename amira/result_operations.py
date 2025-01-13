@@ -653,7 +653,6 @@ def genotype_promoters(
             shutil.copyfile(
                 os.path.join(
                     output_dir,
-                    "AMR_allele_fastqs",
                     row["Amira allele"],
                     f"{row['Amira allele']}.fastq.gz",
                 ),
