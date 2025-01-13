@@ -222,21 +222,36 @@ def convert_pandora_output(
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
 
 
-def process_reference_alleles(path_to_interesting_genes):
+def process_reference_alleles(path_to_interesting_genes, promoters):
     # import the list of genes of interest
     with open(path_to_interesting_genes, "r") as i:
         reference_content = i.read().split(">")[1:]
-    genesOfInterest = set()
     reference_alleles = {}
+    genesOfInterest = set()
+    promoter_alleles = []
     for allele in reference_content:
         newline_split = allele.split("\n")
         assert (
             newline_split[0].count(";") == 1
         ), "Reference FASTA headers can only contain 1 semicolon"
         gene_name, allele_name = newline_split[0].split(";")
-        genesOfInterest.add(gene_name)
         sequence = "".join(newline_split[1:])
+        if "promoter" in gene_name:
+            promoter_alleles.append((gene_name.replace("_promoter", ""), allele_name, sequence))
+            continue
+        genesOfInterest.add(gene_name)
         if gene_name not in reference_alleles:
             reference_alleles[gene_name] = {}
         reference_alleles[gene_name][allele_name] = sequence
+    # if promoters are specified then add them
+    if promoters is True:
+        promoters_to_add = {}
+        for gene_name in reference_alleles:
+            for promoter_allele in promoter_alleles:
+                if promoter_allele[0] in gene_name:
+                    promoter_name = gene_name + "_promoter"
+                    if promoter_name not in promoters_to_add:
+                        promoters_to_add[promoter_name] = {}
+                    promoters_to_add[promoter_name][promoter_allele[1]] = promoter_allele[2]
+        reference_alleles.update(promoters_to_add)
     return reference_alleles, genesOfInterest
