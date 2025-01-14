@@ -639,6 +639,7 @@ def get_causative_SNPs(ref_allele_fasta):
                 causative_SNPs[header].append((i, seq[i]))
     return causative_SNPs
 
+
 def check_SNP_presence(i, ref_base, ref_positions, final_sequence):
     # get the corresponding index in the read sequence
     if i not in ref_positions:
@@ -648,6 +649,7 @@ def check_SNP_presence(i, ref_base, ref_positions, final_sequence):
     read_base = final_sequence[read_index]
     # check if the read base is the same as the ref base
     return ref_base == read_base
+
 
 def genotype_promoters(
     result_df,
@@ -684,7 +686,7 @@ def genotype_promoters(
                 allele_file,
             )
             # get the closest promoter allele
-            promoter_result = compare_reads_to_references(
+            compare_reads_to_references(
                 allele_file,
                 output_dir,
                 reference_alleles,
@@ -695,9 +697,13 @@ def genotype_promoters(
                 minimap2_path,
             )
             # get the causative SNPs from the references
-            causative_SNPs = get_causative_SNPs(os.path.join(output_dir, promoter_allele_name, "01.reference_alleles.fasta"))
+            causative_SNPs = get_causative_SNPs(
+                os.path.join(output_dir, promoter_allele_name, "01.reference_alleles.fasta")
+            )
             # import the final sequence
-            with open(os.path.join(output_dir, promoter_allele_name, "06.final_sequence.fasta")) as i:
+            with open(
+                os.path.join(output_dir, promoter_allele_name, "06.final_sequence.fasta")
+            ) as i:
                 final_sequence = "".join(i.read().split("\n")[1:])
             # import the final bam
             SNPs_present = {
@@ -710,11 +716,13 @@ def genotype_promoters(
                 "Cigar string": [],
                 "Amira allele": [],
                 "Number of reads": [],
-                "Approximate copy number": []
+                "Approximate copy number": [],
             }
             if output_components is True:
                 SNPs_present["Component ID"] = []
-            with pysam.AlignmentFile(os.path.join(output_dir, promoter_allele_name, "05.read.mapped.sam"), "rb") as bam_file:
+            with pysam.AlignmentFile(
+                os.path.join(output_dir, promoter_allele_name, "05.read.mapped.sam"), "rb"
+            ) as bam_file:
                 for read in bam_file.fetch():
                     # skip unmapped reads
                     if read.is_unmapped:
@@ -724,7 +732,10 @@ def genotype_promoters(
                     # get reference positions for this read
                     ref_positions = read.get_reference_positions(full_length=True)
                     # check if all of the causative SNPs are present
-                    if all(check_SNP_presence(i, ref_base, ref_positions, final_sequence) for i, ref_base in causative_for_ref):
+                    if all(
+                        check_SNP_presence(i, ref_base, ref_positions, final_sequence)
+                        for i, ref_base in causative_for_ref
+                    ):
                         # split up the gene name
                         gene_name = read.reference_name.split(".")[0]
                         accession = ".".join(read.reference_name.split(".")[0:2])
@@ -751,7 +762,9 @@ def genotype_promoters(
                         SNPs_present["Cigar string"].append(read.cigarstring)
                         SNPs_present["Amira allele"].append(promoter_allele_name)
                         SNPs_present["Number of reads"].append(row["Number of reads"])
-                        SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
+                        SNPs_present["Approximate copy number"].append(
+                            row["Approximate copy number"]
+                        )
                         if output_components is True:
                             SNPs_present["Component ID"].append(row["Component ID"])
             if len(SNPs_present["Determinant name"]) > 0:
