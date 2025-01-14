@@ -626,6 +626,29 @@ def get_alleles(
     return pd.DataFrame(gene_data)
 
 
+def get_causative_SNPs(ref_allele_fasta):
+    with open(ref_allele_fasta) as i:
+        ref_alleles = i.read().split(">")[1:]
+    causative_SNPs = {}
+    for a in ref_alleles:
+        header = a.split("\n")[0]
+        seq = "".join(a.split("\n")[1:])
+        causative_SNPs[header] = []
+        for i in range(len(seq)):
+            if seq[i].isupper():
+                causative_SNPs[header].append((i, seq[i]))
+    return causative_SNPs
+
+def check_SNP_presence(i, ref_base, ref_positions, final_sequence):
+    # get the corresponding index in the read sequence
+    if i not in ref_positions:
+        return False
+    read_index = ref_positions.index(i)
+    # Fetch the base aligned to this reference position
+    read_base = final_sequence[read_index]
+    # check if the read base is the same as the ref base
+    return ref_base == read_base
+
 def genotype_promoters(
     result_df,
     reference_alleles,
@@ -646,8 +669,10 @@ def genotype_promoters(
         if promoter_name in reference_alleles:
             # get the allele index
             gene_index = row["Amira allele"].split("_")[-1]
+            # get the new allele name
+            promoter_allele_name = f"{promoter_name}_{gene_index}"
             # make the output directory
-            output_allele_dir = create_output_dir(output_dir, f"{promoter_name}_{gene_index}")
+            output_allele_dir = create_output_dir(output_dir, promoter_allele_name)
             # copy the fastq
             allele_file = os.path.join(output_allele_dir, f"{promoter_name}_{gene_index}.fastq.gz")
             shutil.copyfile(
@@ -669,15 +694,67 @@ def genotype_promoters(
                 debug,
                 minimap2_path,
             )
-            promoter_result["Approximate copy number"] = row["Approximate copy number"]
+            # get the causative SNPs from the references
+            causative_SNPs = get_causative_SNPs(os.path.join(output_dir, promoter_allele_name, "01.reference_alleles.fasta"))
+            # import the final sequence
+            with open(os.path.join(output_dir, promoter_allele_name, "06.final_sequence.fasta")) as i:
+                final_sequence = "".join(i.read().split("\n")[1:])
+            # import the final bam
+            SNPs_present = {
+                "Determinant name": [],
+                "Sequence name": [],
+                "Closest reference": [],
+                "Reference length": [],
+                "Identity (%)": [],
+                "Coverage (%)": [],
+                "Cigar string": [],
+                "Amira allele": [],
+                "Number of reads": [],
+                "Approximate copy number": []
+            }
             if output_components is True:
-                promoter_result["Component ID"] = row["Component ID"]
-            if isinstance(promoter_result["Identity (%)"], float) or isinstance(promoter_result["Identity (%)"], int):
-                if float(promoter_result["Identity (%)"]) == 100:
-                    new_row = pd.DataFrame([promoter_result])
-                    result_df = pd.concat([result_df, new_row], ignore_index=True)
-            else:
-                if any(float(i) == 100 for i in promoter_result["Identity (%)"].split("/")):
-                    new_row = pd.DataFrame([promoter_result])
-                    result_df = pd.concat([result_df, new_row], ignore_index=True)
+                SNPs_present["Component ID"] = []
+            with pysam.AlignmentFile(os.path.join(output_dir, promoter_allele_name, "05.read.mapped.sam"), "rb") as bam_file:
+                for read in bam_file.fetch():
+                    # skip unmapped reads
+                    if read.is_unmapped:
+                        continue
+                    # get the causative SNPs for this reference
+                    causative_for_ref = causative_SNPs[read.reference_name]
+                    # get reference positions for this read
+                    ref_positions = read.get_reference_positions(full_length=True)
+                    # check if all of the causative SNPs are present
+                    if all(check_SNP_presence(i, ref_base, ref_positions, final_sequence) for i, ref_base in causative_for_ref):
+                        # split up the gene name
+                        gene_name = read.reference_name.split(".")[0]
+                        accession = ".".join(read.reference_name.split(".")[0:2])
+                        # get the identity
+                        matching_bases = 0
+                        for op, length in read.cigartuples:
+                            if op == 7:
+                                matching_bases += length
+                        prop_matching = (matching_bases / read.reference_length) * 100
+                        # get the coverage
+                        prop_covered = read.query_alignment_length / read.reference_length * 100
+                        # report the phenotype if there is one
+                        if read.reference_name in phenotypes:
+                            phenotype = phenotypes[read.reference_name]
+                        else:
+                            phenotype = ""
+                        # add the information
+                        SNPs_present["Determinant name"].append(gene_name)
+                        SNPs_present["Sequence name"].append(phenotype)
+                        SNPs_present["Closest reference"].append(accession)
+                        SNPs_present["Reference length"].append(read.reference_length)
+                        SNPs_present["Identity (%)"].append(prop_matching)
+                        SNPs_present["Coverage (%)"].append(prop_covered)
+                        SNPs_present["Cigar string"].append(read.cigarstring)
+                        SNPs_present["Amira allele"].append(promoter_allele_name)
+                        SNPs_present["Number of reads"].append(row["Number of reads"])
+                        SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
+                        if output_components is True:
+                            SNPs_present["Component ID"].append(row["Component ID"])
+            if len(SNPs_present["Determinant name"]) > 0:
+                new_row = pd.DataFrame(SNPs_present)
+                result_df = pd.concat([result_df, new_row], ignore_index=True)
     return result_df

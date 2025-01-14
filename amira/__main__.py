@@ -510,9 +510,17 @@ def main() -> None:
             lambda row: allele_component_mapping[row["Amira allele"]],
             axis=1,
         )
+    # filter hits from the result df
+    result_df = filter_results(
+        result_df,
+        args.filter_contamination,
+        supplemented_clusters_of_interest,
+        annotatedReads,
+        sample_genesOfInterest,
+    )
     # genotype promoters if specified
     if args.promoters:
-        genotype_promoters(
+        result_df = genotype_promoters(
             result_df,
             reference_alleles,
             os.path.join(args.output_dir, "AMR_allele_fastqs"),
@@ -522,14 +530,6 @@ def main() -> None:
             args.debug,
             args.output_components,
         )
-    # filter hits from the result df
-    result_df = filter_results(
-        result_df,
-        args.filter_contamination,
-        supplemented_clusters_of_interest,
-        annotatedReads,
-        sample_genesOfInterest,
-    )
     # write out the clustered reads
     write_reads_per_AMR_gene(args.output_dir, supplemented_clusters_of_interest)
     # sort the results
