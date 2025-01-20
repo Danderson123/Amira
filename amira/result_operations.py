@@ -701,6 +701,9 @@ def genotype_promoters(
             bam = pysam.AlignmentFile(
                 os.path.join(output_dir, promoter_allele_name, "05.read.mapped.sam"), "rb"
             )
+            # skip if the allele is the same as the reference
+            if closest_reference["Identity (%)"] < 100:
+                continue
             # Store changes per read
             changes = {}
             for read in bam.fetch():
