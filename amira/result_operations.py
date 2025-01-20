@@ -702,7 +702,7 @@ def genotype_promoters(
                 os.path.join(output_dir, promoter_allele_name, "05.read.mapped.sam"), "rb"
             )
             # skip if the allele is the same as the reference
-            if closest_reference["Identity (%)"] < 100:
+            if not closest_reference["Identity (%)"] < 100:
                 continue
             # Store changes per read
             changes = {}
@@ -728,7 +728,7 @@ def genotype_promoters(
 
                     elif cigar_op == 1:  # insertion
                         # Record the insertion as occurring after the last reference position
-                        insertion_seq = read_seq[read_index : read_index + length]
+                        insertion_seq = read_seq[read_index : read_index + length].upper()
                         last_ref_pos = ref_positions[read_index - 1] if read_index > 0 else None
                         if last_ref_pos is not None:
                             read_changes.append(f"{last_ref_pos + 1}I{insertion_seq}")
@@ -741,13 +741,14 @@ def genotype_promoters(
                         if del_start is not None and del_end is not None:
                             del_seq = ref_seq[
                                 del_start - 1 : del_end
-                            ]  # Fetch the deleted sequence from reference
+                            ].upper()  # Fetch the deleted sequence from reference
                             read_changes.append(f"{del_start}-{del_end}D{del_seq}")
                     else:
                         read_index += (
                             length  # Increment for other operations (e.g., matches, soft clips)
                         )
                 changes[read.reference_name] = read_changes
+            print("\n", changes, "\n")
             # split up the gene name
             for ref in changes:
                 gene_name = ref.split(".")[0] + "_promoter_" + "_".join(changes[ref])
