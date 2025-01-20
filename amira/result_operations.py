@@ -626,31 +626,6 @@ def get_alleles(
     return pd.DataFrame(gene_data)
 
 
-def get_causative_SNPs(ref_allele_fasta):
-    with open(ref_allele_fasta) as i:
-        ref_alleles = i.read().split(">")[1:]
-    causative_SNPs = {}
-    for a in ref_alleles:
-        header = a.split("\n")[0]
-        seq = "".join(a.split("\n")[1:])
-        causative_SNPs[header] = []
-        for i in range(len(seq)):
-            if seq[i].isupper():
-                causative_SNPs[header].append((i, seq[i]))
-    return causative_SNPs
-
-
-def check_SNP_presence(i, ref_base, ref_positions, final_sequence):
-    # get the corresponding index in the read sequence
-    if i not in ref_positions:
-        return False
-    read_index = ref_positions.index(i)
-    # Fetch the base aligned to this reference position
-    read_base = final_sequence[read_index]
-    # check if the read base is the same as the ref base
-    return ref_base == read_base
-
-
 def genotype_promoters(
     result_df,
     reference_alleles,
@@ -686,7 +661,7 @@ def genotype_promoters(
                 allele_file,
             )
             # get the closest promoter allele
-            compare_reads_to_references(
+            closest_reference = compare_reads_to_references(
                 allele_file,
                 output_dir,
                 reference_alleles,
@@ -696,15 +671,11 @@ def genotype_promoters(
                 debug,
                 minimap2_path,
             )
-            # get the causative SNPs from the references
-            causative_SNPs = get_causative_SNPs(
-                os.path.join(output_dir, promoter_allele_name, "01.reference_alleles.fasta")
-            )
-            # import the final sequence
-            with open(
+            # skip if no allele was similar
+            if not os.path.exists(
                 os.path.join(output_dir, promoter_allele_name, "06.final_sequence.fasta")
-            ) as i:
-                final_sequence = "".join(i.read().split("\n")[1:])
+            ):
+                continue
             # import the final bam
             SNPs_present = {
                 "Determinant name": [],
@@ -720,53 +691,90 @@ def genotype_promoters(
             }
             if output_components is True:
                 SNPs_present["Component ID"] = []
-            with pysam.AlignmentFile(
+            # Load reference sequence
+            ref_sequences = pysam.FastaFile(
+                os.path.join(output_dir, promoter_allele_name, "01.reference_alleles.fasta")
+            )
+            read_sequence = pysam.FastaFile(
+                os.path.join(output_dir, promoter_allele_name, "06.final_sequence.fasta")
+            )
+            bam = pysam.AlignmentFile(
                 os.path.join(output_dir, promoter_allele_name, "05.read.mapped.sam"), "rb"
-            ) as bam_file:
-                for read in bam_file.fetch():
-                    # skip unmapped reads
-                    if read.is_unmapped:
-                        continue
-                    # get the causative SNPs for this reference
-                    causative_for_ref = causative_SNPs[read.reference_name]
-                    # get reference positions for this read
-                    ref_positions = read.get_reference_positions(full_length=True)
-                    # check if all of the causative SNPs are present
-                    if all(
-                        check_SNP_presence(i, ref_base, ref_positions, final_sequence)
-                        for i, ref_base in causative_for_ref
-                    ):
-                        # split up the gene name
-                        gene_name = read.reference_name.split(".")[0]
-                        accession = ".".join(read.reference_name.split(".")[0:2])
-                        # get the identity
-                        matching_bases = 0
-                        for op, length in read.cigartuples:
-                            if op == 7:
-                                matching_bases += length
-                        prop_matching = (matching_bases / read.reference_length) * 100
-                        # get the coverage
-                        prop_covered = read.query_alignment_length / read.reference_length * 100
-                        # report the phenotype if there is one
-                        if read.reference_name in phenotypes:
-                            phenotype = phenotypes[read.reference_name]
-                        else:
-                            phenotype = ""
-                        # add the information
-                        SNPs_present["Determinant name"].append(gene_name)
-                        SNPs_present["Sequence name"].append(phenotype)
-                        SNPs_present["Closest reference"].append(accession)
-                        SNPs_present["Reference length"].append(read.reference_length)
-                        SNPs_present["Identity (%)"].append(prop_matching)
-                        SNPs_present["Coverage (%)"].append(prop_covered)
-                        SNPs_present["Cigar string"].append(read.cigarstring)
-                        SNPs_present["Amira allele"].append(promoter_allele_name)
-                        SNPs_present["Number of reads"].append(row["Number of reads"])
-                        SNPs_present["Approximate copy number"].append(
-                            row["Approximate copy number"]
+            )
+            # Store changes per read
+            changes = {}
+            for read in bam.fetch():
+                if read.is_unmapped:
+                    continue
+
+                read_changes = []
+                read_seq = read_sequence.fetch(read.query_name)
+                ref_positions = read.get_reference_positions(full_length=True)
+                ref_seq = ref_sequences.fetch(read.reference_name)
+                read_index = 0
+
+                for cigar_op, length in read.cigartuples:
+                    if cigar_op == 8:  # mismatch
+                        for i in range(length):
+                            ref_pos = ref_positions[read_index + i]
+                            if ref_pos is not None:  # Handle potential None in ref_positions
+                                ref_base = ref_seq[ref_pos].upper()
+                                read_base = read_seq[read_index + i].upper()
+                                read_changes.append(f"{ref_base}{ref_pos + 1}{read_base}")
+                        read_index += length
+
+                    elif cigar_op == 1:  # insertion
+                        # Record the insertion as occurring after the last reference position
+                        insertion_seq = read_seq[read_index : read_index + length]
+                        last_ref_pos = ref_positions[read_index - 1] if read_index > 0 else None
+                        if last_ref_pos is not None:
+                            read_changes.append(f"{last_ref_pos + 1}I{insertion_seq}")
+                        read_index += length
+
+                    elif cigar_op == 2:  # deletion
+                        # Record the deletion range in the reference
+                        del_start = ref_positions[read_index - 1] + 1 if read_index > 0 else None
+                        del_end = ref_positions[read_index + length - 1]
+                        if del_start is not None and del_end is not None:
+                            del_seq = ref_seq[
+                                del_start - 1 : del_end
+                            ]  # Fetch the deleted sequence from reference
+                            read_changes.append(f"{del_start}-{del_end}D{del_seq}")
+                    else:
+                        read_index += (
+                            length  # Increment for other operations (e.g., matches, soft clips)
                         )
-                        if output_components is True:
-                            SNPs_present["Component ID"].append(row["Component ID"])
+                changes[read.reference_name] = read_changes
+            # split up the gene name
+            for ref in changes:
+                gene_name = ref.split(".")[0] + "_promoter_" + "_".join(changes[ref])
+                accession = ".".join(ref.split(".")[0:2])
+                # get the identity
+                prop_matching = closest_reference["Identity (%)"]
+                # get the coverage
+                prop_covered = closest_reference["Coverage (%)"]
+                # report the phenotype if there is one
+                if ref in phenotypes:
+                    phenotype = phenotypes[read.reference_name]
+                else:
+                    phenotype = ""
+                # add the information
+                SNPs_present["Determinant name"].append(gene_name)
+                SNPs_present["Sequence name"].append(phenotype)
+                SNPs_present["Closest reference"].append(accession)
+                SNPs_present["Reference length"].append(closest_reference["Reference length"])
+                SNPs_present["Identity (%)"].append(prop_matching)
+                SNPs_present["Coverage (%)"].append(prop_covered)
+                SNPs_present["Cigar string"].append(closest_reference["Cigar string"])
+                SNPs_present["Amira allele"].append(promoter_allele_name)
+                SNPs_present["Number of reads"].append(closest_reference["Number of reads"])
+                SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
+                if output_components is True:
+                    SNPs_present["Component ID"].append(row["Component ID"])
+            # Close the files
+            bam.close()
+            ref_sequences.close()
+            read_sequence.close()
             if len(SNPs_present["Determinant name"]) > 0:
                 new_row = pd.DataFrame(SNPs_present)
                 result_df = pd.concat([result_df, new_row], ignore_index=True)
