@@ -51,7 +51,7 @@ def process_reads(
     overall_mean_node_coverage,
 ):
     # Step 1: Assign reads to genes
-    clusters_of_interest, cluster_copy_numbers, allele_counts = graph.assign_reads_to_genes(
+    clusters_of_interest = graph.assign_reads_to_genes(
         sample_genesOfInterest, cores, {}, overall_mean_node_coverage
     )
     # Step 2: Get the unique genes found in clusters of interest
@@ -60,29 +60,11 @@ def process_reads(
     clusters_to_add = add_amr_alleles(
         short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes_of_interest
     )
-    # Step 4: Calculate cluster copy numbers for newly added clusters
-    cluster_copy_numbers_to_add = calculate_cluster_copy_numbers(
-        clusters_to_add, overall_mean_node_coverage
-    )
     # Return the processed results
     return (
         clusters_to_add,
-        cluster_copy_numbers_to_add,
         clusters_of_interest,
-        cluster_copy_numbers,
-        allele_counts,
     )
-
-
-def estimate_copy_number(amira_allele, copy_numbers_per_component, additional_copy_numbers):
-    copy_numbers = {}
-    for component in copy_numbers_per_component:
-        for gene in copy_numbers_per_component[component]:
-            for allele in copy_numbers_per_component[component][gene]:
-                copy_numbers[allele] = round(copy_numbers_per_component[component][gene][allele], 2)
-    if amira_allele in copy_numbers:
-        return copy_numbers[amira_allele]
-    return additional_copy_numbers[amira_allele]
 
 
 def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name):
@@ -748,7 +730,6 @@ def genotype_promoters(
                             length  # Increment for other operations (e.g., matches, soft clips)
                         )
                 changes[read.reference_name] = read_changes
-            print("\n", changes, "\n")
             # split up the gene name
             for ref in changes:
                 gene_name = ref.split(".")[0] + "_promoter_" + "_".join(changes[ref])
@@ -783,3 +764,132 @@ def genotype_promoters(
                 new_row = pd.DataFrame(SNPs_present)
                 result_df = pd.concat([result_df, new_row], ignore_index=True)
     return result_df
+
+
+def get_mean_read_depth_per_contig(bam_file, core_genes=None):
+    # Run samtools coverage and capture output
+    result = subprocess.run(
+        ["samtools", "coverage", bam_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+    # read the output
+    mean_depth_per_contig = {}
+    for line in result.stdout.strip().split("\n"):
+        if line.startswith("#"):
+            continue
+        rname, startpos, endpos, numreads, covbases, coverage, meandepth, meanbaseq, meanmapqs = (
+            line.split("\t")
+        )
+        mean_depth_per_contig[rname] = float(coverage)
+    return mean_depth_per_contig
+
+
+def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads):
+    # map all the reads to the longest read for each AMR gene copy
+    sam_file = ref_file.replace(".fasta", ".sam")
+    bam_file = sam_file.replace(".sam", ".bam")
+    command = f"minimap2 -x map-ont -t {threads} "
+    command += f"-a --MD --eqx -o {sam_file} {ref_file} {fastq_file} "
+    command += f"&& samtools sort {sam_file} > {bam_file}"
+    subprocess.run(command, shell=True, check=True)
+    # get mean depths across each reference
+    mean_depth_per_reference = get_mean_read_depth_per_contig(bam_file)
+    # normalise by the mean depth across core genes
+    if mean_read_depth is None:
+        mean_read_depth = min(mean_depth_per_reference.values())
+    normalised_depths = {
+        c: round(mean_depth_per_reference[c] / mean_read_depth, 2) for c in mean_depth_per_reference
+    }
+    os.remove(sam_file)
+    os.remove(bam_file)
+    return normalised_depths
+
+
+def write_fastqs_for_genes_with_short_reads(
+    clusters_to_add,
+    overall_mean_node_coverage,
+    longest_reads_for_genes,
+    output_dir,
+    files_to_assemble,
+    fastq_content,
+    supplemented_clusters_of_interest,
+    allele_component_mapping,
+):
+    for allele in clusters_to_add:
+        if len(clusters_to_add[allele]) > overall_mean_node_coverage / 20:
+            files_to_assemble.append(
+                write_allele_fastq(clusters_to_add[allele], fastq_content, output_dir, allele)
+            )
+            supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
+            allele_component_mapping[allele] = None
+            # iterate through the reads
+            longest_read = None
+            longest_read_length = 0
+            for read in clusters_to_add[allele]:
+                read_name = "_".join(read.split("_")[:-2])
+                read_length = len(fastq_content[read_name]["sequence"])
+                if read_length > longest_read_length:
+                    longest_read_length = read_length
+                    longest_read = read_name
+            longest_reads_for_genes.append(f">{allele}\n{fastq_content[longest_read]['sequence']}")
+        else:
+            message = f"\nAmira: allele {allele} removed "
+            message += f"due to an insufficient number of reads ({len(clusters_to_add[allele])}).\n"
+            sys.stderr.write(message)
+    return longest_reads_for_genes, files_to_assemble
+
+
+def write_fastqs_for_genes(
+    clusters_of_interest, overall_mean_node_coverage, fastq_content, output_dir
+):
+    # track the longest read for each AMR gene copy
+    longest_reads_for_genes = []
+    supplemented_clusters_of_interest = {}
+    allele_component_mapping = {}
+    files_to_assemble = []
+    for component in tqdm(clusters_of_interest):
+        for gene in clusters_of_interest[component]:
+            for allele in clusters_of_interest[component][gene]:
+                if (
+                    len(clusters_of_interest[component][gene][allele])
+                    > overall_mean_node_coverage / 20
+                ):
+                    files_to_assemble.append(
+                        write_allele_fastq(
+                            clusters_of_interest[component][gene][allele],
+                            fastq_content,
+                            output_dir,
+                            allele,
+                        )
+                    )
+                    supplemented_clusters_of_interest[allele] = clusters_of_interest[component][
+                        gene
+                    ][allele]
+                    # store the component of the allele
+                    allele_component_mapping[allele] = component
+                    # iterate through the reads
+                    longest_read = None
+                    longest_read_length = 0
+                    for read in clusters_of_interest[component][gene][allele]:
+                        read_name = "_".join(read.split("_")[:-2])
+                        read_length = len(fastq_content[read_name]["sequence"])
+                        if read_length > longest_read_length:
+                            longest_read_length = read_length
+                            longest_read = read_name
+                    longest_reads_for_genes.append(
+                        f">{allele}\n{fastq_content[longest_read]['sequence']}"
+                    )
+                else:
+                    message = f"\nAmira: allele {allele} removed "
+                    message += "due to an insufficient number of reads "
+                    message += f"({len(clusters_of_interest[component][gene][allele])}).\n"
+                    sys.stderr.write(message)
+    return (
+        longest_reads_for_genes,
+        supplemented_clusters_of_interest,
+        allele_component_mapping,
+        files_to_assemble,
+    )

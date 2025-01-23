@@ -1,10 +1,13 @@
 import json
 import os
+import statistics
 import subprocess
 import sys
 
 import pysam
 from tqdm import tqdm
+
+from amira.result_operations import get_mean_read_depth_per_contig
 
 
 def clean_gene(g):
@@ -132,8 +135,6 @@ def remove_poorly_mapped_genes(
             count += 1
     # clean up the files
     os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
-    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
-    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
 
 
 def convert_pandora_output(
@@ -255,3 +256,14 @@ def process_reference_alleles(path_to_interesting_genes, promoters):
                     promoters_to_add[promoter_name][promoter_allele[1]] = promoter_allele[2]
         reference_alleles.update(promoters_to_add)
     return reference_alleles, genesOfInterest
+
+
+def get_core_gene_mean_depth(bam_file, core_gene_file):
+    # load the core genes
+    with open(core_gene_file) as i:
+        core_genes = set(i.read().split("\n"))
+    # get the mean depth across each core gene
+    mean_depth_per_core_gene = get_mean_read_depth_per_contig(bam_file, core_genes)
+    os.remove(bam_file)
+    os.remove(bam_file + ".bai")
+    return statistics.mean(list(mean_depth_per_core_gene.values()))

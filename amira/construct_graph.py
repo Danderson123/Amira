@@ -2937,7 +2937,7 @@ class GeneMerGraph:
                                 f"{read_id}_{gene_start}_{gene_end}"
                             )
                     allele_counts[geneOfInterest] += 1
-        return clustered_reads, cluster_copy_numbers, allele_counts
+        return clustered_reads
 
     def remove_non_AMR_associated_nodes(self, genesOfInterest):
         # get the reads containing AMR genes

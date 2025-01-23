@@ -6,7 +6,6 @@ import sys
 import time
 
 import matplotlib
-from tqdm import tqdm
 
 from amira.__init__ import __version__
 from amira.construct_graph import GeneMerGraph
@@ -19,18 +18,20 @@ from amira.graph_operations import (
 )
 from amira.pre_process_operations import (
     convert_pandora_output,
+    get_core_gene_mean_depth,
     process_pandora_json,
     process_reference_alleles,
 )
 from amira.read_operations import downsample_reads, parse_fastq, plot_read_length_distribution
 from amira.result_operations import (
-    estimate_copy_number,
+    estimate_copy_numbers,
     filter_results,
     genotype_promoters,
     get_alleles,
     output_component_fastqs,
     process_reads,
-    write_allele_fastq,
+    write_fastqs_for_genes,
+    write_fastqs_for_genes_with_short_reads,
     write_reads_per_AMR_gene,
 )
 
@@ -104,9 +105,15 @@ def get_options() -> argparse.Namespace:
         help="Report point mutations in promoters that are associated with AMR.",
     )
     parser.add_argument(
-        "--phenotypes",
+        "--annotation",
         dest="phenotypes",
         help="Path to a JSON of phenotypes for each AMR allele.",
+        required=True,
+    )
+    parser.add_argument(
+        "--core-genes",
+        dest="core_genes",
+        help="Path to a newline delimited list of core genes in this species.",
         required=True,
     )
     parser.add_argument(
@@ -235,6 +242,8 @@ def main() -> None:
         # randomly sample 100,000 reads
         if args.sample_reads:
             annotatedReads = downsample_reads(annotatedReads, 10000)
+        # initialise mean read depth
+        mean_read_depth = None
     # load the pandora consensus and convert to a dictionary
     if args.pandoraSam:
         if not args.quiet:
@@ -270,6 +279,11 @@ def main() -> None:
         # randomly sample 100,000 reads
         if args.sample_reads:
             annotatedReads = downsample_reads(annotatedReads, 100000)
+        # get the mean depth across core genes
+        mean_read_depth = get_core_gene_mean_depth(
+            os.path.join(args.output_dir, "mapped_to_consensus.bam"), args.core_genes
+        )
+        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}\n")
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
@@ -414,10 +428,7 @@ def main() -> None:
         sys.stderr.write("\nAmira: clustering reads\n")
     (
         clusters_to_add,
-        cluster_copy_numbers_to_add,
         clusters_of_interest,
-        cluster_copy_numbers,
-        allele_counts,
     ) = process_reads(
         graph,
         sample_genesOfInterest,
@@ -430,48 +441,30 @@ def main() -> None:
     if not os.path.exists(os.path.join(args.output_dir, "AMR_allele_fastqs")):
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
     # subset the fastq data based on the cluster assignments
-    files_to_assemble = []
     if not args.quiet:
         sys.stderr.write("\nAmira: writing fastqs\n")
-    supplemented_clusters_of_interest = {}
-    allele_component_mapping = {}
-    for component in tqdm(clusters_of_interest):
-        for gene in clusters_of_interest[component]:
-            for allele in clusters_of_interest[component][gene]:
-                if (
-                    len(clusters_of_interest[component][gene][allele])
-                    > overall_mean_node_coverage / 20
-                ):
-                    files_to_assemble.append(
-                        write_allele_fastq(
-                            clusters_of_interest[component][gene][allele],
-                            fastq_content,
-                            args.output_dir,
-                            allele,
-                        )
-                    )
-                    supplemented_clusters_of_interest[allele] = clusters_of_interest[component][
-                        gene
-                    ][allele]
-                    # store the component of the allele
-                    allele_component_mapping[allele] = component
-                else:
-                    message = f"\nAmira: allele {allele} removed "
-                    message += "due to an insufficient number of reads "
-                    message += f"({len(clusters_of_interest[component][gene][allele])}).\n"
-                    sys.stderr.write(message)
+    (
+        longest_reads_for_genes,
+        supplemented_clusters_of_interest,
+        allele_component_mapping,
+        files_to_assemble,
+    ) = write_fastqs_for_genes(
+        clusters_of_interest, overall_mean_node_coverage, fastq_content, args.output_dir
+    )
     # add the genes from the short reads
-    for allele in clusters_to_add:
-        if len(clusters_to_add[allele]) > overall_mean_node_coverage / 20:
-            files_to_assemble.append(
-                write_allele_fastq(clusters_to_add[allele], fastq_content, args.output_dir, allele)
-            )
-            supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
-            allele_component_mapping[allele] = None
-        else:
-            message = f"\nAmira: allele {allele} removed "
-            message += f"due to an insufficient number of reads ({len(clusters_to_add[allele])}).\n"
-            sys.stderr.write(message)
+    longest_reads_for_genes, files_to_assemble = write_fastqs_for_genes_with_short_reads(
+        clusters_to_add,
+        overall_mean_node_coverage,
+        longest_reads_for_genes,
+        args.output_dir,
+        files_to_assemble,
+        fastq_content,
+        supplemented_clusters_of_interest,
+        allele_component_mapping,
+    )
+    # write out the longest reads
+    with open(os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"), "w") as o:
+        o.write("\n".join(longest_reads_for_genes))
     # run racon to polish the pandora consensus
     if not args.quiet:
         sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
@@ -497,13 +490,19 @@ def main() -> None:
             o.write(results)
         # exit
         sys.exit(0)
-    # get the copy number estimates of each allele
-    result_df["Approximate copy number"] = result_df.apply(
-        lambda row: estimate_copy_number(
-            row["Amira allele"], cluster_copy_numbers, cluster_copy_numbers_to_add
-        ),
-        axis=1,
+    # estimate the copy numbers
+    if not args.quiet:
+        sys.stderr.write("\nAmira: estimating cellular copy numbers\n")
+    copy_numbers = estimate_copy_numbers(
+        mean_read_depth,
+        os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
+        args.readfile,
+        args.cores,
     )
+    estimates = []
+    for index, row in result_df.iterrows():
+        estimates.append(copy_numbers[row["Amira allele"]])
+    result_df["Approximate copy number"] = estimates
     # get the component of each allele
     if args.output_components is True:
         result_df["Component ID"] = result_df.apply(
@@ -520,6 +519,8 @@ def main() -> None:
     )
     # genotype promoters if specified
     if args.promoters:
+        if not args.quiet:
+            sys.stderr.write("\nAmira: genotyping promoters\n")
         result_df = genotype_promoters(
             result_df,
             reference_alleles,
