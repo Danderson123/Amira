@@ -767,7 +767,7 @@ def genotype_promoters(
 
 def get_mean_read_depth_per_contig(bam_file, core_genes=None):
     # Run samtools depth command and capture output
-    command = ["samtools", "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP", bam_file]  # -aa ensures all positions are included
+    command = ["samtools", "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP,QCFAIL,DUP", bam_file]
     # Run the command and capture the output
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     # Parse the mpileup output
