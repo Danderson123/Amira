@@ -257,13 +257,33 @@ def process_reference_alleles(path_to_interesting_genes, promoters):
         reference_alleles.update(promoters_to_add)
     return reference_alleles, genesOfInterest
 
+def samtools_get_mean_depth(bam_file, core_genes):
+    # Run samtools coverage and capture output
+    result = subprocess.run(
+        ["samtools", "coverage", bam_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+    # read the output
+    mean_depth_per_contig = {}
+    for line in result.stdout.strip().split("\n"):
+        if line.startswith("#"):
+            continue
+        rname, startpos, endpos, numreads, covbases, coverage, meandepth, meanbaseq, meanmapqs = (
+            line.split("\t")
+        )
+        if rname in core_genes:
+            mean_depth_per_contig[rname] = float(meandepth)
+    return mean_depth_per_contig
 
 def get_core_gene_mean_depth(bam_file, core_gene_file):
     # load the core genes
     with open(core_gene_file) as i:
         core_genes = set(i.read().split("\n"))
     # get the mean depth across each core gene
-    mean_depth_per_core_gene = get_mean_read_depth_per_contig(bam_file, core_genes)
+    mean_depth_per_core_gene = samtools_get_mean_depth(bam_file, core_genes)
     os.remove(bam_file)
     os.remove(bam_file + ".bai")
     return statistics.mean(list(mean_depth_per_core_gene.values()))

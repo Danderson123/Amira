@@ -765,33 +765,35 @@ def genotype_promoters(
                 result_df = pd.concat([result_df, new_row], ignore_index=True)
     return result_df
 
-
 def get_mean_read_depth_per_contig(bam_file, core_genes=None):
-    # Run samtools coverage and capture output
-    result = subprocess.run(
-        ["samtools", "coverage", bam_file],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=True,
-    )
-    # read the output
-    mean_depth_per_contig = {}
-    for line in result.stdout.strip().split("\n"):
-        if line.startswith("#"):
-            continue
-        rname, startpos, endpos, numreads, covbases, coverage, meandepth, meanbaseq, meanmapqs = (
-            line.split("\t")
-        )
-        if core_genes is not None:
-            if rname not in core_genes:
-                continue
-        mean_depth_per_contig[rname] = float(coverage)
-    return mean_depth_per_contig
-
+    # Run samtools depth command and capture output
+    command = ["samtools", "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP", bam_file]  # -aa ensures all positions are included
+    # Run the command and capture the output
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    # Parse the mpileup output
+    contig_depths = {}
+    contig_positions = {}
+    for line in result.stdout.splitlines():
+        fields = line.split("\t")
+        if len(fields) > 3:  # Ensure sufficient fields exist
+            contig = fields[0]  # Contig name is the 1st column
+            if core_genes is not None:
+                if not contig in core_genes:
+                    continue
+            depth = int(fields[3])  # 4th column is the depth
+            if contig not in contig_depths:
+                contig_depths[contig] = 0
+                contig_positions[contig] = 0
+            contig_depths[contig] += depth
+            contig_positions[contig] += 1
+    # Calculate mean depth for each contig
+    mean_depths = {
+        contig: (contig_depths[contig] / contig_positions[contig])
+        for contig in contig_depths
+    }
+    return mean_depths
 
 def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads):
-    # map all the reads to the longest read for each AMR gene copy
     sam_file = ref_file.replace(".fasta", ".sam")
     bam_file = sam_file.replace(".sam", ".bam")
     command = f"minimap2 -x map-ont -t {threads} "
