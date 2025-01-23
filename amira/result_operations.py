@@ -783,6 +783,9 @@ def get_mean_read_depth_per_contig(bam_file, core_genes=None):
         rname, startpos, endpos, numreads, covbases, coverage, meandepth, meanbaseq, meanmapqs = (
             line.split("\t")
         )
+        if core_genes is not None:
+            if rname not in core_genes:
+                continue
         mean_depth_per_contig[rname] = float(coverage)
     return mean_depth_per_contig
 
