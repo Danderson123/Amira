@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.5.0](https://github.com/Danderson123/Amira/compare/v0.4.1...v0.5.0) (2025-01-24)
+
+
+### Continuous Integration
+
+* pre-commit reformatting ([4834ee0](https://github.com/Danderson123/Amira/commit/4834ee0e87c1ae0a63f4e727f82e794236de044d))
+
+
+### Miscellaneous Chores
+
+* version bump ([58cdd6d](https://github.com/Danderson123/Amira/commit/58cdd6dd22d8b8c95f9fafb912504b6c1d34b076))
+
+
+### Features
+
+* detect AMR-determining SNPs in promoters if specified ([582ea7a](https://github.com/Danderson123/Amira/commit/582ea7ae5ab3b9b037cd00632c39859a4f41a76c))
+* estimate cellular copy numbers by calculating coverage across the longest read for each AMR gene, then normalise by mean read depth across core genes ([68566de](https://github.com/Danderson123/Amira/commit/68566def6ddbe86a4f8a1ce36cb527b313666868))
+* genotype novel SNPs in promoters ([ba8e654](https://github.com/Danderson123/Amira/commit/ba8e654fbbc20bf1b0ec497509ad9bed167f43b2))
+
+
+### Bug Fixes
+
+* check for float ([0eef5b2](https://github.com/Danderson123/Amira/commit/0eef5b2c2a244f1e7cddda4ad70c0cd121d46e6d))
+* detect presence of causative SNPs without full allele matches] ([7512592](https://github.com/Danderson123/Amira/commit/75125926c088a0975a761388e704ef056f443fd4))
+* estimate mean depth only from core genes ([49006e4](https://github.com/Danderson123/Amira/commit/49006e4fc6bec702d85b979f009808717e422694))
+* fastq file path fix ([52a6fbb](https://github.com/Danderson123/Amira/commit/52a6fbb06707012015637679a09618949594abc4))
+* fix adding promoter results to existing df ([2a55d4f](https://github.com/Danderson123/Amira/commit/2a55d4f42605adb165af3d94055976d2e0477cb0))
+* fix adding rpomoter results to existing df ([8fa1c92](https://github.com/Danderson123/Amira/commit/8fa1c9243bf522f1d67f2a4ed900336c7fa0b5e9))
+* only add promoters to results if non ref ([6afa85b](https://github.com/Danderson123/Amira/commit/6afa85b197c3ecbcddc230e7a81d70c0926f679b))
+* only add promoters to results if non ref ([1c30eec](https://github.com/Danderson123/Amira/commit/1c30eec5d581adbc4d8337e123846d680b812b8e))
+* remove depreciate append to df ([b0f63e9](https://github.com/Danderson123/Amira/commit/b0f63e91f587c34a72532bda2bde274b7971e5a2))
+* remove underscores in read names and remove redundany graph outputs ([c28172c](https://github.com/Danderson123/Amira/commit/c28172c28ba21f347e801e4206775a134a42680c))
+* tweak mpileup params ([f23bfa2](https://github.com/Danderson123/Amira/commit/f23bfa2c70d2d7b1e9b4612e201e9e79ad27fbd5))
+* update graph_operations ([921953b](https://github.com/Danderson123/Amira/commit/921953b38595f26e2d2828d15c2cd69c5fc786bd))
+* use min coverage of node in path to estimate copy number ([d5c1291](https://github.com/Danderson123/Amira/commit/d5c1291f1bdc5168f87d5da33c22e8d12c7396c8))
+* use samtools mpileup to estimate cellular copy number to include secondary alignments ([440096e](https://github.com/Danderson123/Amira/commit/440096e9437d209dfffd418f081eee60b6e75ea6))
+
+
+### Styles
+
+* flake8 formatting ([cde598d](https://github.com/Danderson123/Amira/commit/cde598d2ce263f892bec5f322469cb662f3b4b1f))
+
+
+### Tests
+
+* add test files ([d698e0a](https://github.com/Danderson123/Amira/commit/d698e0a1fa815a104d08ae8a40b0557c342b8675))
+
 ## [0.4.1](https://github.com/Danderson123/Amira/compare/v0.4.0...v0.4.1) (2024-12-16)
 
 
