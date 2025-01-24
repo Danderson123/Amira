@@ -7,6 +7,7 @@ from amira.construct_graph import GeneMerGraph
 from amira.construct_node import Node
 from amira.construct_read import Read
 from amira.path_finding_operations import construct_suffix_tree
+from amira.result_operations import get_closest_allele
 
 
 class TestGeneMerGraphConstructor(unittest.TestCase):
@@ -5232,9 +5233,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_closest_allele(self):
         # setup
         samfile = "tests/test_allele.sam"
-        graph = GeneMerGraph({}, 3, {})
         # execution
-        actual_validity, actual_references, actual_unique_reads = graph.get_closest_allele(
+        actual_validity, actual_references, actual_unique_reads = get_closest_allele(
             samfile, "allele"
         )
         # assertion

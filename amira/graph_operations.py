@@ -1,4 +1,3 @@
-import os
 import statistics
 import sys
 
@@ -151,12 +150,6 @@ def iterative_bubble_popping(
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )
-        graph.generate_gml(
-            os.path.join(output_dir, f"pre_iterative_correction_{this_iteration}"),
-            geneMer_size,
-            node_min_coverage,
-            1,
-        )
         # check if the current number of nodes is equal to the previous number of nodes
         if len(graph.get_nodes()) == prev_nodes:
             sys.stderr.write(f"\n\tAmira: terminating cleaning at iteration {this_iteration+1}\n")
@@ -175,12 +168,6 @@ def iterative_bubble_popping(
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
-        graph.generate_gml(
-            os.path.join(output_dir, f"intermediate_graph_{this_iteration}"),
-            geneMer_size,
-            node_min_coverage,
-            1,
-        )
         new_annotatedReads, new_gene_position_dict, path_coverages, min_path_coverage = (
             graph.correct_low_coverage_paths(
                 fastq_content,
@@ -222,8 +209,8 @@ def plot_node_coverages(unitig_coverages, filename):
         align="center",
     )
     plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
-    plt.title("Histogram of mean unitig coverages with Smoothed Curve")
-    plt.xlabel("Unitig Coverage")
+    plt.title("Histogram of mean node coverages")
+    plt.xlabel("Node Coverage")
     plt.ylabel("Log of absolute frequency")
     plt.xlim([0, max(x_values) + 5])
     plt.legend()

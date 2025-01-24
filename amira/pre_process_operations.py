@@ -1,5 +1,6 @@
 import json
 import os
+import statistics
 import subprocess
 import sys
 
@@ -132,8 +133,6 @@ def remove_poorly_mapped_genes(
             count += 1
     # clean up the files
     os.remove(os.path.join(output_dir, "mapped_to_consensus.sam"))
-    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam"))
-    os.remove(os.path.join(output_dir, "mapped_to_consensus.bam.bai"))
 
 
 def convert_pandora_output(
@@ -222,21 +221,69 @@ def convert_pandora_output(
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
 
 
-def process_reference_alleles(path_to_interesting_genes):
+def process_reference_alleles(path_to_interesting_genes, promoters):
     # import the list of genes of interest
     with open(path_to_interesting_genes, "r") as i:
         reference_content = i.read().split(">")[1:]
-    genesOfInterest = set()
     reference_alleles = {}
+    genesOfInterest = set()
+    promoter_alleles = []
     for allele in reference_content:
         newline_split = allele.split("\n")
         assert (
             newline_split[0].count(";") == 1
         ), "Reference FASTA headers can only contain 1 semicolon"
         gene_name, allele_name = newline_split[0].split(";")
-        genesOfInterest.add(gene_name)
         sequence = "".join(newline_split[1:])
+        if "promoter" in gene_name:
+            promoter_alleles.append((gene_name.replace("_promoter", ""), allele_name, sequence))
+            continue
+        genesOfInterest.add(gene_name)
         if gene_name not in reference_alleles:
             reference_alleles[gene_name] = {}
         reference_alleles[gene_name][allele_name] = sequence
+    # if promoters are specified then add them
+    if promoters is True:
+        promoters_to_add = {}
+        for gene_name in reference_alleles:
+            for promoter_allele in promoter_alleles:
+                if promoter_allele[0] in gene_name:
+                    promoter_name = gene_name + "_promoter"
+                    if promoter_name not in promoters_to_add:
+                        promoters_to_add[promoter_name] = {}
+                    promoters_to_add[promoter_name][promoter_allele[1]] = promoter_allele[2]
+        reference_alleles.update(promoters_to_add)
     return reference_alleles, genesOfInterest
+
+
+def samtools_get_mean_depth(bam_file, core_genes):
+    # Run samtools coverage and capture output
+    result = subprocess.run(
+        ["samtools", "coverage", bam_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+    # read the output
+    mean_depth_per_contig = {}
+    for line in result.stdout.strip().split("\n"):
+        if line.startswith("#"):
+            continue
+        rname, startpos, endpos, numreads, covbases, coverage, meandepth, meanbaseq, meanmapqs = (
+            line.split("\t")
+        )
+        if rname in core_genes:
+            mean_depth_per_contig[rname] = float(meandepth)
+    return mean_depth_per_contig
+
+
+def get_core_gene_mean_depth(bam_file, core_gene_file):
+    # load the core genes
+    with open(core_gene_file) as i:
+        core_genes = set(i.read().split("\n"))
+    # get the mean depth across each core gene
+    mean_depth_per_core_gene = samtools_get_mean_depth(bam_file, core_genes)
+    os.remove(bam_file)
+    os.remove(bam_file + ".bai")
+    return statistics.mean(list(mean_depth_per_core_gene.values()))
