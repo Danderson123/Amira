@@ -765,6 +765,7 @@ def genotype_promoters(
                 result_df = pd.concat([result_df, new_row], ignore_index=True)
     return result_df
 
+
 def get_mean_read_depth_per_contig(bam_file, core_genes=None):
     # Run samtools depth command and capture output
     command = ["samtools", "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP,QCFAIL,DUP", bam_file]
@@ -778,7 +779,7 @@ def get_mean_read_depth_per_contig(bam_file, core_genes=None):
         if len(fields) > 3:  # Ensure sufficient fields exist
             contig = fields[0]  # Contig name is the 1st column
             if core_genes is not None:
-                if not contig in core_genes:
+                if contig not in core_genes:
                     continue
             depth = int(fields[3])  # 4th column is the depth
             if contig not in contig_depths:
@@ -788,10 +789,10 @@ def get_mean_read_depth_per_contig(bam_file, core_genes=None):
             contig_positions[contig] += 1
     # Calculate mean depth for each contig
     mean_depths = {
-        contig: (contig_depths[contig] / contig_positions[contig])
-        for contig in contig_depths
+        contig: (contig_depths[contig] / contig_positions[contig]) for contig in contig_depths
     }
     return mean_depths
+
 
 def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads):
     sam_file = ref_file.replace(".fasta", ".sam")

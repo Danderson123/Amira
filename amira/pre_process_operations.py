@@ -7,8 +7,6 @@ import sys
 import pysam
 from tqdm import tqdm
 
-from amira.result_operations import get_mean_read_depth_per_contig
-
 
 def clean_gene(g):
     chars_to_remove = set(["|", "(", ")", "-", "*", "+", "#", ":", "=", "/", ",", "'"])
@@ -257,6 +255,7 @@ def process_reference_alleles(path_to_interesting_genes, promoters):
         reference_alleles.update(promoters_to_add)
     return reference_alleles, genesOfInterest
 
+
 def samtools_get_mean_depth(bam_file, core_genes):
     # Run samtools coverage and capture output
     result = subprocess.run(
@@ -277,6 +276,7 @@ def samtools_get_mean_depth(bam_file, core_genes):
         if rname in core_genes:
             mean_depth_per_contig[rname] = float(meandepth)
     return mean_depth_per_contig
+
 
 def get_core_gene_mean_depth(bam_file, core_gene_file):
     # load the core genes
