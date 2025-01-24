@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.4.1](https://github.com/Danderson123/Amira/compare/v0.4.0...v0.4.1) (2024-12-16)
+
+
+### Bug Fixes
+
+* use node-space path to estimate copy number in context ([1f58801](https://github.com/Danderson123/Amira/commit/1f58801ecccbec8347102009bc09e3a2df8a7e67))
+
+## [0.4.0](https://github.com/Danderson123/Amira/compare/v0.3.1...v0.4.0) (2024-12-15)
+
+
+### Miscellaneous Chores
+
+* version bump ([99a2389](https://github.com/Danderson123/Amira/commit/99a23893db7efa69fd713b276b592ca4080a9622))
+
+
+### Features
+
+* use gene-space paths to assign reads ([b30ede6](https://github.com/Danderson123/Amira/commit/b30ede6a2f4faa1ca3306c2172514faf23f479c0))
+
+
+### Bug Fixes
+
+* add singleton paths ([d7fe631](https://github.com/Danderson123/Amira/commit/d7fe6318f2cef55b2032803a4dcb35a90a248c48))
+* apply new condition to gene-space subpath generation ([2fa0755](https://github.com/Danderson123/Amira/commit/2fa075515f3df2d8f54cfc0736f5b50b30bc6663))
+* prevent checking of redundant path sublists ([f79924e](https://github.com/Danderson123/Amira/commit/f79924ea16f22b4c8f1c0b3012679e81e1946dc9))
+* prevent combinatorial increase of gene-space sublists of paths. Multi-process with mp.pool ([0afcba5](https://github.com/Danderson123/Amira/commit/0afcba5a521f1adb1b3cabf1ee1af59240586b8a))
+* prevent removal of small, high coverage components ([870a07e](https://github.com/Danderson123/Amira/commit/870a07e1ccadeaffd0c8e219fe03d34df5855aeb))
+
+
+### Tests
+
+* update unittest ([e211da2](https://github.com/Danderson123/Amira/commit/e211da2649bac7431d57c0ff3b70551a29f9fae1))
+* update unittests to reflect changes ([f491c92](https://github.com/Danderson123/Amira/commit/f491c929fb42a2aeaec70aa0a953108690c2ec9d))
+
 ## [0.3.1](https://github.com/Danderson123/Amira/compare/v0.3.0...v0.3.1) (2024-11-18)
 
 
