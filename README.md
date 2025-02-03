@@ -66,14 +66,14 @@ Amira can be run on the output of Pandora directly, or from JSON files listing t
 ### Running from JSON
 To run Amira from the JSON files, you can use this command. You will need to replace `<PATH TO RACON BINARY>` with the absolute path to the racon binary you made earlier and replace `<PATH TO MINIMAP2 BINARY>` with the path to the minimap2 binary.
 ```
-python3 amira/__main__.py --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSITION JSON> --pandoraConsensus <PATH TO PANDORA CONSENSUS FASTQ> --readfile <PATH TO READ FASTQ> --output <OUTPUT DIRECTORY> --gene-path <AMR GENE REFERENCE FASTA> --phenotypes <ALLELE-PHENOTYPE MAPPING JSON> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --sample-reads --filter-contaminants
+python3 amira/__main__.py --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSITION JSON> --pandoraConsensus <PATH TO PANDORA CONSENSUS FASTQ> --readfile <PATH TO READ FASTQ> --output <OUTPUT DIRECTORY> --gene-path <AMR GENE REFERENCE FASTA> --annotation <ALLELE-PHENOTYPE MAPPING JSON> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --filter-contaminants
 ```
 
 ####  JSON example
 
 Some example JSON data can be downloaded from [here](https://drive.google.com/drive/folders/1mQ8JmzVhFiNkgRy5_1iFQrqV2TLNnlQ4). Amira can then be run using this command:
 ```
-python3 amira/__main__.py --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --readfile test_data/SRR23044220_1.fastq.gz --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --annotation E.coli/AMR_calls.json --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --sample-reads --filter-contaminants
+python3 amira/__main__.py --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --readfile test_data/SRR23044220_1.fastq.gz --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --annotation E.coli/AMR_calls.json --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS> --filter-contaminants
 ```
 
 ### Running with Pandora
@@ -83,7 +83,7 @@ pandora map -t <THREADS> --min-gene-coverage-proportion 0.5 --max-covg 10000 -o 
 ```
 Amira can then be run directly on the output of Pandora using this command:
 ```bash
-python3 amira/__main__.py --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_output/pandora.consensus.fq.gz --readfile <PATH TO READ FASTQ> --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --minimum-length-proportion 0.5 --maximum-length-proportion 1.5 --cores <CPUS> --annotation E.coli/AMR_calls.json --filter-contaminants --sample-reads
+python3 amira/__main__.py --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_output/pandora.consensus.fq.gz --readfile <PATH TO READ FASTQ> --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --minimum-length-proportion 0.5 --maximum-length-proportion 1.5 --cores <CPUS> --annotation E.coli/AMR_calls.json --filter-contaminants
  ```
 
 ### Additional options

@@ -143,11 +143,11 @@ def get_options() -> argparse.Namespace:
         default=2024,
     )
     parser.add_argument(
-        "--sample-reads",
+        "--no-sampling",
         dest="sample_reads",
         action="store_false",
         default=True,
-        help="Randomly sample to a maximum of 100,000 input reads.",
+        help="Do not randomly sample to a maximum of 100,000 input reads.",
     )
     parser.add_argument(
         "--quiet",
@@ -157,11 +157,11 @@ def get_options() -> argparse.Namespace:
         help="Supress progress updates.",
     )
     parser.add_argument(
-        "--filter-contaminants",
+        "--no-filtering",
         dest="filter_contamination",
-        action="store_true",
-        default=False,
-        help="Filter AMR alleles that are suspected contaminants.",
+        action="store_false",
+        default=True,
+        help="Do not filter AMR genes that are suspected contaminants.",
     )
     parser.add_argument(
         "--debug",
