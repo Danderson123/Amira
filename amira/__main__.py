@@ -145,8 +145,8 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--sample-reads",
         dest="sample_reads",
-        action="store_true",
-        default=False,
+        action="store_false",
+        default=True,
         help="Randomly sample to a maximum of 100,000 input reads.",
     )
     parser.add_argument(
