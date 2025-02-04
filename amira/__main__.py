@@ -552,7 +552,8 @@ def main() -> None:
             args.output_components,
         )
     # write out the clustered reads
-    write_reads_per_AMR_gene(args.output_dir, supplemented_clusters_of_interest)
+    if args.debug:
+        write_reads_per_AMR_gene(args.output_dir, supplemented_clusters_of_interest)
     # sort the results
     result_df = result_df.sort_values(by="Determinant name")
     # write the result tsv
