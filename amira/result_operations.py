@@ -99,15 +99,20 @@ def filter_results(
     supplemented_clusters_of_interest,
     annotatedReads,
     sample_genesOfInterest,
+    required_identity,
+    required_coverage
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
+    comments = []
     for index, row in result_df.iterrows():
+        # store comments about this allele
+        flags = []
         if isinstance(row["Identity (%)"], str) and "/" in row["Identity (%)"]:
             identity = float(row["Identity (%)"].split("/")[0])
         else:
             identity = row["Identity (%)"]
-        if identity < 90:
+        if identity < required_identity:
             message = f"\nAmira: allele {row['Amira allele']} removed "
             message += f"due to insufficient similarity ({identity}).\n"
             sys.stderr.write(message)
@@ -118,25 +123,34 @@ def filter_results(
                 coverage = float(row["Coverage (%)"].split("/")[0])
             else:
                 coverage = row["Coverage (%)"]
-            if coverage < 90:
+            if coverage < required_coverage:
                 message = f"\nAmira: allele {row['Amira allele']} removed "
                 message += f"due to insufficient coverage ({coverage}).\n"
                 sys.stderr.write(message)
                 alleles_to_delete.append(row["Amira allele"])
                 continue
-        # check if filter contaminants is on
-        if filter_contamination is True:
-            # remove alleles where all of the reads just contain AMR genes
-            reads = supplemented_clusters_of_interest[row["Amira allele"]]
-            if all(
-                all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
-                for r in reads
-            ):
+            else:
+                if coverage < 90:
+                    flags.append("Partially present gene.")
+        # remove alleles where all of the reads just contain AMR genes
+        reads = supplemented_clusters_of_interest[row["Amira allele"]]
+        if all(
+            all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
+            for r in reads
+        ):
+            # check if filter contaminants is on
+            if filter_contamination is True:
                 alleles_to_delete.append(row["Amira allele"])
                 message = f"\nAmira: allele {row['Amira allele']} removed "
                 message += "due to suspected contamination.\n"
                 sys.stderr.write(message)
                 continue
+            else:
+                flags.append("Potential contaminant.")
+        # collect the flags
+        comments.append(" ".join(flags))
+    # add the comments as a column
+    result_df["Comments"] = comments
     # remove genes as necessary
     for amira_allele in alleles_to_delete:
         del supplemented_clusters_of_interest[amira_allele]
@@ -267,7 +281,7 @@ def create_output_dir(output_dir, allele_name):
     return output_dir
 
 
-def get_closest_allele(bam_file_path, mapping_type, ref_cov_proportion=None):
+def get_closest_allele(bam_file_path, mapping_type, required_identity, required_coverage, ref_cov_proportion=None):
     valid_references = []
     invalid_references = []
     ref_covered = {}
@@ -296,7 +310,7 @@ def get_closest_allele(bam_file_path, mapping_type, ref_cov_proportion=None):
                 if op == 7:
                     matching_bases += length
             if mapping_type == "reads":
-                prop_matching = (matching_bases / total_length) * 100
+                prop_matching = (matching_bases / read.query_alignment_length) * 100#total_length) * 100
                 prop_covered = ref_cov_proportion[read.reference_name]
             if mapping_type == "allele":
                 prop_matching = (matching_bases / read.infer_read_length()) * 100
@@ -309,7 +323,7 @@ def get_closest_allele(bam_file_path, mapping_type, ref_cov_proportion=None):
             if prop_covered > ref_covered[read.reference_name]:
                 ref_covered[read.reference_name] = prop_covered
     for ref in ref_matching:
-        if ref_covered[ref] >= 0.85:
+        if ref_covered[ref] >= required_coverage - 0.05:
             valid_references.append(
                 (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref])
             )
@@ -321,7 +335,7 @@ def get_closest_allele(bam_file_path, mapping_type, ref_cov_proportion=None):
     if len(valid_references) != 0:
         return True, valid_references, unique_reads
     else:
-        invalid_references = sorted(invalid_references, key=lambda x: (x[2], x[1]), reverse=True)
+        invalid_references = sorted(invalid_references, key=lambda x: (x[3], x[1]), reverse=True)
         return False, invalid_references, unique_reads
 
 
@@ -379,6 +393,8 @@ def compare_reads_to_references(
     phenotypes,
     debug,
     minimap2_path,
+    required_identity,
+    required_coverage
 ):
     allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
     gene_name = "_".join(allele_name.split("_")[:-1])
@@ -395,7 +411,7 @@ def compare_reads_to_references(
     ref_allele_positions, ref_cov_proportion = get_ref_allele_pileups(bam_file, output_dir)
     if debug is False:
         os.remove(os.path.join(output_dir, "reference_allele_coverages.txt"))
-    validity, references, unique_reads = get_closest_allele(bam_file, "reads", ref_cov_proportion)
+    validity, references, unique_reads = get_closest_allele(bam_file, "reads", required_identity, required_coverage, ref_cov_proportion)
     if validity is True:
         valid_allele, match_proportion, match_length, coverage_proportion, cigarstring = references[
             0
@@ -451,7 +467,7 @@ def compare_reads_to_references(
             "-a --MD -t 1 --eqx",
             minimap2_path,
         )
-        validity, references, _ = get_closest_allele(bam_file, "allele")
+        validity, references, _ = get_closest_allele(bam_file, "allele", required_identity, required_coverage)
         max_similarity = references[0][1]
         references = [r for r in references if r[1] == max_similarity]
         if len(references) == 1:
@@ -584,6 +600,8 @@ def get_alleles(
     phenotypes_path,
     debug,
     minimap2_path,
+    required_identity,
+    required_coverage
 ):
     # import the phenotypes
     with open(phenotypes_path) as i:
@@ -602,6 +620,8 @@ def get_alleles(
                 phenotypes,
                 debug,
                 minimap2_path,
+                required_identity,
+                required_coverage
             )
             for r in subset
         )
@@ -618,6 +638,10 @@ def genotype_promoters(
     debug,
     output_components,
 ):
+    # skip if there are no promoters in the reference
+    if not any("_promoter" in a for a in reference_alleles):
+        sys.stderr.write("\nAmira: No promoters found in reference FASTA.\n")
+        return result_df
     # iterate through the rows in the amira output
     for index, row in result_df.iterrows():
         # get the amira gene name for this row

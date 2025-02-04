@@ -105,6 +105,22 @@ def get_options() -> argparse.Namespace:
         help="Report point mutations in promoters that are associated with AMR.",
     )
     parser.add_argument(
+        "--identity",
+        dest="identity",
+        help="Minimum nucleotide identity to a reference allele required to report an AMR gene.",
+        required=False,
+        type=float,
+        default=0.9
+    )
+    parser.add_argument(
+        "--coverage",
+        dest="coverage",
+        help="Minimum alignment coverage of a reference allele to report an AMR gene.",
+        required=False,
+        type=float,
+        default=0.9
+    )
+    parser.add_argument(
         "--annotation",
         dest="phenotypes",
         help="Path to a JSON of phenotypes for each AMR allele.",
@@ -478,6 +494,8 @@ def main() -> None:
         args.phenotypes,
         args.debug,
         args.minimap2_path,
+        args.identity,
+        args.coverage
     )
     # return an empty DF if there are no AMR genes
     if len(result_df) == 0:
@@ -516,6 +534,8 @@ def main() -> None:
         supplemented_clusters_of_interest,
         annotatedReads,
         sample_genesOfInterest,
+        args.identity,
+        args.coverage
     )
     # genotype promoters if specified
     if args.promoters:
