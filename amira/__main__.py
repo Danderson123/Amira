@@ -110,7 +110,7 @@ def get_options() -> argparse.Namespace:
         help="Minimum nucleotide identity to a reference allele required to report an AMR gene.",
         required=False,
         type=float,
-        default=0.9
+        default=0.9,
     )
     parser.add_argument(
         "--coverage",
@@ -118,7 +118,7 @@ def get_options() -> argparse.Namespace:
         help="Minimum alignment coverage of a reference allele to report an AMR gene.",
         required=False,
         type=float,
-        default=0.9
+        default=0.9,
     )
     parser.add_argument(
         "--annotation",
@@ -495,7 +495,7 @@ def main() -> None:
         args.debug,
         args.minimap2_path,
         args.identity,
-        args.coverage
+        args.coverage,
     )
     # return an empty DF if there are no AMR genes
     if len(result_df) == 0:
@@ -535,7 +535,7 @@ def main() -> None:
         annotatedReads,
         sample_genesOfInterest,
         args.identity,
-        args.coverage
+        args.coverage,
     )
     # genotype promoters if specified
     if args.promoters:

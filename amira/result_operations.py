@@ -100,7 +100,7 @@ def filter_results(
     annotatedReads,
     sample_genesOfInterest,
     required_identity,
-    required_coverage
+    required_coverage,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
@@ -281,7 +281,9 @@ def create_output_dir(output_dir, allele_name):
     return output_dir
 
 
-def get_closest_allele(bam_file_path, mapping_type, required_identity, required_coverage, ref_cov_proportion=None):
+def get_closest_allele(
+    bam_file_path, mapping_type, required_identity, required_coverage, ref_cov_proportion=None
+):
     valid_references = []
     invalid_references = []
     ref_covered = {}
@@ -310,7 +312,9 @@ def get_closest_allele(bam_file_path, mapping_type, required_identity, required_
                 if op == 7:
                     matching_bases += length
             if mapping_type == "reads":
-                prop_matching = (matching_bases / read.query_alignment_length) * 100#total_length) * 100
+                prop_matching = (
+                    matching_bases / read.query_alignment_length
+                ) * 100  # total_length) * 100
                 prop_covered = ref_cov_proportion[read.reference_name]
             if mapping_type == "allele":
                 prop_matching = (matching_bases / read.infer_read_length()) * 100
@@ -394,7 +398,7 @@ def compare_reads_to_references(
     debug,
     minimap2_path,
     required_identity,
-    required_coverage
+    required_coverage,
 ):
     allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
     gene_name = "_".join(allele_name.split("_")[:-1])
@@ -411,7 +415,9 @@ def compare_reads_to_references(
     ref_allele_positions, ref_cov_proportion = get_ref_allele_pileups(bam_file, output_dir)
     if debug is False:
         os.remove(os.path.join(output_dir, "reference_allele_coverages.txt"))
-    validity, references, unique_reads = get_closest_allele(bam_file, "reads", required_identity, required_coverage, ref_cov_proportion)
+    validity, references, unique_reads = get_closest_allele(
+        bam_file, "reads", required_identity, required_coverage, ref_cov_proportion
+    )
     if validity is True:
         valid_allele, match_proportion, match_length, coverage_proportion, cigarstring = references[
             0
@@ -467,7 +473,9 @@ def compare_reads_to_references(
             "-a --MD -t 1 --eqx",
             minimap2_path,
         )
-        validity, references, _ = get_closest_allele(bam_file, "allele", required_identity, required_coverage)
+        validity, references, _ = get_closest_allele(
+            bam_file, "allele", required_identity, required_coverage
+        )
         max_similarity = references[0][1]
         references = [r for r in references if r[1] == max_similarity]
         if len(references) == 1:
@@ -601,7 +609,7 @@ def get_alleles(
     debug,
     minimap2_path,
     required_identity,
-    required_coverage
+    required_coverage,
 ):
     # import the phenotypes
     with open(phenotypes_path) as i:
@@ -621,7 +629,7 @@ def get_alleles(
                 debug,
                 minimap2_path,
                 required_identity,
-                required_coverage
+                required_coverage,
             )
             for r in subset
         )

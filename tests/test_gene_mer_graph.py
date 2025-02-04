@@ -5235,7 +5235,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         samfile = "tests/test_allele.sam"
         # execution
         actual_validity, actual_references, actual_unique_reads = get_closest_allele(
-            samfile, "allele"
+            samfile, "allele", 0.9, 0.9
         )
         # assertion
         self.assertTrue(actual_validity)
