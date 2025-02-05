@@ -76,7 +76,7 @@ amira --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_outpu
 
 ## Pre-built species-specific panRGs
 Click the relevant link to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
-* [*Escherichia coli*](https://drive.google.com/file/d/15uyl7iQei3Ikd2d6oI_XbARXiKmxl-2d/view?usp=drive_link)
+* [*Escherichia coli*](https://drive.google.com/file/d/13c_bUXnBEs9iEPPobou7-xEgkz_t08YP/view?usp=sharing)
 * [*Klebsiella pneumoniae*](https://drive.google.com/file/d/1DYG3QW3nrQfSckIX9Vjbhbqz5bRd9W3j/view?usp=drive_link)
 * *Enterococcus faecium* (Coming soon)
 
