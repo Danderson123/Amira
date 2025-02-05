@@ -22,6 +22,17 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 Follow these steps to install Amira and its dependencies.
 
+### From PyPI
+
+Amira can be installed from PyPI by running:
+```bash
+pip install amira-amr
+```
+Amira can then be run with:
+```bash
+amira --help
+```
+
 ### From source
 
 #### Step 1: Clone the Amira Repository
@@ -50,46 +61,42 @@ Amira requires Pandora, minimap2 and racon. Follow the links below for instructi
 
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 
-### From PyPI
-
-Amira can be installed from PyPI by running:
-```bash
-pip install amira-amr
-```
-Amira can then be run with:
-```bash
-amira --help
-```
 ## Running Amira
 Amira can be run on the output of Pandora directly, or from JSON files listing the genes and gene positions on each sequencing read. Below are instructions and an example command for running Amira with the JSON files.
+
+### Running with Pandora
+[Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read (see below for links to pre-built panRGs). After installing Pandora, you can call the genes on your sequencing reads using this command:
+```bash
+pandora map -t <THREADS> --min-gene-coverage-proportion 0.5 --max-covg 10000 -o pandora_map_output <PANRG PATH> <PATH TO READ FASTQ>
+```
+Amira can then be run directly on the output of Pandora using this command:
+```bash
+amira --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_output/pandora.consensus.fq.gz --readfile <PATH TO READ FASTQ> --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --minimum-length-proportion 0.5 --maximum-length-proportion 1.5 --cores <CPUS> --annotation E.coli/AMR_calls.json
+ ```
+
+## Pre-built species-specific panRGs
+Click the relevant link to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
+* [*Escherichia coli*](https://drive.google.com/file/d/15uyl7iQei3Ikd2d6oI_XbARXiKmxl-2d/view?usp=drive_link)
+* [*Klebsiella pneumoniae*](https://drive.google.com/file/d/1DYG3QW3nrQfSckIX9Vjbhbqz5bRd9W3j/view?usp=drive_link)
+* *Enterococcus faecium* (Coming soon)
 
 ### Running from JSON
 To run Amira from the JSON files, you can use this command. You will need to replace `<PATH TO RACON BINARY>` with the absolute path to the racon binary you made earlier and replace `<PATH TO MINIMAP2 BINARY>` with the path to the minimap2 binary.
 ```
-python3 amira/__main__.py --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSITION JSON> --pandoraConsensus <PATH TO PANDORA CONSENSUS FASTQ> --readfile <PATH TO READ FASTQ> --output <OUTPUT DIRECTORY> --gene-path <AMR GENE REFERENCE FASTA> --annotation <ALLELE-PHENOTYPE MAPPING JSON> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS>
+amira --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSITION JSON> --pandoraConsensus <PATH TO PANDORA CONSENSUS FASTQ> --readfile <PATH TO READ FASTQ> --output <OUTPUT DIRECTORY> --gene-path <AMR GENE REFERENCE FASTA> --annotation <ALLELE-PHENOTYPE MAPPING JSON> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS>
 ```
 
 ####  JSON example
 
 Some example JSON data can be downloaded from [here](https://drive.google.com/drive/folders/1mQ8JmzVhFiNkgRy5_1iFQrqV2TLNnlQ4). Amira can then be run using this command:
 ```
-python3 amira/__main__.py --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --readfile test_data/SRR23044220_1.fastq.gz --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --annotation E.coli/AMR_calls.json --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS>
+amira --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --readfile test_data/SRR23044220_1.fastq.gz --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --annotation E.coli/AMR_calls.json --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS>
 ```
-
-### Running with Pandora
-[Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read. For *Escherichia coli*, a pre-built panRG can be downloaded from [here](https://drive.google.com/file/d/15uyl7iQei3Ikd2d6oI_XbARXiKmxl-2d/view). After installing Pandora, you can call the genes on your sequencing reads using this command:
-```bash
-pandora map -t <THREADS> --min-gene-coverage-proportion 0.5 --max-covg 10000 -o pandora_map_output <PANRG PATH> <PATH TO READ FASTQ>
-```
-Amira can then be run directly on the output of Pandora using this command:
-```bash
-python3 amira/__main__.py --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_output/pandora.consensus.fq.gz --readfile <PATH TO READ FASTQ> --output amira_output --gene-path E.coli/AMR_alleles_unified.fa --minimum-length-proportion 0.5 --maximum-length-proportion 1.5 --cores <CPUS> --annotation E.coli/AMR_calls.json
- ```
 
 ### Additional options
 For additional options and configurations, run:
 ```bash
-python3 amira/__main__.py --help
+amira --help
 ```
 ## Citation
 TBD
