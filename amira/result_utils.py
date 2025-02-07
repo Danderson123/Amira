@@ -207,12 +207,22 @@ def run_subprocess(command):
     subprocess.run(command, shell=True, check=True)
 
 
-def map_reads(output_dir, reference_fasta, input_fasta, output_prefix, minimap_opts, minimap2_path, samtools_path):
+def map_reads(
+    output_dir,
+    reference_fasta,
+    input_fasta,
+    output_prefix,
+    minimap_opts,
+    minimap2_path,
+    samtools_path,
+):
     sam_file = os.path.join(output_dir, f"{output_prefix}.mapped.sam")
     bam_file = os.path.join(output_dir, f"{output_prefix}.mapped.bam")
     map_command = f"{minimap2_path} {minimap_opts} {reference_fasta} {input_fasta} > {sam_file}"
     run_subprocess(map_command)
-    sort_and_index_command = f"{samtools_path} sort {sam_file} > {bam_file} && {samtools_path} index {bam_file}"
+    sort_and_index_command = (
+        f"{samtools_path} sort {sam_file} > {bam_file} && {samtools_path} index {bam_file}"
+    )
     run_subprocess(sort_and_index_command)
     return bam_file
 
@@ -246,7 +256,7 @@ def racon_one_iteration(
     polished_sequence,
     window_size,
     minimap2_path,
-    samtools_path
+    samtools_path,
 ):
     # run minimap2
     bam_file = map_reads(
@@ -256,7 +266,7 @@ def racon_one_iteration(
         sam_file.replace(".mapped.sam", ""),
         "-a --MD -t 1 -x map-ont --eqx",
         minimap2_path,
-        samtools_path
+        samtools_path,
     )
     # run racon
     racon_polish(
@@ -401,7 +411,7 @@ def compare_reads_to_references(
     minimap2_path,
     required_identity,
     required_coverage,
-    samtools_path
+    samtools_path,
 ):
     allele_name = os.path.basename(allele_file).replace(".fastq.gz", "")
     gene_name = "_".join(allele_name.split("_")[:-1])
@@ -414,7 +424,7 @@ def compare_reads_to_references(
         "02.read",
         "-a --MD -t 1 -x map-ont --eqx",
         minimap2_path,
-        samtools_path
+        samtools_path,
     )
     ref_allele_positions, ref_cov_proportion = get_ref_allele_pileups(bam_file, output_dir)
     if debug is False:
@@ -444,7 +454,7 @@ def compare_reads_to_references(
                     "04.polished_sequence.fasta",
                     str(len(valid_allele_sequence)),
                     minimap2_path,
-                    samtools_path
+                    samtools_path,
                 )
             except subprocess.CalledProcessError:
                 try:
@@ -477,7 +487,7 @@ def compare_reads_to_references(
             "05.read",
             "-a --MD -t 1 --eqx",
             minimap2_path,
-            samtools_path
+            samtools_path,
         )
         validity, references, _ = get_closest_allele(
             bam_file, "allele", required_identity, required_coverage
@@ -616,7 +626,7 @@ def get_alleles(
     minimap2_path,
     required_identity,
     required_coverage,
-    samtools_path
+    samtools_path,
 ):
     # import the phenotypes
     with open(phenotypes_path) as i:
@@ -637,7 +647,7 @@ def get_alleles(
                 minimap2_path,
                 required_identity,
                 required_coverage,
-                samtools_path
+                samtools_path,
             )
             for r in subset
         )
@@ -653,7 +663,7 @@ def genotype_promoters(
     phenotypes,
     debug,
     output_components,
-    samtools_path
+    samtools_path,
 ):
     # skip if there are no promoters in the reference
     if not any("_promoter" in a for a in reference_alleles):
@@ -693,7 +703,7 @@ def genotype_promoters(
                 phenotypes,
                 debug,
                 minimap2_path,
-                samtools_path
+                samtools_path,
             )
             # skip if no allele was similar
             if not os.path.exists(

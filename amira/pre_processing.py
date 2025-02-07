@@ -9,7 +9,8 @@ from tqdm import tqdm
 
 
 def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores):
-    command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 -o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile}"
+    command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 "
+    command += f"-o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile}"
     # check that the panRG file exists
     if not os.path.exists(panRG_path):
         sys.stderr.write("\nAmira: panRG file does not exist.\n")
@@ -96,6 +97,7 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
         gene_name = "+" + strandlessGene
     return gene_name, strandlessGene
 
+
 def load_species_specific_files(species):
     if not os.path.exists(f"amira/assets/{species}"):
         sys.stderr.write(f"\nAmira: {species} is not a supported species name.\n")
@@ -106,6 +108,7 @@ def load_species_specific_files(species):
         core_genes = os.path.join(f"amira/assets/{species}", "core_genes.txt")
     return AMR_gene_reference_FASTA, sequence_names, core_genes
 
+
 def remove_poorly_mapped_genes(
     pandora_consensus,
     zero_coverage_threshold,
@@ -115,7 +118,7 @@ def remove_poorly_mapped_genes(
     output_dir,
     consensus_file,
     minimap2_path,
-    samtools_path
+    samtools_path,
 ):
     sys.stderr.write("\nAmira: removing genes with low coverage\n")
     # map the reads to the pandora consensus
@@ -173,7 +176,7 @@ def remove_poorly_mapped_genes(
 def convert_pandora_output(
     pandoraSam: str,
     pandora_consensus: dict[str, list[str]],
-    fastq_content: dict[str: dict[str, str]],
+    fastq_content: dict[str : dict[str, str]],
     genesOfInterest: set[str],
     geneMinCoverage: int,
     gene_length_lower_threshold: float,
@@ -182,7 +185,7 @@ def convert_pandora_output(
     cores: int,
     output_dir: str,
     minimap2_path: str,
-    samtools_path: str
+    samtools_path: str,
 ) -> tuple[dict[str, list[str]], list[str]]:
     # load the pseudo SAM
     pandora_sam_content = pysam.AlignmentFile(pandoraSam, "rb")
@@ -199,7 +202,7 @@ def convert_pandora_output(
         output_dir,
         os.path.join(os.path.dirname(pandoraSam), "pandora.consensus.fq.gz"),
         minimap2_path,
-        samtools_path
+        samtools_path,
     )
     # iterate through the read regions
     read_tracking = {}
