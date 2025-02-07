@@ -33,7 +33,7 @@ singularity exec "$URL" amira --help
 
 ### With PyPI
 
-Amira can be installed from PyPI. You will need to install the dependencies separately if you opt for this method.
+Amira can be installed from PyPI. You will need to install the non-Python dependencies separately if you opt for this method.
 ```bash
 pip install amira-amr
 ```
@@ -62,7 +62,7 @@ poetry install
 ```
 You will need to install the non-Python dependencies separately if you opt for this method.
 
-####  Step 4: Install Non-Python Dependencies
+### Installing Non-Python Dependencies
 Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
 
 - [Pandora installation guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)

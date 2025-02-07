@@ -33,12 +33,7 @@ From: ubuntu:20.04
         libcurl4-openssl-dev \
         libncurses5-dev \
         bzip2 \
-        ca-certificates \
-        curl
-
-    # Update alternatives to point to Python 3.9
-    update-alternatives --install /usr/bin/python python /usr/bin/python3.9 2
-    update-alternatives --config python <<< '1'  # Automatically select Python 3.9
+        ca-certificates
 
     # Upgrade pip to the latest version
     python -m pip install --upgrade pip setuptools
