@@ -142,16 +142,22 @@ def get_options() -> argparse.Namespace:
         default="pandora",
     )
     parser.add_argument(
-        "--racon-path",
-        dest="racon_path",
-        help="Path to racon binary (default=racon).",
-        default="racon",
-    )
-    parser.add_argument(
         "--minimap2-path",
         dest="minimap2_path",
         help="Path to minimap2 binary (default=minimap2).",
         default="minimap2",
+    )
+    parser.add_argument(
+        "--samtools-path",
+        dest="samtools_path",
+        help="Path to samtools binary (default=samtools).",
+        default="samtools",
+    )
+    parser.add_argument(
+        "--racon-path",
+        dest="racon_path",
+        help="Path to racon binary (default=racon).",
+        default="racon",
     )
     parser.add_argument(
         "--seed",
@@ -253,6 +259,9 @@ def main() -> None:
     else:
         pandoraSam = args.pandoraSam
         pandoraConsensus = args.pandoraConsensus
+    # load the fastq data
+    fastq_content = parse_fastq(args.reads)
+    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads
     if args.pandoraJSON:
         if not args.quiet:
@@ -285,10 +294,14 @@ def main() -> None:
                 f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
             sys.stderr.write("\nAmira: loading Pandora SAM file\n")
+        # randomly sample 100,000 reads
+        if args.sample_reads:
+            fastq_content = downsample_reads(fastq_content, 100000)
         pandora_consensus = parse_fastq(pandoraConsensus)
         annotatedReads, sample_genesOfInterest, gene_position_dict = convert_pandora_output(
             pandoraSam,
             pandora_consensus,
+            fastq_content,
             genesOfInterest,
             args.gene_min_coverage,
             args.lower_gene_length_threshold,
@@ -297,6 +310,7 @@ def main() -> None:
             args.cores,
             args.output_dir,
             args.minimap2_path,
+            args.samtools_path,
         )
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -304,9 +318,6 @@ def main() -> None:
             o.write(json.dumps(gene_position_dict))
         with open(os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"), "w") as o:
             o.write(json.dumps(annotatedReads))
-        # randomly sample 100,000 reads
-        if args.sample_reads:
-            annotatedReads = downsample_reads(annotatedReads, 100000)
         # get the mean depth across core genes
         mean_read_depth = get_core_gene_mean_depth(
             os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes
@@ -323,9 +334,6 @@ def main() -> None:
             o.write(results)
         # exit
         sys.exit(0)
-    # load the fastq data
-    fastq_content = parse_fastq(args.reads)
-    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # write out debug files if specified
     if args.debug:
         plot_read_length_distribution(annotatedReads, args.output_dir)
@@ -508,6 +516,7 @@ def main() -> None:
         args.minimap2_path,
         args.identity,
         args.coverage,
+        args.samtools_path,
     )
     # return an empty DF if there are no AMR genes
     if len(result_df) == 0:
@@ -562,6 +571,7 @@ def main() -> None:
             sequence_names,
             args.debug,
             args.output_components,
+            args.samtools_path,
         )
     # write out the clustered reads
     if args.debug:

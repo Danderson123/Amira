@@ -16,6 +16,7 @@ Amira requires Python and three additional non-Python tools for optimal function
 - **Poetry** to manage the Python dependencies.
 - **Pandora** to identify the genes on each sequencing read.
 - **minimap2** for sequence alignment.
+- **samtools** for processing alignments.
 - **racon** for allele polishing.
 
 ## Installation
@@ -55,9 +56,10 @@ poetry install
 ####  Step 4: Install Non-Python Dependencies
 Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
 
-- [Pandora Installation Guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
-- [minimap2 Installation Guide](https://github.com/lh3/minimap2)
-- [racon Installation Guide](https://github.com/isovic/racon)
+- [Pandora installation guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
+- [minimap2 installation guide](https://github.com/lh3/minimap2)
+- [samtools installation guide](https://www.htslib.org/download/)
+- [racon installation guide](https://github.com/isovic/racon)
 
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 
@@ -69,10 +71,10 @@ After installation, make a note of the paths to these binaries as they will be r
 
 ## Running Amira
 
-Once you have installed the Python dependencies, Pandora, Racon and Minimap2, and downloaded the panRG for the species you interested in, Amira can be run with this command:
+Once you have installed the Python dependencies, Pandora, Racon and Minimap2, and downloaded the panRG for the species you interested in, Amira can be run with this command.
 
 ```bash
-amira --reads <PATH TO READ FASTQ> --output <OUTPUT_DIR> --species <SPECIES> --panRG-path <PANRG PATH> --pandora-path <PATH TO PANDORA BINARY --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --cores <CPUS>
+amira --reads <PATH TO READ FASTQ> --output <OUTPUT_DIR> --species <SPECIES> --panRG-path <PANRG PATH> --pandora-path <PATH TO PANDORA BINARY --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --samtools-path <PATH TO SAMTOOLS BINARY> --cores <CPUS>
 ```
 
 ## For developers
@@ -86,11 +88,11 @@ pandora map -t <THREADS> --min-gene-coverage-proportion 0.5 --max-covg 10000 -o 
 ```
 Amira can then be run directly on the output of Pandora using this command:
 ```bash
-amira --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_output/pandora.consensus.fq.gz --panRG-path <PANRG PATH> --reads <PATH TO READ FASTQ> --output amira_output --species <SPECIES> --minimum-length-proportion 0.5 --maximum-length-proportion 1.5 --cores <CPUS> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY>
+amira --pandoraSam pandora_map_output/*.sam --pandoraConsensus pandora_map_output/pandora.consensus.fq.gz --panRG-path <PANRG PATH> --reads <PATH TO READ FASTQ> --output amira_output --species <SPECIES> --minimum-length-proportion 0.5 --maximum-length-proportion 1.5 --cores <CPUS> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --samtools-path <PATH TO SAMTOOLS BINARY>
  ```
 
 ### Running from JSON
-To run Amira from the JSON files, you can use this command. You will need to replace `<PATH TO RACON BINARY>` with the absolute path to the racon binary you made earlier and replace `<PATH TO MINIMAP2 BINARY>` with the path to the minimap2 binary.
+To run Amira from the JSON files, you can use this command:
 ```
 amira --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSITION JSON> --pandoraConsensus <PATH TO PANDORA CONSENSUS FASTQ> --reads <PATH TO READ FASTQ> --output <OUTPUT DIRECTORY> --panRG-path <PANRG PATH> --species <SPECIES> --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --cores <CPUS>
 ```
@@ -99,7 +101,7 @@ amira --pandoraJSON <PATH TO GENE CALL JSON> --gene-positions <PATH TO GENE POSI
 
 Some example JSON data can be downloaded from [here](https://drive.google.com/drive/folders/1mQ8JmzVhFiNkgRy5_1iFQrqV2TLNnlQ4). Amira can then be run using this command:
 ```
-amira --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --reads test_data/SRR23044220_1.fastq.gz --output amira_output --species Escherichia_coli --panRG-path . --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --debug --cores <CPUS>
+amira --pandoraJSON test_data/gene_calls_with_gene_filtering.json --gene-positions test_data/gene_positions_with_gene_filtering.json --pandoraConsensus test_data/pandora.consensus.fq.gz --reads test_data/SRR23044220_1.fastq.gz --output amira_output --species Escherichia_coli --panRG-path . --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --samtools-path <PATH TO SAMTOOLS BINARY> --debug --cores <CPUS>
 ```
 
 ### Additional options
