@@ -2,7 +2,7 @@ import gzip
 import os
 import random
 import subprocess
-from tqdm import tqdm
+
 import matplotlib.pyplot as plt
 
 

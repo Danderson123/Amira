@@ -21,12 +21,7 @@ def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores):
         sys.exit(1)
     # run pandora
     subprocess.run(command, shell=True, check=True)
-    pandoraSam = glob.glob(os.path.join(
-        outdir,
-        "pandora_output",
-        "*.filtered.sam"
-        )
-    )[0]
+    pandoraSam = glob.glob(os.path.join(outdir, "pandora_output", "*.filtered.sam"))[0]
     pandoraConsensus = os.path.join(outdir, "pandora_output", "pandora.consensus.fq.gz")
     return pandoraSam, pandoraConsensus
 
@@ -306,12 +301,12 @@ def samtools_get_mean_depth(bam_file, core_genes, samtools_path):
     return mean_depth_per_contig
 
 
-def get_core_gene_mean_depth(bam_file, core_gene_file):
+def get_core_gene_mean_depth(bam_file, core_gene_file, samtools_path):
     # load the core genes
     with open(core_gene_file) as i:
         core_genes = set(i.read().split("\n"))
     # get the mean depth across each core gene
-    mean_depth_per_core_gene = samtools_get_mean_depth(bam_file, core_genes)
+    mean_depth_per_core_gene = samtools_get_mean_depth(bam_file, core_genes, samtools_path)
     os.remove(bam_file)
     os.remove(bam_file + ".bai")
     return statistics.mean(list(mean_depth_per_core_gene.values()))

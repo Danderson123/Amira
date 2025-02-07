@@ -257,9 +257,7 @@ def main() -> None:
         if not args.quiet:
             sys.stderr.write("\nAmira: randomly sampling FASTQ to 100,000 reads.\n")
         # randomly sample 100,000 reads
-        read_fastq_path = downsample_reads(
-            fastq_content, args.reads, args.output_dir, 100000
-        )
+        read_fastq_path = downsample_reads(fastq_content, args.reads, args.output_dir, 100000)
     else:
         read_fastq_path = args.reads
     # run pandora
@@ -327,7 +325,7 @@ def main() -> None:
             o.write(json.dumps(annotatedReads))
         # get the mean depth across core genes
         mean_read_depth = get_core_gene_mean_depth(
-            os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes
+            os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes, args.samtools_path
         )
         sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}\n")
     # terminate if no AMR genes were found
