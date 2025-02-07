@@ -9,22 +9,23 @@ import matplotlib
 
 from amira.__init__ import __version__
 from amira.construct_graph import GeneMerGraph
-from amira.graph_operations import (
+from amira.graph_utils import (
     build_multiprocessed_graph,
     choose_kmer_size,
     get_overall_mean_node_coverages,
     iterative_bubble_popping,
     plot_node_coverages,
 )
-from amira.pre_process_operations import (
+from amira.pre_processing import (
     convert_pandora_output,
     get_core_gene_mean_depth,
+    load_species_specific_files,
     process_pandora_json,
     process_reference_alleles,
-    run_pandora_map
+    run_pandora_map,
 )
-from amira.read_operations import downsample_reads, parse_fastq, plot_read_length_distribution
-from amira.result_operations import (
+from amira.read_utils import downsample_reads, parse_fastq, plot_read_length_distribution
+from amira.result_utils import (
     estimate_copy_numbers,
     filter_results,
     genotype_promoters,
@@ -59,7 +60,7 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--species",
         dest="species",
-        choices=['Escherichia_coli', 'Klebsiella_pneumoniae'],
+        choices=["Escherichia_coli", "Klebsiella_pneumoniae"],
         help="The species you want to run Amira on.",
         required=True,
     )
@@ -109,12 +110,12 @@ def get_options() -> argparse.Namespace:
         dest="promoters",
         action="store_true",
         default=False,
-        help=argparse.SUPPRESS
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--identity",
         dest="identity",
-        help="Minimum nucleotide identity to a reference allele required to report an AMR gene (default=0.9).",
+        help="Minimum identity to a reference allele to report an AMR gene (default=0.9).",
         required=False,
         type=float,
         default=0.9,
@@ -122,7 +123,7 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--coverage",
         dest="coverage",
-        help="Minimum alignment coverage of a reference allele to report an AMR gene (default=0.9).",
+        help="Minimum coverage of a reference allele to report an AMR gene (default=0.9).",
         required=False,
         type=float,
         default=0.9,
@@ -199,7 +200,7 @@ def get_options() -> argparse.Namespace:
         dest="output_components",
         action="store_true",
         default=False,
-        help="Output FASTQs of the reads for each connected component in the graph (default=False).",
+        help="Output FASTQs of the reads for each connected component (default=False).",
     )
     parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
@@ -225,6 +226,7 @@ def write_debug_files(
     )
     return raw_graph
 
+
 def main() -> None:
     # get the runtime
     start_time = time.time()
@@ -236,13 +238,7 @@ def main() -> None:
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
     # get the relevant species-specific files
-    if not os.path.exists(f"amira/assets/{args.species}"):
-        sys.stderr.write(f"\nAmira: {args.species} is not a supported species name.\n")
-        sys.exit(1)
-    else:
-        AMR_gene_reference_FASTA = os.path.join(f"amira/assets/{args.species}", "AMR_alleles_unified.fa")
-        sequence_names = os.path.join(f"amira/assets/{args.species}", "AMR_calls.json")
-        core_genes = os.path.join(f"amira/assets/{args.species}", "core_genes.txt")
+    AMR_gene_reference_FASTA, sequence_names, core_genes = load_species_specific_files(args.species)
     # import the list of genes of interest
     reference_alleles, genesOfInterest = process_reference_alleles(
         AMR_gene_reference_FASTA, args.promoters
@@ -251,7 +247,9 @@ def main() -> None:
     if args.pandoraSam is None:
         if not args.quiet:
             sys.stderr.write("\nAmira: running Pandora map.\n")
-        pandoraSam, pandoraConsensus = run_pandora_map(args.pandora_path, args.panRG_path, args.reads, args.output_dir, args.cores)
+        pandoraSam, pandoraConsensus = run_pandora_map(
+            args.pandora_path, args.panRG_path, args.reads, args.output_dir, args.cores
+        )
     else:
         pandoraSam = args.pandoraSam
         pandoraConsensus = args.pandoraConsensus

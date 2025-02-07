@@ -1,7 +1,7 @@
 import unittest
 
 from amira.construct_graph import GeneMerGraph
-from amira.path_finding_operations import cluster_upstream_adjacent_paths, construct_suffix_tree
+from amira.path_finding_utils import cluster_upstream_adjacent_paths, construct_suffix_tree
 
 
 class TestPathFindingConstructor(unittest.TestCase):

@@ -16,7 +16,7 @@ from amira.construct_gene import convert_int_strand_to_string
 from amira.construct_gene_mer import GeneMer
 from amira.construct_node import Node
 from amira.construct_read import Read
-from amira.path_finding_operations import (
+from amira.path_finding_utils import (
     construct_suffix_tree,
     filter_blocks,
     get_suffixes_from_initial_tree,
