@@ -8,6 +8,21 @@ import pysam
 from tqdm import tqdm
 
 
+def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores):
+    command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 -o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile}"
+    # check that the panRG file exists
+    if not os.path.exists(panRG_path):
+        sys.stderr.write("\nAmira: panRG file does not exist.\n")
+        sys.exit(1)
+    if ".panidx.zip" not in panRG_path:
+        sys.stderr.write("\nAmira: panRG file does not end in .panidx.zip.\n")
+        sys.exit(1)
+    # run pandora
+    subprocess.run(command, shell=True, check=True)
+    pandoraSam = os.path.join(outdir, 'pandora_output', os.path.basename(readfile).replace(".fastq.gz", "").replace(".fastq", "").replace(".fq.gz", "").replace(".fq", "") + ".filtered.sam")
+    pandoraConsensus = os.path.join(outdir, 'pandora_output', "pandora.consensus.fq.gz")
+    return pandoraSam, pandoraConsensus
+
 def clean_gene(g):
     chars_to_remove = set(["|", "(", ")", "-", "*", "+", "#", ":", "=", "/", ",", "'"])
     cleaned_gene = "".join(char for char in g if char not in chars_to_remove)
