@@ -1,0 +1,85 @@
+Bootstrap: library
+From: ubuntu:20.04
+
+%setup
+    mkdir ${SINGULARITY_ROOTFS}/amira
+    mkdir ${SINGULARITY_ROOTFS}/amira/software
+
+%files
+    environment.yaml amira/software/environment.yml
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install dependencies
+    apt-get update
+    apt-get install -y software-properties-common
+    add-apt-repository universe
+    apt-get install -y \
+        make \
+        gcc-10 \
+        g++-10 \
+        git \
+        python3.9 \
+        python3.9-dev \
+        python3.9-venv \
+        python3.9-distutils \
+        python3-pip \
+        libclang-dev \
+        libbz2-dev \
+        liblzma-dev \
+        wget \
+        libz-dev \
+        libcurl4-openssl-dev \
+        libncurses5-dev \
+        bzip2 \
+        ca-certificates \
+        curl
+
+    # Update alternatives to point to Python 3.9
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.9 2
+    update-alternatives --config python <<< '1'  # Automatically select Python 3.9
+
+    # Upgrade pip to the latest version
+    python -m pip install --upgrade pip setuptools
+
+    # Set GCC/G++ to version 10
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/g++ g++ /usr/bin/g++-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10
+
+    # Install Miniconda
+    cd ${SINGULARITY_ROOTFS}/amira/software
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O install_conda.sh
+    bash install_conda.sh -b -p /opt/conda
+    rm install_conda.sh
+
+    # Create the conda environment using the YAML file
+    /opt/conda/bin/conda env create -f environment.yml
+
+    # Activate conda env
+    echo 'source /opt/conda/bin/activate amira_env' >> $SINGULARITY_ENVIRONMENT
+
+    # Install Amira and Python dependencies
+    git clone https://github.com/Danderson123/Amira
+    cd Amira
+    pip install poetry
+    poetry env use python3.9  # Explicitly specify the correct Python version
+    poetry install
+    cd ..
+
+    # Install pandora
+    git clone --single-branch https://github.com/rmcolq/pandora.git --recursive
+    cd pandora
+    mkdir -p build
+    cd build
+    cmake -DHUNTER_JOBS_NUMBER=1 -DCMAKE_BUILD_TYPE=Release ..
+    make -j1
+    ctest -VV
+
+    # Activate conda env
+    echo 'source /opt/conda/bin/activate amira_env' >> $SINGULARITY_ENVIRONMENT
+
+%runscript
+    exec "$@"
+
+%test
+    pytest tests

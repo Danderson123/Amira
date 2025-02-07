@@ -1,0 +1,8 @@
+name: amira_env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - samtools=1.18
+  - racon=1.4.10
+  - minimap2=2.17

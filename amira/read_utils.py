@@ -1,7 +1,8 @@
 import gzip
 import os
 import random
-
+import subprocess
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 
@@ -77,12 +78,22 @@ def write_fastq(fastq_file, data):
             fh.write(f'{value["quality"]}\n')
 
 
-def downsample_reads(annotatedReads, max_reads=100000):
+def downsample_reads(fastq_content, read_path, output_dir, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads
-    total_reads = len(annotatedReads)
+    total_reads = len(fastq_content)
     if total_reads <= max_reads:
-        return annotatedReads
-
-    # Convert the items to a list before sampling
-    sampled_items = random.sample(list(annotatedReads.items()), max_reads)
-    return dict(sampled_items)
+        selected_reads = list(fastq_content.keys())
+    else:
+        # Convert the items to a list before sampling
+        selected_reads = set(random.sample(list(fastq_content.keys()), max_reads))
+        # sample the fastq dictionary
+        fastq_content = {k: v for k, v in fastq_content.items() if k in selected_reads}
+    # write out the list of reads
+    with open(os.path.join(output_dir, "selected_reads.txt"), "w") as o:
+        o.write("\n".join(list(selected_reads)))
+    # filter the fastq
+    read_fastq_path = os.path.join(output_dir, "subsampled_reads.fq.gz")
+    command = f"fastaq filter --ids_file {os.path.join(output_dir, 'selected_reads.txt')} "
+    command += f"{read_path} {read_fastq_path}"
+    subprocess.run(command, shell=True, check=True)
+    return read_fastq_path

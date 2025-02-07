@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import statistics
@@ -20,16 +21,12 @@ def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores):
         sys.exit(1)
     # run pandora
     subprocess.run(command, shell=True, check=True)
-    pandoraSam = os.path.join(
+    pandoraSam = glob.glob(os.path.join(
         outdir,
         "pandora_output",
-        os.path.basename(readfile)
-        .replace(".fastq.gz", "")
-        .replace(".fastq", "")
-        .replace(".fq.gz", "")
-        .replace(".fq", "")
-        + ".filtered.sam",
-    )
+        "*.filtered.sam"
+        )
+    )[0]
     pandoraConsensus = os.path.join(outdir, "pandora_output", "pandora.consensus.fq.gz")
     return pandoraSam, pandoraConsensus
 
@@ -57,8 +54,6 @@ def process_pandora_json(
                 subsettedGenesOfInterest.add(annotatedReads[read][g][1:])
         if not containsAMRgene:
             to_delete.append(read)
-    # for read in to_delete:
-    #     del annotatedReads[read]
     genesOfInterest = list(subsettedGenesOfInterest)
 
     return annotatedReads, genesOfInterest, gene_position_dict
@@ -176,7 +171,6 @@ def remove_poorly_mapped_genes(
 def convert_pandora_output(
     pandoraSam: str,
     pandora_consensus: dict[str, list[str]],
-    fastq_content: dict[str : dict[str, str]],
     genesOfInterest: set[str],
     geneMinCoverage: int,
     gene_length_lower_threshold: float,
@@ -208,9 +202,6 @@ def convert_pandora_output(
     read_tracking = {}
     distances = {}
     for read in pandora_sam_content.fetch():
-        # skip this read if it has not been subsampled
-        if read.query_name not in fastq_content:
-            continue
         # convert the cigarsting to a Cigar object
         cigar = read.cigartuples
         # check if the read has mapped to any regions
@@ -223,9 +214,6 @@ def convert_pandora_output(
             regionEnd, regionLength = get_read_end(cigar, regionStart)
             # append the strand of the match to the name of the gene
             gene_name, strandlessGene = determine_gene_strand(read)
-            # skip this read if there are no reads with >= 80% coverage
-            # if read.query_name not in minimap2_annotatedReads:
-            #    continue
             # exclude genes that do not have a pandora consensus
             if strandlessGene in genesOfInterest or (
                 strandlessGene in pandora_consensus
@@ -233,7 +221,7 @@ def convert_pandora_output(
                 <= regionLength
                 <= gene_length_upper_threshold * len(pandora_consensus[strandlessGene]["sequence"])
             ):
-                read_name = read.query_name  # + "_" + str(read_tracking[read.query_name]["index"]
+                read_name = read.query_name
                 if read_name not in annotatedReads:
                     annotatedReads[read_name] = []
                     gene_position_dict[read_name] = []
@@ -249,10 +237,6 @@ def convert_pandora_output(
                     distances[read_name] = []
                 distances[read_name].append(regionStart - read_tracking[read.query_name]["end"])
                 read_tracking[read.query_name]["end"] = regionEnd
-                # if strandlessGene not in fp_genes and read.query_name not in fp_reads:
-                # proportion_gene_length.append(
-                #     regionLength / len(pandora_consensus[strandlessGene]["sequence"])
-                # )
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
         annotatedReads[r] = [

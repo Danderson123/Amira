@@ -178,7 +178,7 @@ def get_options() -> argparse.Namespace:
         dest="quiet",
         action="store_true",
         default=False,
-        help="Supress progress updates (default=False).",
+        help="Suppress progress updates (default=False).",
     )
     parser.add_argument(
         "--no-filtering",
@@ -249,18 +249,30 @@ def main() -> None:
     reference_alleles, genesOfInterest = process_reference_alleles(
         AMR_gene_reference_FASTA, args.promoters
     )
+    # load the fastq data
+    if not args.quiet:
+        sys.stderr.write("\nAmira: loading FASTQ file.\n")
+    fastq_content = parse_fastq(args.reads)
+    if args.sample_reads:
+        if not args.quiet:
+            sys.stderr.write("\nAmira: randomly sampling FASTQ to 100,000 reads.\n")
+        # randomly sample 100,000 reads
+        read_fastq_path = downsample_reads(
+            fastq_content, args.reads, args.output_dir, 100000
+        )
+    else:
+        read_fastq_path = args.reads
     # run pandora
     if args.pandoraSam is None:
         if not args.quiet:
             sys.stderr.write("\nAmira: running Pandora map.\n")
         pandoraSam, pandoraConsensus = run_pandora_map(
-            args.pandora_path, args.panRG_path, args.reads, args.output_dir, args.cores
+            args.pandora_path, args.panRG_path, read_fastq_path, args.output_dir, args.cores
         )
     else:
         pandoraSam = args.pandoraSam
         pandoraConsensus = args.pandoraConsensus
-    # load the fastq data
-    fastq_content = parse_fastq(args.reads)
+    # remove underscores in read names
     fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads
     if args.pandoraJSON:
@@ -277,9 +289,6 @@ def main() -> None:
             args.pandoraJSON, genesOfInterest, args.gene_positions
         )
         pandora_consensus = parse_fastq(args.pandoraConsensus)
-        # randomly sample 100,000 reads
-        if args.sample_reads:
-            annotatedReads = downsample_reads(annotatedReads, 10000)
         # initialise mean read depth
         mean_read_depth = None
     # load the pandora consensus and convert to a dictionary
@@ -294,19 +303,17 @@ def main() -> None:
                 f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
             sys.stderr.write("\nAmira: loading Pandora SAM file\n")
-        # randomly sample 100,000 reads
-        if args.sample_reads:
-            fastq_content = downsample_reads(fastq_content, 100000)
+        # load the pandora consensus
         pandora_consensus = parse_fastq(pandoraConsensus)
+        # process the output of pandora
         annotatedReads, sample_genesOfInterest, gene_position_dict = convert_pandora_output(
             pandoraSam,
             pandora_consensus,
-            fastq_content,
             genesOfInterest,
             args.gene_min_coverage,
             args.lower_gene_length_threshold,
             args.upper_gene_length_threshold,
-            args.reads,
+            read_fastq_path,
             args.cores,
             args.output_dir,
             args.minimap2_path,
