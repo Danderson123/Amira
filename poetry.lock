@@ -953,6 +953,16 @@ files = [
 ]
 
 [[package]]
+name = "pyfastaq"
+version = "3.17.0"
+description = "Script to manipulate FASTA and FASTQ files, plus API for developers"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pyfastaq-3.17.0.tar.gz", hash = "sha256:40c6dc0cea72c0ab91d10e5627a26dea1783b7e5e3edcfff8e1dc960bfd71cdc"},
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.2.1"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
@@ -1278,4 +1288,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "9b8779fb9a4e5bc4fcfb5bf2bed0212922a2a217dec8d0ad93a31831d5157f05"
+content-hash = "bda5d059f6bcc485b19e4c37f43c26badc9745d69dcab0e41258c6f3671c0065"

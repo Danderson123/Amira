@@ -2258,6 +2258,7 @@ class GeneMerGraph:
         # iterate through the components
         path_coverages = []
         for component in self.components():
+            print(component)
             # skip this component if specified
             if component in components_to_skip:
                 continue

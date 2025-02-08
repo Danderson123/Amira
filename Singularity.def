@@ -2,8 +2,7 @@ Bootstrap: library
 From: ubuntu:20.04
 
 %setup
-    mkdir ${SINGULARITY_ROOTFS}/amira
-    mkdir ${SINGULARITY_ROOTFS}/amira/software
+    mkdir -p ${SINGULARITY_ROOTFS}/amira/software
 
 %files
     environment.yaml amira/software/environment.yml
@@ -33,10 +32,11 @@ From: ubuntu:20.04
         libcurl4-openssl-dev \
         libncurses5-dev \
         bzip2 \
-        ca-certificates
+        ca-certificates \
+        cmake
 
     # Upgrade pip to the latest version
-    python -m pip install --upgrade pip setuptools
+    python3.9 -m pip install --upgrade pip setuptools
 
     # Set GCC/G++ to version 10
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/g++ g++ /usr/bin/g++-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10
@@ -56,9 +56,11 @@ From: ubuntu:20.04
     # Install Amira and Python dependencies
     git clone https://github.com/Danderson123/Amira
     cd Amira
-    pip install poetry
-    poetry env use python3.9  # Explicitly specify the correct Python version
-    poetry install
+
+    # Configure Poetry to install dependencies directly into the active environment
+    python3.9 -m pip install poetry
+    poetry config virtualenvs.create false  # Disable virtual environments
+    poetry install --no-dev  # Install Amira dependencies globally
     cd ..
 
     # Install pandora
@@ -66,15 +68,12 @@ From: ubuntu:20.04
     cd pandora
     mkdir -p build
     cd build
-    cmake -DHUNTER_JOBS_NUMBER=1 -DCMAKE_BUILD_TYPE=Release ..
-    make -j1
+    cmake -DHUNTER_JOBS_NUMBER=4 -DCMAKE_BUILD_TYPE=Release ..
+    make -j4
     ctest -VV
-
-    # Activate conda env
-    echo 'source /opt/conda/bin/activate amira_env' >> $SINGULARITY_ENVIRONMENT
+    cd ..
 
 %runscript
-    exec "$@"
-
-%test
-    pytest tests
+    export PATH=$PATH:/amira/software/pandora/build:/opt/conda/envs/amira_env/bin
+    . /opt/conda/bin/activate amira_env
+    exec amira "$@"
