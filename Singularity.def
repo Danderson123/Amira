@@ -52,7 +52,7 @@ From: ubuntu:20.04
     # Install Amira and Python dependencies
     git clone https://github.com/Danderson123/Amira
     cd Amira
-    git checkout dev
+
     # Install Poetry directly without a virtual environment
     /opt/conda/bin/activate amira_env
     /opt/conda/envs/amira_env/bin/python -m pip install .

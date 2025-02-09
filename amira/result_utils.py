@@ -854,7 +854,7 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
     command += f"&& {samtools_path} sort {sam_file} > {bam_file}"
     subprocess.run(command, shell=True, check=True)
     # get mean depths across each reference
-    mean_depth_per_reference = get_mean_read_depth_per_contig(bam_file)
+    mean_depth_per_reference = get_mean_read_depth_per_contig(bam_file, samtools_path)
     # normalise by the mean depth across core genes
     if mean_read_depth is None:
         mean_read_depth = min(mean_depth_per_reference.values())
