@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/Danderson123/Amira/compare/v0.6.0...v0.6.1) (2025-02-09)
+
+
+### Bug Fixes
+
+* bug fix when alleles filtered ([fe5ccd4](https://github.com/Danderson123/Amira/commit/fe5ccd4718ba6a5600d4307fd8ff36b063a4cf2d))
+
 ## [0.6.0](https://github.com/Danderson123/Amira/compare/v0.5.0...v0.6.0) (2025-02-09)
 
 
