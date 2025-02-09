@@ -16,7 +16,7 @@ from amira.construct_gene import convert_int_strand_to_string
 from amira.construct_gene_mer import GeneMer
 from amira.construct_node import Node
 from amira.construct_read import Read
-from amira.path_finding_operations import (
+from amira.path_finding_utils import (
     construct_suffix_tree,
     filter_blocks,
     get_suffixes_from_initial_tree,
@@ -42,7 +42,7 @@ class GeneMerGraph:
         self._shortReads = {}
         self._readsToCorrect = set()
         # initialise the graph
-        for readId in tqdm(self.get_reads()):
+        for readId in self.get_reads():
             if self.get_gene_positions():
                 read = Read(readId, self.get_reads()[readId], self.get_gene_positions()[readId])
             else:

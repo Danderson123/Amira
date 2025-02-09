@@ -9,21 +9,23 @@ import matplotlib
 
 from amira.__init__ import __version__
 from amira.construct_graph import GeneMerGraph
-from amira.graph_operations import (
+from amira.graph_utils import (
     build_multiprocessed_graph,
     choose_kmer_size,
     get_overall_mean_node_coverages,
     iterative_bubble_popping,
     plot_node_coverages,
 )
-from amira.pre_process_operations import (
+from amira.pre_processing import (
     convert_pandora_output,
     get_core_gene_mean_depth,
+    load_species_specific_files,
     process_pandora_json,
     process_reference_alleles,
+    run_pandora_map,
 )
-from amira.read_operations import downsample_reads, parse_fastq, plot_read_length_distribution
-from amira.result_operations import (
+from amira.read_utils import downsample_reads, parse_fastq, plot_read_length_distribution
+from amira.result_utils import (
     estimate_copy_numbers,
     filter_results,
     genotype_promoters,
@@ -43,146 +45,175 @@ def get_options() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Identify acquired AMR genes from bacterial long read sequences."
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--pandoraSam", dest="pandoraSam", help="Pandora map SAM file path.")
-    group.add_argument("--pandoraJSON", dest="pandoraJSON", help="Pandora map JSON file path.")
-    parser.add_argument("--gene-positions", help="Gene position JSON file path.")
+    parser.add_argument("--pandoraSam", dest="pandoraSam", help=argparse.SUPPRESS, default=None)
+    parser.add_argument("--pandoraJSON", dest="pandoraJSON", help=argparse.SUPPRESS, default=None)
+    parser.add_argument("--gene-positions", help=argparse.SUPPRESS, default=None)
     parser.add_argument(
         "--pandoraConsensus",
         dest="pandoraConsensus",
-        help="Path to Pandora consensus fastq.",
+        help=argparse.SUPPRESS,
         required=False,
     )
     parser.add_argument(
-        "--readfile", dest="readfile", help="path of gzipped long read fastq.", required=True
+        "--reads", dest="reads", help="path to FASTQ file of long reads.", required=True
+    )
+    parser.add_argument(
+        "--species",
+        dest="species",
+        choices=["Escherichia_coli", "Klebsiella_pneumoniae"],
+        help="The species you want to run Amira on.",
+        required=True,
+    )
+    parser.add_argument(
+        "--panRG-path",
+        dest="panRG_path",
+        help="Path to pandora panRG ending .panidx.zip.",
+        required=True,
     )
     parser.add_argument(
         "--output",
         dest="output_dir",
         type=str,
-        default="gene_de_Bruijn_graph",
-        help="Directory for Amira outputs.",
+        default="amira_output",
+        help="Directory for Amira outputs (default=amira_output).",
     )
     parser.add_argument(
         "-n",
         dest="node_min_coverage",
         type=int,
         default=3,
-        help="Minimum threshold for gene-mer coverage.",
+        help="Minimum threshold for gene-mer coverage (default=3).",
     )
     parser.add_argument(
         "-g",
         dest="gene_min_coverage",
         type=int,
         default=1,
-        help="Minimum threshold for gene filtering.",
+        help="Minimum threshold for gene filtering (default=1).",
     )
     parser.add_argument(
         "--minimum-length-proportion",
         dest="lower_gene_length_threshold",
         type=float,
         default=0.5,
-        help="Minimum length threshold for gene filtering.",
+        help="Minimum length threshold for gene filtering (default=0.5).",
     )
     parser.add_argument(
         "--maximum-length-proportion",
         dest="upper_gene_length_threshold",
         type=float,
         default=1.5,
-        help="Maximum length threshold for gene filtering.",
+        help="Maximum length threshold for gene filtering (default=1.5).",
     )
     parser.add_argument(
-        "--gene-path",
-        dest="path_to_interesting_genes",
-        help="Path to a multi_FASTA file of the AMR gene alleles of interest.",
-        required=True,
+        "--sample-size",
+        dest="sample_size",
+        type=int,
+        default=100000,
+        help="Number of reads to subsample to (default=100,000).",
     )
     parser.add_argument(
         "--promoter-mutations",
         dest="promoters",
         action="store_true",
         default=False,
-        help="Report point mutations in promoters that are associated with AMR.",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
-        "--annotation",
-        dest="phenotypes",
-        help="Path to a JSON of phenotypes for each AMR allele.",
-        required=True,
+        "--identity",
+        dest="identity",
+        help="Minimum identity to a reference allele to report an AMR gene (default=0.9).",
+        required=False,
+        type=float,
+        default=0.9,
     )
     parser.add_argument(
-        "--core-genes",
-        dest="core_genes",
-        help="Path to a newline delimited list of core genes in this species.",
-        required=True,
+        "--coverage",
+        dest="coverage",
+        help="Minimum coverage of a reference allele to report an AMR gene (default=0.9).",
+        required=False,
+        type=float,
+        default=0.9,
     )
     parser.add_argument(
         "--cores",
         dest="cores",
         type=int,
-        help="Number of CPUs.",
+        help="Number of CPUs (default=1).",
         default=1,
     )
     parser.add_argument(
-        "--racon-path",
-        dest="racon_path",
-        help="Path to racon binary.",
-        default="racon",
+        "--pandora-path",
+        dest="pandora_path",
+        help="Path to pandora binary (default=pandora).",
+        default="pandora",
     )
     parser.add_argument(
         "--minimap2-path",
         dest="minimap2_path",
-        help="Path to minimap2 binary.",
+        help="Path to minimap2 binary (default=minimap2).",
         default="minimap2",
+    )
+    parser.add_argument(
+        "--samtools-path",
+        dest="samtools_path",
+        help="Path to samtools binary (default=samtools).",
+        default="samtools",
+    )
+    parser.add_argument(
+        "--racon-path",
+        dest="racon_path",
+        help="Path to racon binary (default=racon).",
+        default="racon",
     )
     parser.add_argument(
         "--seed",
         dest="seed",
         type=int,
-        help="Set the seed.",
+        help="Set the seed (default=2024).",
         default=2024,
     )
     parser.add_argument(
-        "--sample-reads",
+        "--no-sampling",
         dest="sample_reads",
-        action="store_true",
-        default=False,
-        help="Randomly sample to a maximum of 100,000 input reads.",
+        action="store_false",
+        default=True,
+        help="Do not randomly sample to a maximum of 100,000 input reads (default=False).",
     )
     parser.add_argument(
         "--quiet",
         dest="quiet",
         action="store_true",
         default=False,
-        help="Supress progress updates.",
+        help="Suppress progress updates (default=False).",
     )
     parser.add_argument(
-        "--filter-contaminants",
+        "--no-filtering",
         dest="filter_contamination",
-        action="store_true",
-        default=False,
-        help="Filter AMR alleles that are suspected contaminants.",
+        action="store_false",
+        default=True,
+        help="Do not filter AMR genes that are suspected contaminants (default=False).",
     )
     parser.add_argument(
         "--debug",
         dest="debug",
         action="store_true",
         default=False,
-        help="Output Amira debugging files.",
+        help="Output Amira debugging files (default=False).",
     )
     parser.add_argument(
         "--no-trim",
         dest="no_trim",
         action="store_true",
         default=False,
-        help="Prevent trimming of the graph.",
+        help="Prevent trimming of the graph (default=False).",
     )
     parser.add_argument(
-        "--component-fastqs",
+        "--output-component-fastqs",
         dest="output_components",
         action="store_true",
         default=False,
-        help="Output FASTQs of the reads for each connected component in the graph.",
+        help="Output FASTQs of the reads for each connected component (default=False).",
     )
     parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
@@ -219,56 +250,81 @@ def main() -> None:
     # make the output directory if it does not exist
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
+    # get the relevant species-specific files
+    AMR_gene_reference_FASTA, sequence_names, core_genes = load_species_specific_files(args.species)
     # import the list of genes of interest
     reference_alleles, genesOfInterest = process_reference_alleles(
-        args.path_to_interesting_genes, args.promoters
+        AMR_gene_reference_FASTA, args.promoters
     )
+    # load the fastq data
+    if not args.quiet:
+        sys.stderr.write("\nAmira: loading FASTQ file.\n")
+    fastq_content = parse_fastq(args.reads)
+    if args.sample_reads:
+        if not args.quiet:
+            sys.stderr.write(f"\nAmira: randomly sampling FASTQ to {args.sample_size} reads.\n")
+        # randomly sample 100,000 reads
+        read_fastq_path = downsample_reads(
+            fastq_content, args.reads, args.output_dir, args.sample_size
+        )
+    else:
+        read_fastq_path = args.reads
+    # run pandora
+    if args.pandoraSam is None:
+        if not args.quiet:
+            sys.stderr.write("\nAmira: running Pandora map.\n")
+        pandoraSam, pandoraConsensus = run_pandora_map(
+            args.pandora_path, args.panRG_path, read_fastq_path, args.output_dir, args.cores
+        )
+    else:
+        pandoraSam = args.pandoraSam
+        pandoraConsensus = args.pandoraConsensus
+    # remove underscores in read names
+    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads
     if args.pandoraJSON:
         if not args.quiet:
             # output sample information
             sys.stderr.write(
-                f"Sample name: {os.path.basename(os.path.dirname(args.pandoraJSON))}\n"
-                f"JSON file: {os.path.basename(args.pandoraJSON)}\n"
-                f"FASTQ file: {os.path.basename(args.readfile)}\n"
+                f"\nJSON file: {os.path.basename(args.pandoraJSON)}\n"
+                f"FASTQ file: {os.path.basename(args.reads)}\n"
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
-                f"Detect promoter SNPs: {args.promoters}\n"
+                f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
         annotatedReads, sample_genesOfInterest, gene_position_dict = process_pandora_json(
             args.pandoraJSON, genesOfInterest, args.gene_positions
         )
         pandora_consensus = parse_fastq(args.pandoraConsensus)
-        # randomly sample 100,000 reads
-        if args.sample_reads:
-            annotatedReads = downsample_reads(annotatedReads, 10000)
         # initialise mean read depth
         mean_read_depth = None
     # load the pandora consensus and convert to a dictionary
-    if args.pandoraSam:
+    if pandoraSam:
         if not args.quiet:
             # output sample information
             sys.stderr.write(
-                f"Sample name: {os.path.basename(os.path.dirname(args.pandoraSam))}\n"
-                f"SAM file: {os.path.basename(args.pandoraSam)}\n"
-                f"FASTQ file: {os.path.basename(args.readfile)}\n"
+                f"\nSAM file: {os.path.basename(pandoraSam)}\n"
+                f"FASTQ file: {os.path.basename(args.reads)}\n"
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
-                f"Detect promoter SNPs: {args.promoters}\n"
+                f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
             sys.stderr.write("\nAmira: loading Pandora SAM file\n")
-        pandora_consensus = parse_fastq(args.pandoraConsensus)
+        # load the pandora consensus
+        pandora_consensus = parse_fastq(pandoraConsensus)
+        # process the output of pandora
         annotatedReads, sample_genesOfInterest, gene_position_dict = convert_pandora_output(
-            args.pandoraSam,
+            pandoraSam,
             pandora_consensus,
             genesOfInterest,
             args.gene_min_coverage,
             args.lower_gene_length_threshold,
             args.upper_gene_length_threshold,
-            args.readfile,
+            read_fastq_path,
             args.cores,
             args.output_dir,
             args.minimap2_path,
+            args.samtools_path,
         )
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -276,12 +332,9 @@ def main() -> None:
             o.write(json.dumps(gene_position_dict))
         with open(os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"), "w") as o:
             o.write(json.dumps(annotatedReads))
-        # randomly sample 100,000 reads
-        if args.sample_reads:
-            annotatedReads = downsample_reads(annotatedReads, 100000)
         # get the mean depth across core genes
         mean_read_depth = get_core_gene_mean_depth(
-            os.path.join(args.output_dir, "mapped_to_consensus.bam"), args.core_genes
+            os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes, args.samtools_path
         )
         sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}\n")
     # terminate if no AMR genes were found
@@ -295,9 +348,6 @@ def main() -> None:
             o.write(results)
         # exit
         sys.exit(0)
-    # load the fastq data
-    fastq_content = parse_fastq(args.readfile)
-    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # write out debug files if specified
     if args.debug:
         plot_read_length_distribution(annotatedReads, args.output_dir)
@@ -475,9 +525,12 @@ def main() -> None:
         os.path.join(args.output_dir, "AMR_allele_fastqs"),
         reference_alleles,
         pandora_consensus,
-        args.phenotypes,
+        sequence_names,
         args.debug,
         args.minimap2_path,
+        args.identity,
+        args.coverage,
+        args.samtools_path,
     )
     # return an empty DF if there are no AMR genes
     if len(result_df) == 0:
@@ -496,8 +549,9 @@ def main() -> None:
     copy_numbers = estimate_copy_numbers(
         mean_read_depth,
         os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
-        args.readfile,
+        args.reads,
         args.cores,
+        args.samtools_path,
     )
     estimates = []
     for index, row in result_df.iterrows():
@@ -516,6 +570,8 @@ def main() -> None:
         supplemented_clusters_of_interest,
         annotatedReads,
         sample_genesOfInterest,
+        args.identity,
+        args.coverage,
     )
     # genotype promoters if specified
     if args.promoters:
@@ -527,12 +583,14 @@ def main() -> None:
             os.path.join(args.output_dir, "AMR_allele_fastqs"),
             args.minimap2_path,
             args.racon_path,
-            args.phenotypes,
+            sequence_names,
             args.debug,
             args.output_components,
+            args.samtools_path,
         )
     # write out the clustered reads
-    write_reads_per_AMR_gene(args.output_dir, supplemented_clusters_of_interest)
+    if args.debug:
+        write_reads_per_AMR_gene(args.output_dir, supplemented_clusters_of_interest)
     # sort the results
     result_df = result_df.sort_values(by="Determinant name")
     # write the result tsv

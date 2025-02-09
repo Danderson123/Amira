@@ -1,0 +1,77 @@
+Bootstrap: library
+From: ubuntu:20.04
+
+%setup
+    mkdir -p ${SINGULARITY_ROOTFS}/software
+
+%files
+    environment.yaml software/environment.yaml
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install dependencies
+    apt-get update
+    apt-get install -y software-properties-common
+    add-apt-repository universe
+    apt-get install -y \
+        make \
+        gcc-10 \
+        g++-10 \
+        git \
+        libclang-dev \
+        libbz2-dev \
+        liblzma-dev \
+        wget \
+        libz-dev \
+        libcurl4-openssl-dev \
+        libncurses5-dev \
+        bzip2 \
+        ca-certificates \
+        cmake
+
+    # Set GCC/G++ to version 10
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/g++ g++ /usr/bin/g++-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10
+
+    cd ${SINGULARITY_ROOTFS}/software
+
+    # install the latest miniconda
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O install_conda.sh
+
+    #install conda
+    bash install_conda.sh -b -p /opt/conda
+    rm install_conda.sh
+    /opt/conda/bin/conda env create -f environment.yaml
+
+    # Activate conda env
+    echo 'source /opt/conda/bin/activate amira_env' >> $SINGULARITY_ENVIRONMENT
+    # Export correct paths for the build phase
+    export PATH="/miniconda3/bin:$PATH"
+    export PATH="/miniconda3/envs/amira_env/bin:$PATH"
+
+    # Install Amira and Python dependencies
+    git clone https://github.com/Danderson123/Amira
+    cd Amira
+
+    # Install Poetry directly without a virtual environment
+    /opt/conda/bin/activate amira_env
+    /opt/conda/envs/amira_env/bin/python -m pip install .
+    cd ..
+
+    git clone --single-branch https://github.com/rmcolq/pandora.git --recursive
+    cd pandora
+    mkdir -p build
+    cd build
+    cmake -DHUNTER_JOBS_NUMBER=4 -DCMAKE_BUILD_TYPE=Release ..
+    make -j4
+    ctest -VV
+    cd ..
+
+%environment
+    # Ensure paths are persistent when running the container
+    export PATH="/miniconda3/bin:$PATH"
+    export PATH="/miniconda3/envs/amira_env/bin:$PATH"
+    export PATH=$PATH:/software/pandora/build
+
+%runscript
+    exec "$@"
