@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/Danderson123/Amira/compare/v0.6.1...v0.6.2) (2025-02-09)
+
+
+### Miscellaneous Chores
+
+* version bump ([ab17ff1](https://github.com/Danderson123/Amira/commit/ab17ff13b5b8b1d0788a5d747273ea9169383d39))
+
 ## [0.6.1](https://github.com/Danderson123/Amira/compare/v0.6.0...v0.6.1) (2025-02-09)
 
 
