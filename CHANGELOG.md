@@ -1,5 +1,64 @@
 # Changelog
 
+## [0.6.0](https://github.com/Danderson123/Amira/compare/v0.5.0...v0.6.0) (2025-02-09)
+
+
+### Build System
+
+* add singularity recipe and subsample reads before calling pandora ([a1d16a1](https://github.com/Danderson123/Amira/commit/a1d16a1c4bfb44fce49786f014327bdef9bb9edc))
+
+
+### Miscellaneous Chores
+
+* remove singularity build from release CI ([33550d2](https://github.com/Danderson123/Amira/commit/33550d2273c2f16ec53ab4a4535ae4c90c73ddb6))
+* remove singularity build workflow ([e173b21](https://github.com/Danderson123/Amira/commit/e173b21b45cc436d826e6611d54a099570867729))
+* singlarity build yaml ([c6217d9](https://github.com/Danderson123/Amira/commit/c6217d94e2f7ec707c7c47d12d49be31d80afa63))
+* update version ([4accc24](https://github.com/Danderson123/Amira/commit/4accc2471de68d5a2e71c9e203dec73a817f548e))
+* update version ([4ef0302](https://github.com/Danderson123/Amira/commit/4ef0302168816ba5d1edd28e61816844d00dca66))
+
+
+### Documentation
+
+* add download link for E. coli panRG ([31300d0](https://github.com/Danderson123/Amira/commit/31300d0f64c70473fe3245e58b757e74265bf466))
+* add download link for K. pneumoniae panRG ([f8e4bd3](https://github.com/Danderson123/Amira/commit/f8e4bd3ed24a72cbc7dd0aa233eea95eaa6ec82a))
+* add instructions to build singularity container ([4c35f60](https://github.com/Danderson123/Amira/commit/4c35f60be44436f575cfc36dbd9795f672cf891d))
+* modify for clarity ([ff96ba5](https://github.com/Danderson123/Amira/commit/ff96ba5d3d75c31b732eed89e9c0f2182b938c2e))
+* update README ([2349309](https://github.com/Danderson123/Amira/commit/2349309956a8b848f14401e0cb5be2fec237c7c6))
+
+
+### Features
+
+* add reference files for K.pneuomoniae ([29146a1](https://github.com/Danderson123/Amira/commit/29146a1abe8df45a920d48e4f0d28bd80d70f4f3))
+* add singularity container build to CI ([c7d9b11](https://github.com/Danderson123/Amira/commit/c7d9b115f0e93032a7ea8f562970a59d9c92cd7d))
+* filter contaminants by default ([9ee5fa1](https://github.com/Danderson123/Amira/commit/9ee5fa1c21b59b4394160884abcacb794af1db7f))
+* integrate pandora into amira and specify species from command line ([e3fb93c](https://github.com/Danderson123/Amira/commit/e3fb93c7e49518afc2aef8cb976a1e4fc4e1d0bc))
+* make some arguements default and allow specification of AMR gene coverage and identity. ([5bae165](https://github.com/Danderson123/Amira/commit/5bae16540752a270f3d5533853f89394e6c30522))
+* randomly subsample reads by default to improve runtime ([bc28cab](https://github.com/Danderson123/Amira/commit/bc28cab0c499deac7cee23d3533d09a84d2a1350))
+* subsample reads before parsing pandora sam ([12e3d0b](https://github.com/Danderson123/Amira/commit/12e3d0bed2fcf952599c314983e21464da98b5e9))
+
+
+### Bug Fixes
+
+* add samtools path variable ([c5f5e16](https://github.com/Danderson123/Amira/commit/c5f5e167e0ba575ab6c35bca734ff2b51d4eb78d))
+* correctly access species files from module ([b232179](https://github.com/Danderson123/Amira/commit/b232179113d3c910f4680eaeaacec7b211a372ec))
+* fix singularity recipe ([961c23c](https://github.com/Danderson123/Amira/commit/961c23c9ffe2e701fbb6c39ab7a6c722fd09efb3))
+* fix singularity recipe ([7bfaca1](https://github.com/Danderson123/Amira/commit/7bfaca19a374cb8899880ea3365563f6e923f00c))
+* fix singularity recipe ([2622171](https://github.com/Danderson123/Amira/commit/26221718c8679ca40a59424fb75ce44188c3c0c1))
+* fix singularity recipe ([f32fd59](https://github.com/Danderson123/Amira/commit/f32fd59c45c0d2f4cdcae6127877fdc1f5b70963))
+
+
+### Styles
+
+* pre-commit reformatting ([094bfdc](https://github.com/Danderson123/Amira/commit/094bfdcb147485a26335a4a9537b71c0ad437a3b))
+* pre-commit reformatting ([63b54f3](https://github.com/Danderson123/Amira/commit/63b54f39319fc2899d987a11a2b3e7950b470407))
+* pre-commit reformatting ([23bd536](https://github.com/Danderson123/Amira/commit/23bd536a7ff65af7db54d16a992fb9b2fca2c6f9))
+* pre-commit reformatting ([884228d](https://github.com/Danderson123/Amira/commit/884228d284b027bba2510eeabfd6f9d8862cf730))
+
+
+### Tests
+
+* update unittests ([e544a1f](https://github.com/Danderson123/Amira/commit/e544a1fdfef868c802d7b2bee54b46618015579b))
+
 ## [0.5.0](https://github.com/Danderson123/Amira/compare/v0.4.1...v0.5.0) (2025-01-24)
 
 
