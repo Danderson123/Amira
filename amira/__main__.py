@@ -551,7 +551,7 @@ def main() -> None:
         os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
         args.reads,
         args.cores,
-        args.samtools_path
+        args.samtools_path,
     )
     estimates = []
     for index, row in result_df.iterrows():
