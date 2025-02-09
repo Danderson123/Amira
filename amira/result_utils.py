@@ -149,12 +149,12 @@ def filter_results(
                 flags.append("Potential contaminant.")
         # collect the flags
         comments.append(" ".join(flags))
-    # add the comments as a column
-    result_df["Comments"] = comments
     # remove genes as necessary
     for amira_allele in alleles_to_delete:
         del supplemented_clusters_of_interest[amira_allele]
         result_df = result_df[result_df["Amira allele"] != amira_allele]
+    # add the comments as a column
+    result_df["Comments"] = comments
     return result_df
 
 
