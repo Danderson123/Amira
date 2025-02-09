@@ -25,12 +25,16 @@ Follow these steps to install Amira and its dependencies.
 
 ### With Singularity (preferred method)
 
-Amira and its dependencies can be run through Singularity with:
-```
-URL=""
-singularity exec "$URL" amira --help
+Amira and its dependencies can be run through Singularity. First build the container with:
+
+```bash
+sudo singularity build amira.img Singularity.def
 ```
 
+You can then run amira with:
+```bash
+singularity exec amira.img amira --help
+```
 ### With PyPI
 
 Amira can be installed from PyPI. You will need to install the non-Python dependencies separately if you opt for this method.
