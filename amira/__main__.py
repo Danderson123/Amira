@@ -106,6 +106,13 @@ def get_options() -> argparse.Namespace:
         help="Maximum length threshold for gene filtering (default=1.5).",
     )
     parser.add_argument(
+        "--sample-size",
+        dest="sample_size",
+        type=int,
+        default=100000,
+        help="Number of reads to subsample to (default=100,000).",
+    )
+    parser.add_argument(
         "--promoter-mutations",
         dest="promoters",
         action="store_true",
@@ -255,9 +262,11 @@ def main() -> None:
     fastq_content = parse_fastq(args.reads)
     if args.sample_reads:
         if not args.quiet:
-            sys.stderr.write("\nAmira: randomly sampling FASTQ to 100,000 reads.\n")
+            sys.stderr.write(f"\nAmira: randomly sampling FASTQ to {args.sample_size} reads.\n")
         # randomly sample 100,000 reads
-        read_fastq_path = downsample_reads(fastq_content, args.reads, args.output_dir, 100000)
+        read_fastq_path = downsample_reads(
+            fastq_content, args.reads, args.output_dir, args.sample_size
+        )
     else:
         read_fastq_path = args.reads
     # run pandora

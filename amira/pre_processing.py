@@ -90,12 +90,15 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
 
 def load_species_specific_files(species):
     from pathlib import Path
-    species_dir = Path(__file__).resolve().parent / 'assets'
+
+    species_dir = Path(__file__).resolve().parent / "assets"
     if not os.path.exists(f"{species_dir}/{species}"):
         sys.stderr.write(f"\nAmira: {species} is not a supported species name.\n")
         sys.exit(1)
     else:
-        AMR_gene_reference_FASTA = os.path.join(f"{species_dir}/{species}", "AMR_alleles_unified.fa")
+        AMR_gene_reference_FASTA = os.path.join(
+            f"{species_dir}/{species}", "AMR_alleles_unified.fa"
+        )
         sequence_names = os.path.join(f"{species_dir}/{species}", "AMR_calls.json")
         core_genes = os.path.join(f"{species_dir}/{species}", "core_genes.txt")
     return AMR_gene_reference_FASTA, sequence_names, core_genes
