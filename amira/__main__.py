@@ -264,10 +264,10 @@ def main() -> None:
     if args.pandoraSam is None and args.pandoraJSON is None:
         if args.sample_reads:
             if not args.quiet:
-                sys.stderr.write(f"\nAmira: randomly sampling FASTQ to {args.sample_size} reads.\n")
+                sys.stderr.write(f"\nAmira: randomly sampling FASTQ to approximately {args.sample_size} reads.\n")
             # randomly sample 100,000 reads
             read_fastq_path = downsample_reads(
-                fastq_content, args.reads, args.output_dir, args.sample_size
+                fastq_content, args.reads, args.output_dir, args.sample_size * 1.1
             )
         else:
             read_fastq_path = args.reads
