@@ -260,17 +260,17 @@ def main() -> None:
     if not args.quiet:
         sys.stderr.write("\nAmira: loading FASTQ file.\n")
     fastq_content = parse_fastq(args.reads)
-    if args.sample_reads:
-        if not args.quiet:
-            sys.stderr.write(f"\nAmira: randomly sampling FASTQ to {args.sample_size} reads.\n")
-        # randomly sample 100,000 reads
-        read_fastq_path = downsample_reads(
-            fastq_content, args.reads, args.output_dir, args.sample_size
-        )
-    else:
-        read_fastq_path = args.reads
     # run pandora
-    if args.pandoraSam is None:
+    if args.pandoraSam is None and args.pandoraJSON is None:
+        if args.sample_reads:
+            if not args.quiet:
+                sys.stderr.write(f"\nAmira: randomly sampling FASTQ to {args.sample_size} reads.\n")
+            # randomly sample 100,000 reads
+            read_fastq_path = downsample_reads(
+                fastq_content, args.reads, args.output_dir, args.sample_size
+            )
+        else:
+            read_fastq_path = args.reads
         if not args.quiet:
             sys.stderr.write("\nAmira: running Pandora map.\n")
         pandoraSam, pandoraConsensus = run_pandora_map(
@@ -279,6 +279,7 @@ def main() -> None:
     else:
         pandoraSam = args.pandoraSam
         pandoraConsensus = args.pandoraConsensus
+        read_fastq_path = args.reads
     # remove underscores in read names
     fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads

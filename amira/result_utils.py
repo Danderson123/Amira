@@ -105,6 +105,8 @@ def filter_results(
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     comments = []
+    # modify required coverage to make a percentage
+    required_coverage = required_coverage * 100
     for index, row in result_df.iterrows():
         # store comments about this allele
         flags = []
@@ -326,10 +328,10 @@ def get_closest_allele(
             if mapping_type == "reads":
                 prop_matching = (
                     matching_bases / read.query_alignment_length
-                ) * 100  # total_length) * 100
+                )
                 prop_covered = ref_cov_proportion[read.reference_name]
             if mapping_type == "allele":
-                prop_matching = (matching_bases / read.infer_read_length()) * 100
+                prop_matching = (matching_bases / read.infer_read_length())
                 # get the proportion of the reference covered by the query
                 prop_covered = read.query_alignment_length / total_length
             # add the stats to the dictionaries
@@ -521,7 +523,7 @@ def compare_reads_to_references(
                 "Sequence name": phenotype,
                 "Closest reference": closest_ref,
                 "Reference length": match_length,
-                "Identity (%)": round(match_proportion, 1),
+                "Identity (%)": round(match_proportion * 100, 1),
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Cigar string": cigarstring,
                 "Amira allele": allele_name,
@@ -564,7 +566,7 @@ def compare_reads_to_references(
                 "Sequence name": phenotypes,
                 "Closest reference": closest_refs,
                 "Reference length": "/".join([str(m) for m in match_length]),
-                "Identity (%)": "/".join([str(round(p, 1)) for p in match_proportion]),
+                "Identity (%)": "/".join([str(round(p * 100, 1)) for p in match_proportion]),
                 "Coverage (%)": "/".join(
                     [str(min(100.0, round(p * 100, 1))) for p in coverage_proportion]
                 ),
@@ -594,7 +596,7 @@ def compare_reads_to_references(
                 "Sequence name": phenotype,
                 "Closest reference": closest_ref,
                 "Reference length": match_length,
-                "Identity (%)": round(match_proportion, 1),
+                "Identity (%)": round(match_proportion * 100, 1),
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Cigar string": cigarstring,
                 "Amira allele": allele_name,
