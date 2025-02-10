@@ -269,7 +269,7 @@ def main() -> None:
                 )
             # randomly sample 100,000 reads
             read_fastq_path = downsample_reads(
-                fastq_content, args.reads, args.output_dir, int(round(args.sample_size * 1.1))
+                fastq_content, args.reads, args.output_dir, args.sample_size
             )
         else:
             read_fastq_path = args.reads

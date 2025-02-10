@@ -347,7 +347,7 @@ def get_closest_allele(
             invalid_references.append(
                 (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref])
             )
-    valid_references = sorted(valid_references, key=lambda x: (x[1], x[2]), reverse=True)
+    valid_references = sorted(valid_references, key=lambda x: (x[3], x[1], x[2]), reverse=True)
     if len(valid_references) != 0:
         return True, valid_references, unique_reads
     else:
