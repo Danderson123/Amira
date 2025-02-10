@@ -326,12 +326,10 @@ def get_closest_allele(
                 if op == 7:
                     matching_bases += length
             if mapping_type == "reads":
-                prop_matching = (
-                    matching_bases / read.query_alignment_length
-                )
+                prop_matching = matching_bases / read.query_alignment_length
                 prop_covered = ref_cov_proportion[read.reference_name]
             if mapping_type == "allele":
-                prop_matching = (matching_bases / read.infer_read_length())
+                prop_matching = matching_bases / read.infer_read_length()
                 # get the proportion of the reference covered by the query
                 prop_covered = read.query_alignment_length / total_length
             # add the stats to the dictionaries
