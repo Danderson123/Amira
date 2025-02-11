@@ -338,8 +338,6 @@ def main() -> None:
         if args.sample_reads is True:
             total_reads = len(annotatedReads)
             if total_reads > args.sample_size:
-                # sort the dictionary by key
-                sorted_keys = sorted(annotatedReads.keys())
                 # Convert the items to a list before sampling
                 annotatedReads = dict(random.sample(list(annotatedReads.items()), args.sample_size))
         # write out the gene calls
