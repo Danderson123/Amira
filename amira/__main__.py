@@ -24,7 +24,7 @@ from amira.pre_processing import (
     process_reference_alleles,
     run_pandora_map,
 )
-from amira.read_utils import downsample_reads, parse_fastq, plot_read_length_distribution
+from amira.read_utils import parse_fastq, plot_read_length_distribution
 from amira.result_utils import (
     estimate_copy_numbers,
     filter_results,
@@ -263,10 +263,6 @@ def main() -> None:
     # run pandora
     if args.pandoraSam is None and args.pandoraJSON is None:
         # if args.sample_reads:
-        #     if not args.quiet:
-        #         sys.stderr.write(
-        #             f"\nAmira: randomly sampling FASTQ to approximately {args.sample_size} reads.\n"
-        #         )
         #     # randomly sample 100,000 reads
         #     read_fastq_path = downsample_reads(
         #         fastq_content, args.reads, args.output_dir, args.sample_size
@@ -276,7 +272,12 @@ def main() -> None:
         if not args.quiet:
             sys.stderr.write("\nAmira: running Pandora map.\n")
         pandoraSam, pandoraConsensus = run_pandora_map(
-            args.pandora_path, args.panRG_path, read_fastq_path, args.output_dir, args.cores
+            args.pandora_path,
+            args.panRG_path,
+            read_fastq_path,
+            args.output_dir,
+            args.cores,
+            args.seed,
         )
     else:
         pandoraSam = args.pandoraSam
