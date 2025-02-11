@@ -299,6 +299,8 @@ def main() -> None:
         annotatedReads, sample_genesOfInterest, gene_position_dict = process_pandora_json(
             args.pandoraJSON, genesOfInterest, args.gene_positions
         )
+        # sort the keys
+        annotatedReads = dict(sorted(annotatedReads.items()))
         pandora_consensus = parse_fastq(args.pandoraConsensus)
         # initialise mean read depth
         mean_read_depth = None
@@ -330,10 +332,14 @@ def main() -> None:
             args.minimap2_path,
             args.samtools_path,
         )
+        # sort the keys
+        annotatedReads = dict(sorted(annotatedReads.items()))
         # subsample the reads
         if args.sample_reads is True:
             total_reads = len(annotatedReads)
             if total_reads > args.sample_size:
+                # sort the dictionary by key
+                sorted_keys = sorted(annotatedReads.keys())
                 # Convert the items to a list before sampling
                 annotatedReads = dict(random.sample(list(annotatedReads.items()), args.sample_size))
         # write out the gene calls
