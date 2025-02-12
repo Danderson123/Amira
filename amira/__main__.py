@@ -170,8 +170,8 @@ def get_options() -> argparse.Namespace:
         "--seed",
         dest="seed",
         type=int,
-        help="Set the seed (default=2024).",
-        default=2024,
+        help="Set the seed (default=2025).",
+        default=2025,
     )
     parser.add_argument(
         "--no-sampling",
