@@ -24,7 +24,7 @@ from amira.pre_processing import (
     process_reference_alleles,
     run_pandora_map,
 )
-from amira.read_utils import downsample_reads, parse_fastq, plot_read_length_distribution
+from amira.read_utils import parse_fastq, plot_read_length_distribution
 from amira.result_utils import (
     estimate_copy_numbers,
     filter_results,
@@ -170,8 +170,8 @@ def get_options() -> argparse.Namespace:
         "--seed",
         dest="seed",
         type=int,
-        help="Set the seed (default=2024).",
-        default=2024,
+        help="Set the seed (default=2025).",
+        default=2025,
     )
     parser.add_argument(
         "--no-sampling",
@@ -260,25 +260,29 @@ def main() -> None:
     if not args.quiet:
         sys.stderr.write("\nAmira: loading FASTQ file.\n")
     fastq_content = parse_fastq(args.reads)
-    if args.sample_reads:
-        if not args.quiet:
-            sys.stderr.write(f"\nAmira: randomly sampling FASTQ to {args.sample_size} reads.\n")
-        # randomly sample 100,000 reads
-        read_fastq_path = downsample_reads(
-            fastq_content, args.reads, args.output_dir, args.sample_size
-        )
-    else:
-        read_fastq_path = args.reads
     # run pandora
-    if args.pandoraSam is None:
+    if args.pandoraSam is None and args.pandoraJSON is None:
+        # if args.sample_reads:
+        #     # randomly sample 100,000 reads
+        #     read_fastq_path = downsample_reads(
+        #         fastq_content, args.reads, args.output_dir, args.sample_size
+        #     )
+        # else:
+        read_fastq_path = args.reads
         if not args.quiet:
             sys.stderr.write("\nAmira: running Pandora map.\n")
         pandoraSam, pandoraConsensus = run_pandora_map(
-            args.pandora_path, args.panRG_path, read_fastq_path, args.output_dir, args.cores
+            args.pandora_path,
+            args.panRG_path,
+            read_fastq_path,
+            args.output_dir,
+            args.cores,
+            args.seed,
         )
     else:
         pandoraSam = args.pandoraSam
         pandoraConsensus = args.pandoraConsensus
+        read_fastq_path = args.reads
     # remove underscores in read names
     fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads
@@ -295,6 +299,8 @@ def main() -> None:
         annotatedReads, sample_genesOfInterest, gene_position_dict = process_pandora_json(
             args.pandoraJSON, genesOfInterest, args.gene_positions
         )
+        # sort the keys
+        annotatedReads = dict(sorted(annotatedReads.items()))
         pandora_consensus = parse_fastq(args.pandoraConsensus)
         # initialise mean read depth
         mean_read_depth = None
@@ -326,6 +332,15 @@ def main() -> None:
             args.minimap2_path,
             args.samtools_path,
         )
+        # sort the keys
+        annotatedReads = dict(sorted(annotatedReads.items()))
+        # subsample the reads
+        if args.sample_reads is True:
+            total_reads = len(annotatedReads)
+            if total_reads > args.sample_size:
+                # Convert the items to a list before sampling
+                annotatedReads = dict(random.sample(list(annotatedReads.items()), args.sample_size))
+        # write out the gene calls
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
         ) as o:

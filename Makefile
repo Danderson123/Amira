@@ -10,6 +10,7 @@ all: install
 
 .PHONY: install
 install:
+	poetry lock
 	poetry install
 
 .PHONY: install-ci

@@ -1022,8 +1022,9 @@ class TestPathFindingConstructor(unittest.TestCase):
             "blaIMI9NG_0491711",
         ]:
             nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
-        tree = construct_suffix_tree(graph.get_readNodes())
-        calls = graph.get_reads().copy()
+        all_reads = graph.collect_reads_in_path([n.__hash__() for n in nodesOfInterest])
+        tree = construct_suffix_tree({r: graph.get_readNodes()[r] for r in all_reads})
+        calls = {r: graph.get_reads()[r] for r in all_reads}
         rc_reads = {}
         for r in calls:
             rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
@@ -1035,7 +1036,7 @@ class TestPathFindingConstructor(unittest.TestCase):
             tree,
             graph.get_readNodes(),
             nodeAnchors,
-            8,
+            3,
             calls,
             "blaIMI9NG_0491711",
             1,
@@ -1044,7 +1045,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         self.assertEqual(len(full_blocks), 1)
         for f in full_blocks:
             self.assertEqual(len(f), 5)
-            self.assertEqual(full_blocks[f], 9)
+            self.assertEqual(full_blocks[f], 4)
 
     def test___cluster_adjacent_paths(self):
         # setup
