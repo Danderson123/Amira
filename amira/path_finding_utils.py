@@ -103,6 +103,7 @@ def get_suffixes_from_initial_tree(tree, a1):
 def get_blocks_from_subtree(sub_tree, a2, nodeAnchors):
     block_reads = {}
     block_duplicates = {}
+    unique_blocks = set()
     for read_id, path in sub_tree.find_all([a2]):
         string_path = str(path).split(" ")
         if string_path[0] == "None":
@@ -112,11 +113,12 @@ def get_blocks_from_subtree(sub_tree, a2, nodeAnchors):
         canonical = sorted([path_list, list(reversed(path_list))])[0]
         canonical_tuple = tuple(canonical)
         block_duplicates[canonical_tuple] = False
+        unique_blocks.add(canonical_tuple)
         if "_reverse" not in read_id:
             if read_id not in block_reads:
                 block_reads[read_id] = list(reversed(path_list))
             else:
-                if len(path_list) > len(list(reversed(path_list))):
+                if len(path_list) > len(block_reads[read_id]):
                     block_reads[read_id] = list(reversed(path_list))
     return block_reads, block_duplicates
 
