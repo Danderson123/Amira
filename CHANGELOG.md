@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.6.3](https://github.com/Danderson123/Amira/compare/v0.6.2...v0.6.3) (2025-02-12)
+
+
+### Miscellaneous Chores
+
+* version bump ([9165b0a](https://github.com/Danderson123/Amira/commit/9165b0a599a320dea44bfb81ecd7dc92ce7540d8))
+
+
+### Bug Fixes
+
+* bug fix for coverage filtering ([6b1890f](https://github.com/Danderson123/Amira/commit/6b1890f3a5739e1014d477ba224fe82cebf7d418))
+* bug fix for read sampling ([7a05734](https://github.com/Danderson123/Amira/commit/7a0573434c1672da3afd720dd3ded162bdadfba1))
+* bug fix in path finding when duplicated nodes occur next to eachother ([48eedad](https://github.com/Danderson123/Amira/commit/48eedad3552f5ba2c679d8dee6208ef07ac94e40))
+* build container from main branch ([87217e6](https://github.com/Danderson123/Amira/commit/87217e60d3e520ced79ab1644b20ec2bd85cc76f))
+* compensate for unmappped reads with pandora ([8f392a8](https://github.com/Danderson123/Amira/commit/8f392a8be97f8fb996ecbbbb7e79a49b159827bf))
+* prioritise alignment coverage when finding closest allele ([06aca6c](https://github.com/Danderson123/Amira/commit/06aca6c1f0be3d8a096c575402a091055cf98f91))
+* remove redundant file ([90a7aee](https://github.com/Danderson123/Amira/commit/90a7aee4277b24f2e3e4ac371894d41694f7a786))
+* run pandora on full read set before sampling ([27051a3](https://github.com/Danderson123/Amira/commit/27051a355395083b86d2bc6d757bdb2e56f38101))
+* run poetry lock before installation ([83fbfd1](https://github.com/Danderson123/Amira/commit/83fbfd15dd743ef4b21ead7000f5b1d965e0271f))
+* seed pandora to ensure runs are reproducible ([2f00f98](https://github.com/Danderson123/Amira/commit/2f00f987d00b428b1b198164b66926a5a4f7aab7))
+* sort dictionary of read annotations before sample ([275f57f](https://github.com/Danderson123/Amira/commit/275f57f6d0fa3234bc232c88d7f8f6f917b5eb42))
+* sort dictionary of read annotations before sampling ([2acde47](https://github.com/Danderson123/Amira/commit/2acde470a923299a7f947c5a2cf6fb9b70fc3b42))
+* update __main__.py ([f98e3ea](https://github.com/Danderson123/Amira/commit/f98e3ea0fc5375bc37e3a27da9ec7a401cd96727))
+
+
+### Styles
+
+* pre-commit reformatting ([11028f2](https://github.com/Danderson123/Amira/commit/11028f2c97f56914775eb18f4897472f3fc0d663))
+* pre-commit reformatting ([1f92286](https://github.com/Danderson123/Amira/commit/1f92286243cf3a6a35d5d0f885957f3d0ef61e80))
+* pre-commit reformatting ([1a792d8](https://github.com/Danderson123/Amira/commit/1a792d861ac155a363db14cbd0f4263549403ff6))
+
 ## [0.6.2](https://github.com/Danderson123/Amira/compare/v0.6.1...v0.6.2) (2025-02-09)
 
 
