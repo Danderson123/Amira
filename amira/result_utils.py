@@ -343,11 +343,25 @@ def get_closest_allele(
     for ref in ref_matching:
         if ref_covered[ref] >= required_coverage - 0.05:
             valid_references.append(
-                (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref], ref_cigartuples[ref])
+                (
+                    ref,
+                    ref_matching[ref],
+                    ref_lengths[ref],
+                    ref_covered[ref],
+                    ref_cigarstrings[ref],
+                    ref_cigartuples[ref],
+                )
             )
         else:
             invalid_references.append(
-                (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref], ref_cigartuples[ref])
+                (
+                    ref,
+                    ref_matching[ref],
+                    ref_lengths[ref],
+                    ref_covered[ref],
+                    ref_cigarstrings[ref],
+                    ref_cigartuples[ref],
+                )
             )
     valid_references = sorted(
         valid_references, key=lambda x: (min(1, x[3]), x[1], x[2]), reverse=True
@@ -437,9 +451,14 @@ def compare_reads_to_references(
         bam_file, "reads", required_identity, required_coverage, ref_cov_proportion
     )
     if validity is True:
-        valid_allele, match_proportion, match_length, coverage_proportion, cigarstring, cigartuple = references[
-            0
-        ]
+        (
+            valid_allele,
+            match_proportion,
+            match_length,
+            coverage_proportion,
+            cigarstring,
+            cigartuple,
+        ) = references[0]
         valid_allele_sequence = get_allele_sequence(gene_name, valid_allele, reference_genes)
         first_base, last_base = ref_allele_positions[valid_allele]
         write_fasta(
@@ -499,9 +518,14 @@ def compare_reads_to_references(
         max_similarity = references[0][1]
         references = [r for r in references if r[1] == max_similarity]
         if len(references) == 1:
-            closest_allele, match_proportion, match_length, coverage_proportion, cigarstring, cigartuple = (
-                references[0]
-            )
+            (
+                closest_allele,
+                match_proportion,
+                match_length,
+                coverage_proportion,
+                cigarstring,
+                cigartuple,
+            ) = references[0]
             with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
                 final_allele_sequence = "".join(i.read().split("\n")[1:])
             write_fasta(
@@ -541,8 +565,7 @@ def compare_reads_to_references(
                 "Number of reads": len(unique_reads),
             }
         if len(references) > 1:
-            closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings, cigartuples = (
-                [],
+            (closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings) = (
                 [],
                 [],
                 [],
@@ -597,9 +620,14 @@ def compare_reads_to_references(
             }
     else:
         if len(references) != 0:
-            invalid_allele, match_proportion, match_length, coverage_proportion, cigarstring, cigartuple = (
-                references[0]
-            )
+            (
+                invalid_allele,
+                match_proportion,
+                match_length,
+                coverage_proportion,
+                cigarstring,
+                cigartuple,
+            ) = references[0]
             try:
                 gene_name = invalid_allele.split(".")[0]
                 closest_ref = invalid_allele.split(".")[1]
