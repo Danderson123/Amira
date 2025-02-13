@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.4](https://github.com/Danderson123/Amira/compare/v0.6.3...v0.6.4) (2025-02-13)
+
+
+### Miscellaneous Chores
+
+* version bump ([aef08a3](https://github.com/Danderson123/Amira/commit/aef08a31d06d38e843dac8a659c8275fbf8b15f7))
+
+
+### Bug Fixes
+
+* increase polishing iterations ([a409a12](https://github.com/Danderson123/Amira/commit/a409a1233db72a9f57927ed2c7bd5a0495913fd3))
+* increase window size to prevent a racon bug from incorrectly adding bases to alleles ([08bd3b2](https://github.com/Danderson123/Amira/commit/08bd3b29c03441d7695a61342ae83b3c16dd58c2))
+* tweak decision process for alleles ([c0652b4](https://github.com/Danderson123/Amira/commit/c0652b4f299969677ecefb3b912c76bb6e30b23d))
+
+
+### Styles
+
+* pre-commit reformatting ([93c19ef](https://github.com/Danderson123/Amira/commit/93c19ef951c2947fcf34c6ff731d61d1772ce280))
+
 ## [0.6.3](https://github.com/Danderson123/Amira/compare/v0.6.2...v0.6.3) (2025-02-12)
 
 
