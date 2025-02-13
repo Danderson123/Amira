@@ -465,7 +465,7 @@ def compare_reads_to_references(
             os.path.join(output_dir, "03.sequence_to_polish.fasta"),
             [f">{valid_allele}\n{valid_allele_sequence[first_base: last_base+1]}"],
         )
-        iterations = 5
+        iterations = 3
         for _ in range(iterations):
             try:
                 racon_one_iteration(
@@ -475,7 +475,7 @@ def compare_reads_to_references(
                     "02.read.mapped.sam",
                     "03.sequence_to_polish.fasta",
                     "04.polished_sequence.fasta",
-                    str(len(valid_allele_sequence)),
+                    str(len(valid_allele_sequence) + 200),
                     minimap2_path,
                     samtools_path,
                 )
@@ -515,6 +515,8 @@ def compare_reads_to_references(
         validity, references, _ = get_closest_allele(
             bam_file, "allele", required_identity, required_coverage
         )
+        print(references)
+        ssss
         max_similarity = references[0][1]
         references = [r for r in references if r[1] == max_similarity]
         if len(references) == 1:
