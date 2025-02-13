@@ -304,6 +304,7 @@ def get_closest_allele(
     ref_matching = {}
     ref_lengths = {}
     ref_cigarstrings = {}
+    ref_cigartuples = {}
     unique_reads = set()
     # Open the BAM file
     with pysam.AlignmentFile(bam_file_path, "rb") as bam_file:
@@ -326,7 +327,7 @@ def get_closest_allele(
                 if op == 7:
                     matching_bases += length
             if mapping_type == "reads":
-                prop_matching = matching_bases / read.query_alignment_length
+                prop_matching = matching_bases / total_length  # read.query_alignment_length
                 prop_covered = ref_cov_proportion[read.reference_name]
             if mapping_type == "allele":
                 prop_matching = matching_bases / read.infer_read_length()
@@ -336,18 +337,21 @@ def get_closest_allele(
             if prop_matching > ref_matching[read.reference_name]:
                 ref_matching[read.reference_name] = prop_matching
                 ref_cigarstrings[read.reference_name] = read.cigarstring
+                ref_cigartuples[read.reference_name] = read.cigartuples
             if prop_covered > ref_covered[read.reference_name]:
                 ref_covered[read.reference_name] = prop_covered
     for ref in ref_matching:
         if ref_covered[ref] >= required_coverage - 0.05:
             valid_references.append(
-                (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref])
+                (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref], ref_cigartuples[ref])
             )
         else:
             invalid_references.append(
-                (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref])
+                (ref, ref_matching[ref], ref_lengths[ref], ref_covered[ref], ref_cigarstrings[ref], ref_cigartuples[ref])
             )
-    valid_references = sorted(valid_references, key=lambda x: (x[3], x[1], x[2]), reverse=True)
+    valid_references = sorted(
+        valid_references, key=lambda x: (min(1, x[3]), x[1], x[2]), reverse=True
+    )
     if len(valid_references) != 0:
         return True, valid_references, unique_reads
     else:
@@ -433,7 +437,7 @@ def compare_reads_to_references(
         bam_file, "reads", required_identity, required_coverage, ref_cov_proportion
     )
     if validity is True:
-        valid_allele, match_proportion, match_length, coverage_proportion, cigarstring = references[
+        valid_allele, match_proportion, match_length, coverage_proportion, cigarstring, cigartuple = references[
             0
         ]
         valid_allele_sequence = get_allele_sequence(gene_name, valid_allele, reference_genes)
@@ -495,7 +499,7 @@ def compare_reads_to_references(
         max_similarity = references[0][1]
         references = [r for r in references if r[1] == max_similarity]
         if len(references) == 1:
-            closest_allele, match_proportion, match_length, coverage_proportion, cigarstring = (
+            closest_allele, match_proportion, match_length, coverage_proportion, cigarstring, cigartuple = (
                 references[0]
             )
             with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
@@ -515,20 +519,30 @@ def compare_reads_to_references(
                 phenotype = phenotypes[closest_allele]
             else:
                 phenotype = ""
+            # calculate the identity, ignoring soft- & hard-clipped bases
+            matching = 0
+            total = 0
+            for op, length in cigartuple:
+                if op == 7:
+                    matching += length
+                if op != 4 and op != 5:
+                    total += length
+            identity = matching / total
             # return the result
             return {
                 "Determinant name": gene_name,
                 "Sequence name": phenotype,
                 "Closest reference": closest_ref,
                 "Reference length": match_length,
-                "Identity (%)": round(match_proportion * 100, 1),
+                "Identity (%)": round(identity * 100, 1),
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Cigar string": cigarstring,
                 "Amira allele": allele_name,
                 "Number of reads": len(unique_reads),
             }
         if len(references) > 1:
-            closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings = (
+            closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings, cigartuples = (
+                [],
                 [],
                 [],
                 [],
@@ -537,10 +551,19 @@ def compare_reads_to_references(
             )
             for r in references:
                 closest_allele.append(r[0])
-                match_proportion.append(r[1])
                 match_length.append(r[2])
                 coverage_proportion.append(r[3])
                 cigarstrings.append(r[4])
+                # calculate the identity, ignoring soft- & hard-clipped bases
+                matching = 0
+                total = 0
+                for op, length in r[5]:
+                    if op == 7:
+                        matching += length
+                    if op != 4 and op != 5:
+                        total += length
+                identity = matching / total
+                match_proportion.append(identity)
             with open(os.path.join(output_dir, "04.polished_sequence.fasta")) as i:
                 final_allele_sequence = "".join(i.read().split("\n")[1:])
             write_fasta(
@@ -574,7 +597,7 @@ def compare_reads_to_references(
             }
     else:
         if len(references) != 0:
-            invalid_allele, match_proportion, match_length, coverage_proportion, cigarstring = (
+            invalid_allele, match_proportion, match_length, coverage_proportion, cigarstring, cigartuple = (
                 references[0]
             )
             try:
@@ -588,13 +611,22 @@ def compare_reads_to_references(
                 phenotype = phenotypes[invalid_allele]
             else:
                 phenotype = ""
+            # calculate the identity, ignoring soft- & hard-clipped bases
+            matching = 0
+            total = 0
+            for op, length in cigartuple:
+                if op == 7:
+                    matching += length
+                if op != 4 and op != 5:
+                    total += length
+            identity = matching / total
             # return the results
             return {
                 "Determinant name": gene_name,
                 "Sequence name": phenotype,
                 "Closest reference": closest_ref,
                 "Reference length": match_length,
-                "Identity (%)": round(match_proportion * 100, 1),
+                "Identity (%)": round(identity * 100, 1),
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Cigar string": cigarstring,
                 "Amira allele": allele_name,
