@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import random
+import re
 import sys
 import time
 
@@ -284,7 +285,7 @@ def main() -> None:
         pandoraConsensus = args.pandoraConsensus
         read_fastq_path = args.reads
     # remove underscores in read names
-    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
+    fastq_content = {re.sub(r"\W+", "", r): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads
     if args.pandoraJSON:
         if not args.quiet:
