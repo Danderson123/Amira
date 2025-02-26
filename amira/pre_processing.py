@@ -12,8 +12,9 @@ from tqdm import tqdm
 def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores, seed):
     command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 "
     command += (
-        f"-o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile} --rng-seed {seed}"
+        f"-o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile} --rng-seed {seed} "
     )
+    command += "--min-abs-gene-coverage 1"
     # check that the panRG file exists
     if not os.path.exists(panRG_path):
         sys.stderr.write("\nAmira: panRG file does not exist.\n")

@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import random
+import re
 import sys
 import time
 
@@ -24,7 +25,7 @@ from amira.pre_processing import (
     process_reference_alleles,
     run_pandora_map,
 )
-from amira.read_utils import parse_fastq, plot_read_length_distribution
+from amira.read_utils import parse_fastq, plot_read_length_distribution, write_fastq
 from amira.result_utils import (
     estimate_copy_numbers,
     filter_results,
@@ -260,15 +261,16 @@ def main() -> None:
     if not args.quiet:
         sys.stderr.write("\nAmira: loading FASTQ file.\n")
     fastq_content = parse_fastq(args.reads)
+    # remove underscores in read names
+    fastq_content = {re.sub(r"\W+", "", r): fastq_content[r] for r in fastq_content}
+    # write the modified fastq data to the output directoy
+    read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+    write_fastq(
+        read_fastq_path,
+        fastq_content,
+    )
     # run pandora
     if args.pandoraSam is None and args.pandoraJSON is None:
-        # if args.sample_reads:
-        #     # randomly sample 100,000 reads
-        #     read_fastq_path = downsample_reads(
-        #         fastq_content, args.reads, args.output_dir, args.sample_size
-        #     )
-        # else:
-        read_fastq_path = args.reads
         if not args.quiet:
             sys.stderr.write("\nAmira: running Pandora map.\n")
         pandoraSam, pandoraConsensus = run_pandora_map(
@@ -282,9 +284,6 @@ def main() -> None:
     else:
         pandoraSam = args.pandoraSam
         pandoraConsensus = args.pandoraConsensus
-        read_fastq_path = args.reads
-    # remove underscores in read names
-    fastq_content = {r.replace("_", ""): fastq_content[r] for r in fastq_content}
     # import a JSON of genes on reads
     if args.pandoraJSON:
         if not args.quiet:
@@ -564,7 +563,7 @@ def main() -> None:
     copy_numbers = estimate_copy_numbers(
         mean_read_depth,
         os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
-        args.reads,
+        read_fastq_path,
         args.cores,
         args.samtools_path,
     )
