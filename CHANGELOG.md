@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.5](https://github.com/Danderson123/Amira/compare/v0.6.4...v0.6.5) (2025-02-26)
+
+
+### Miscellaneous Chores
+
+* version bump ([1792fa4](https://github.com/Danderson123/Amira/commit/1792fa4306a3a1c8f4b7566822d1ae62f56265ac))
+
+
+### Bug Fixes
+
+* reduce pandora gene filtering coverage ([ecc0822](https://github.com/Danderson123/Amira/commit/ecc082243a48c881b68f840c20119834d5ee759a))
+* remove special characters from read identifiers ([1088e2c](https://github.com/Danderson123/Amira/commit/1088e2c2602eb07678d6f28369f23fb77be5522e))
+* write fastq with updated read identifiers to output directory ([dc5c197](https://github.com/Danderson123/Amira/commit/dc5c1971475be0516083b6be77681ebb66c2a785))
+
+
+### Styles
+
+* pre-commit reformatting ([07fdd57](https://github.com/Danderson123/Amira/commit/07fdd575e19e2bd13be1c78ce6cbcbf38504f806))
+
 ## [0.6.4](https://github.com/Danderson123/Amira/compare/v0.6.3...v0.6.4) (2025-02-13)
 
 
