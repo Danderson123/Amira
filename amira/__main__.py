@@ -189,11 +189,11 @@ def get_options() -> argparse.Namespace:
         help="Suppress progress updates (default=False).",
     )
     parser.add_argument(
-        "--no-filtering",
+        "--filter-contamination",
         dest="filter_contamination",
-        action="store_false",
-        default=True,
-        help="Do not filter AMR genes that are suspected contaminants (default=False).",
+        action="store_true",
+        default=False,
+        help="Filter AMR genes that are suspected contaminants (default=False).",
     )
     parser.add_argument(
         "--debug",
