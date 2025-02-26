@@ -268,7 +268,7 @@ def main() -> None:
     write_fastq(
         read_fastq_path,
         fastq_content,
-        )
+    )
     # run pandora
     if args.pandoraSam is None and args.pandoraJSON is None:
         if not args.quiet:
