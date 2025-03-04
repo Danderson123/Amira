@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/Danderson123/Amira/compare/v0.6.5...v0.7.0) (2025-03-04)
+
+
+### Miscellaneous Chores
+
+* version bump ([2ac3804](https://github.com/Danderson123/Amira/commit/2ac3804f88e261d95770c7075122511fde9ff362))
+
+
+### Documentation
+
+* add download link to E. faecium panRG ([65e77e5](https://github.com/Danderson123/Amira/commit/65e77e57cab4b839056e9b892f8e4463f13ed90e))
+
+
+### Features
+
+* do not filter suspected contaminants by default ([86c71fe](https://github.com/Danderson123/Amira/commit/86c71fe952ddd79d40d134c08f5324b65d5a58eb))
+* support Enterococcus faecium ([3bfd3a3](https://github.com/Danderson123/Amira/commit/3bfd3a3c19e9b6f32d5c98b06bbf10716baa2a52))
+
 ## [0.6.5](https://github.com/Danderson123/Amira/compare/v0.6.4...v0.6.5) (2025-02-26)
 
 
