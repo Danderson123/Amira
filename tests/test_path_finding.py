@@ -282,7 +282,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
-            self.assertTrue(len(k) == 12 or len(k) == 9)
+            self.assertTrue(len(k) == 13 or len(k) == 9)
             self.assertEqual(full_blocks[k], 2)
 
     def test___find_full_paths_terminate_at_junction(self):
@@ -349,7 +349,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
-            nodeAnchors,
+            set(node_mapping.keys()),  # nodeAnchors,
             1,
             calls,
             "blaCMY54NG_0488491",
@@ -1082,3 +1082,46 @@ class TestPathFindingConstructor(unittest.TestCase):
         self.assertTrue((5, 1, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
         self.assertTrue((5, 6, 2, 3, 4, 7, 8, 9, 10, 11, 12) in actual_clusters)
         self.assertTrue((2, 3, 4, 7, 8, 9, 10) in actual_clusters)
+
+    def test___partial_internal_block(self):
+        # setup
+        import json
+
+       with open("tests/complex_gene_calls_eight.json") as i:
+            calls = json.load(i)
+        with open("tests/complex_gene_positions_eight.json") as i:
+            positions = json.load(i)
+        graph = GeneMerGraph(calls, 3, positions)
+        nodesOfInterest = []
+        for geneOfInterest in ["dfrA17"]:
+            nodesOfInterest += graph.get_nodes_containing(geneOfInterest)
+        tree = construct_suffix_tree(graph.get_readNodes())
+        calls = graph.get_reads().copy()
+        rc_reads = {}
+        for r in calls:
+            rc_reads[r + "_reverse"] = graph.reverse_list_of_genes(calls[r])
+        calls.update(rc_reads)
+        node_mapping = {n.__hash__(): n for n in nodesOfInterest}
+        nodeAnchors = graph.get_AMR_anchors(node_mapping)
+        # execution
+        full_blocks, _, full_block_coverages = graph.get_full_paths(
+            tree,
+            graph.get_readNodes(),
+            nodeAnchors,
+            1,
+            calls,
+            "dfrA17",
+            1,
+        )
+        finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
+            "dfrA17", full_blocks, full_block_coverages, 188
+        )
+        # assertion
+        self.assertEqual(len(full_blocks), 3)
+        self.assertEqual(len(finalAllelesOfInterest), 2)
+        for f in full_blocks:
+            self.assertTrue(len(f) == 6 or len(f) == 3)
+        for f in finalAllelesOfInterest:
+            self.assertTrue(
+                len(finalAllelesOfInterest[f]) == 69 or len(finalAllelesOfInterest[f]) == 52
+            )
