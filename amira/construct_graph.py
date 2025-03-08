@@ -2,6 +2,7 @@ import os
 import statistics
 import sys
 from collections import Counter, defaultdict, deque
+from itertools import product
 from multiprocessing import Pool
 
 import numpy as np

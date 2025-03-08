@@ -282,7 +282,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(len(full_blocks), 2)
         for k in full_blocks:
-            self.assertTrue(len(k) == 13 or len(k) == 9)
+            self.assertTrue(len(k) == 13 or len(k) == 10)
             self.assertEqual(full_blocks[k], 2)
 
     def test___find_full_paths_terminate_at_junction(self):
@@ -349,7 +349,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         full_blocks, _, full_block_coverages = graph.get_full_paths(
             tree,
             graph.get_readNodes(),
-            set(node_mapping.keys()),  # nodeAnchors,
+            nodeAnchors,
             1,
             calls,
             "blaCMY54NG_0488491",
@@ -1087,7 +1087,7 @@ class TestPathFindingConstructor(unittest.TestCase):
         # setup
         import json
 
-       with open("tests/complex_gene_calls_eight.json") as i:
+        with open("tests/complex_gene_calls_eight.json") as i:
             calls = json.load(i)
         with open("tests/complex_gene_positions_eight.json") as i:
             positions = json.load(i)
