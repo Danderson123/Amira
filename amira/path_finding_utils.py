@@ -193,25 +193,6 @@ def get_start_stop_indices(binary_list):
     return indices
 
 
-def supplement_contexts(contexts, tree, block_duplicates, reads):
-    for c in contexts:
-        list_c = list(c)
-        # update downstream options
-        for read_id, path in tree.find_all(list_c[1:]):
-            positions_of_path = find_sublist_indices(reads[read_id], list_c[1:])
-            if len(positions_of_path) == 1:
-                start, end = positions_of_path[0]
-                up_options, down_options = get_all_context_options(reads[read_id], start, end)
-                contexts[c]["downstream"].update(down_options)
-        # update upstream options
-        for read_id, path in tree.find_all(list_c[:-1]):
-            positions_of_path = find_sublist_indices(reads[read_id], list_c[:-1])
-            if len(positions_of_path) == 1:
-                start, end = positions_of_path[0]
-                up_options, down_options = get_all_context_options(reads[read_id], start, end)
-                contexts[c]["upstream"].update(up_options)
-
-
 def process_anchors(sub_tree, nodeAnchors, a1, full_blocks, reads, tree, threshold):
     for a2 in nodeAnchors:
         if a1 != a2:
