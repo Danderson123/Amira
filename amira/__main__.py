@@ -456,7 +456,7 @@ def main() -> None:
         args.output_dir,
         node_min_coverage,
         sample_genesOfInterest,
-        min_path_coverage
+        min_path_coverage,
     )
     # build the corrected gene-mer graph
     if not args.quiet:

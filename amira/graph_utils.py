@@ -136,7 +136,7 @@ def iterative_bubble_popping(
     output_dir,
     node_min_coverage,
     sample_genesOfInterest,
-    min_path_coverage
+    min_path_coverage,
 ):
     prev_nodes = 0
     components_to_skip = set()

@@ -1,7 +1,7 @@
 import unittest
 from collections import Counter
 
-from amira.read_utils import parse_fastq
+from amira.__main__ import parse_fastq
 from amira.construct_edge import Edge
 from amira.construct_graph import GeneMerGraph
 from amira.construct_node import Node
@@ -5332,47 +5332,20 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # setup
         import json
 
-        with open("/home/dander/Documents/GitHub/Amira/test_data/amira_80_test_5/complex_gene_calls_nine.json") as i:
+        with open("tests/complex_gene_calls_four.json") as i:
             calls = json.load(i)
-        with open("/home/dander/Documents/GitHub/Amira/test_data/amira_80_test_5/complex_gene_positions_nine.json") as i:
+        with open("tests/complex_gene_positions_four.json") as i:
             positions = json.load(i)
-        genes = set()
-        for g in calls["421f6a37384a4d2dfc6b53287b819698"]:
-            genes.add(g[1:])
-        filtered_calls = {}
-        for r in calls:
-            if any(g[1:] in genes for g in calls[r]):
-               filtered_calls[r] = calls[r] 
-        graph = GeneMerGraph(filtered_calls, 5, positions)
-        bubble_starts = graph.identify_potential_bubble_starts()
-        fastq_data = parse_fastq("/home/dander/Documents/GitHub/Amira/test_data/amira_80_test_5/test_5_1.fastq")
-        for component in bubble_starts:
-            if not component == 1:
-                continue
-            bubble_starts_component = bubble_starts[component]
+        graph = GeneMerGraph(calls, 5, positions)
+        # execution
+        actual_bubble_starts = graph.identify_potential_bubble_starts()
+        # assertion
+        for component in actual_bubble_starts:
+            self.assertEqual(len(actual_bubble_starts[component]), 4)
+            # execution
+            potential_bubble_starts_component = actual_bubble_starts[component]
             # get all the paths of length <= max distance between all pairs of junctions
             unique_paths = graph.get_all_paths_between_junctions_in_component(
-                bubble_starts_component, 15, 1
+                potential_bubble_starts_component, 15, 1
             )
-            # filter the paths out if they are subpaths of longer paths
-            filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
-            # sort by path length
-            sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
-            sorted_filtered_paths = [f for f in sorted_filtered_paths if "+catA1" in graph.get_genes_in_unitig([n[0] for n in f[0]]) or "-catA1" in graph.get_genes_in_unitig([n[0] for n in f[0]])]
-            # get a minhash object for each path
-            path_minimizers = graph.get_minhashes_for_paths(
-                    sorted_filtered_paths, fastq_data, 1
-                )
-            # bin the paths based on their terminal nodes
-            sorted_filtered_paths = graph.separate_paths_by_terminal_nodes(sorted_filtered_paths)
-            # clean the paths
-            #print(graph.get_gene_positions()["421f6a37384a4d2dfc6b53287b819698"], "\n")
-            graph.correct_bubble_paths(
-                sorted_filtered_paths,
-                fastq_data,
-                path_minimizers,
-                {"catA1"},
-                10,
-            )
-            #print(graph.get_gene_positions()["421f6a37384a4d2dfc6b53287b819698"])
-            ssssss
+            self.assertEqual(len(unique_paths), 2)
