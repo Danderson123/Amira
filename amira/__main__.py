@@ -265,6 +265,8 @@ def main() -> None:
     fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
     # write the modified fastq data to the output directoy
     read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+    if ".gz" not in read_fastq_path:
+        read_fastq_path += ".gz"
     write_fastq(
         read_fastq_path,
         fastq_content,
@@ -394,6 +396,7 @@ def main() -> None:
     new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
         graph.remove_junk_reads(0.80)
     )
+
     node_min_coverage = args.node_min_coverage
     if not args.quiet:
         message = "\nAmira: removing low coverage components "
@@ -407,6 +410,7 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
     # collect the reads that have fewer than k genes
@@ -452,7 +456,7 @@ def main() -> None:
         args.output_dir,
         node_min_coverage,
         sample_genesOfInterest,
-        min_path_coverage,
+        min_path_coverage
     )
     # build the corrected gene-mer graph
     if not args.quiet:

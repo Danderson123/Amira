@@ -1772,6 +1772,8 @@ class GeneMerGraph:
                 # skip the correction if the path we are correcting comes from a previous correction
                 if len(corrected_reads[read_id].intersection(gene_mers_on_lcp)) > 0:
                     continue
+                if self.is_sublist(genes_on_read, [c[0] for c in alignment_subset]):
+                    continue
                 # correct the genes on the read
                 self.correct_genes_on_read(
                     genes_on_read,

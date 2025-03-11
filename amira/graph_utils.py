@@ -136,7 +136,7 @@ def iterative_bubble_popping(
     output_dir,
     node_min_coverage,
     sample_genesOfInterest,
-    min_path_coverage,
+    min_path_coverage
 ):
     prev_nodes = 0
     components_to_skip = set()
@@ -161,6 +161,7 @@ def iterative_bubble_popping(
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
         graph.remove_short_linear_paths(geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+
         sys.stderr.write("\n\tAmira: popping bubbles using 1 CPU\n")
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
