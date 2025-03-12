@@ -265,6 +265,8 @@ def main() -> None:
     fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
     # write the modified fastq data to the output directoy
     read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+    if not ".gz" in read_fastq_path:
+        read_fastq_path += ".gz"
     write_fastq(
         read_fastq_path,
         fastq_content,

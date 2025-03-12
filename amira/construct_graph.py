@@ -1695,10 +1695,16 @@ class GeneMerGraph:
         return new_positions
 
     def correct_gene_positions_on_read(
-        self, first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data
+        self,
+        first_shared_read_index,
+        last_shared_read_index,
+        alignment_subset,
+        read_id,
+        fastq_data,
+        genes_on_read,
     ):
         # get the gene positions
-        gene_positions = self.get_gene_positions()[read_id]
+        gene_positions = self.get_gene_positions()[read_id][:]
         # get the new gene position prefix
         position_prefix = self.get_gene_position_prefix(gene_positions, first_shared_read_index)
         # get the new gene position suffix
@@ -1725,6 +1731,13 @@ class GeneMerGraph:
         assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id]), (
             str(len(self.get_reads()[read_id])) + "/" + str(len(self.get_gene_positions()[read_id]))
         )
+        return self.get_gene_positions()[read_id]
+
+    def modify_alignment_subset(self, alignment_subset, genes_on_read):
+        true_path = [c[0] for c in alignment_subset if c[0] != "*"]
+        if true_path == genes_on_read:
+            return alignment_subset
+        return self.needleman_wunsch(true_path, genes_on_read)
 
     def correct_low_coverage_path(
         self,
@@ -1742,6 +1755,7 @@ class GeneMerGraph:
         for read_id in reads_in_path:
             # get the list of genes on this read
             genes_on_read = self.get_reads()[read_id][:]
+            original = self.get_reads()[read_id][:]
             # get the gene-mers on the read
             gene_mers_on_read = self.get_gene_mer_strings(genes_on_read)
             # Determine which replacement dict to use based on shared counts
@@ -1762,6 +1776,10 @@ class GeneMerGraph:
             ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
             # Correct the read using the alignment subset
             if len(alignment_subset) != 0:
+                # modify the alignment subset so it reflects the gene content of this read specifically
+                alignment_subset = self.modify_alignment_subset(
+                    alignment_subset, genes_on_read[first_shared_read_index: last_shared_read_index + 1]
+                )
                 # add the read to the corrected reads dictionary
                 if read_id not in corrected_reads:
                     corrected_reads[read_id] = set()
@@ -1787,6 +1805,7 @@ class GeneMerGraph:
                     alignment_subset,
                     read_id,
                     fastq_data,
+                    original,
                 )
                 # get the k-mers in the high coverage path
                 gene_mers_on_hcp = self.get_gene_mer_strings(
