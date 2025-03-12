@@ -5688,7 +5688,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
         # execution
         actual_corrected_gene_positions = graph.correct_gene_positions_on_read(
-            5, 20, alignment_subset, "421f6a37384a4d2dfc6b53287b819698", {}, genes_on_read
+            5, 20, alignment_subset, "421f6a37384a4d2dfc6b53287b819698", {}
         )
         # print(actual_corrected_gene_positions)
         self.assertEqual(
