@@ -1776,9 +1776,10 @@ class GeneMerGraph:
             ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
             # Correct the read using the alignment subset
             if len(alignment_subset) != 0:
-                # modify the alignment subset so it reflects the gene content of this read specifically
+                # modify the alignment subset
                 alignment_subset = self.modify_alignment_subset(
-                    alignment_subset, genes_on_read[first_shared_read_index: last_shared_read_index + 1]
+                    alignment_subset,
+                    genes_on_read[first_shared_read_index : last_shared_read_index + 1],
                 )
                 # add the read to the corrected reads dictionary
                 if read_id not in corrected_reads:
