@@ -2495,6 +2495,8 @@ class GeneMerGraph:
         to_delete = set()
         for i in range(len(sorted_alleles)):
             a1 = sorted_alleles[i]
+            if a1 in to_delete:
+                continue
             for a2 in sorted_alleles[i + 1 :]:
                 if a1 == a2:
                     continue
