@@ -502,8 +502,8 @@ def main() -> None:
         graph,
         sample_genesOfInterest,
         args.cores,
-        short_reads,
-        short_read_gene_positions,
+        annotatedReads, #short_reads,
+        gene_position_dict, #short_read_gene_positions,
         overall_mean_node_coverage,
     )
     # write out the fastq files
