@@ -442,6 +442,7 @@ def main() -> None:
     overall_mean_node_coverage = overall_mean_node_coverages[geneMer_size]
     if not args.quiet:
         sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n")
+        sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}\n")
     # correct the graph
     cleaning_iterations = 30
     new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
