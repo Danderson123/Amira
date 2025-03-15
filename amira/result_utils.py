@@ -880,7 +880,16 @@ def genotype_promoters(
 
 def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
     # Run samtools depth command and capture output
-    command = [samtools_path, "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP,QCFAIL,DUP,SUPPLEMENTARY", bam_file]
+    command = [
+        samtools_path,
+        "mpileup",
+        "-aa",
+        "-Q",
+        "0",
+        "--ff",
+        "UNMAP,QCFAIL,DUP,SUPPLEMENTARY",
+        bam_file,
+    ]
     # Run the command and capture the output
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     # Parse the mpileup output
@@ -923,7 +932,7 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
     }
     os.remove(sam_file)
     os.remove(bam_file)
-    return normalised_depths
+    return normalised_depths, mean_depth_per_reference
 
 
 def write_fastqs_for_genes_with_short_reads(
