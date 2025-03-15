@@ -579,7 +579,7 @@ def main() -> None:
     )
     estimates = []
     copy_depths = []
-    read_lengths = {}
+    read_lengths = []
     for index, row in result_df.iterrows():
         estimates.append(copy_numbers[row["Amira allele"]])
         copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
