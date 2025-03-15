@@ -137,3 +137,6 @@ test
 scripts
 test_data
 analyses
+
+# dev
+Singularity_dev.def

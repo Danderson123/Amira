@@ -1695,10 +1695,15 @@ class GeneMerGraph:
         return new_positions
 
     def correct_gene_positions_on_read(
-        self, first_shared_read_index, last_shared_read_index, alignment_subset, read_id, fastq_data
+        self,
+        first_shared_read_index,
+        last_shared_read_index,
+        alignment_subset,
+        read_id,
+        fastq_data,
     ):
         # get the gene positions
-        gene_positions = self.get_gene_positions()[read_id]
+        gene_positions = self.get_gene_positions()[read_id][:]
         # get the new gene position prefix
         position_prefix = self.get_gene_position_prefix(gene_positions, first_shared_read_index)
         # get the new gene position suffix
@@ -1725,6 +1730,13 @@ class GeneMerGraph:
         assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id]), (
             str(len(self.get_reads()[read_id])) + "/" + str(len(self.get_gene_positions()[read_id]))
         )
+        return self.get_gene_positions()[read_id]
+
+    def modify_alignment_subset(self, alignment_subset, genes_on_read):
+        true_path = [c[0] for c in alignment_subset if c[0] != "*"]
+        if true_path == genes_on_read:
+            return alignment_subset
+        return self.needleman_wunsch(true_path, genes_on_read)
 
     def correct_low_coverage_path(
         self,
@@ -1762,6 +1774,11 @@ class GeneMerGraph:
             ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
             # Correct the read using the alignment subset
             if len(alignment_subset) != 0:
+                # modify the alignment subset
+                alignment_subset = self.modify_alignment_subset(
+                    alignment_subset,
+                    genes_on_read[first_shared_read_index : last_shared_read_index + 1],
+                )
                 # add the read to the corrected reads dictionary
                 if read_id not in corrected_reads:
                     corrected_reads[read_id] = set()
@@ -2413,6 +2430,8 @@ class GeneMerGraph:
         # get the mean node coverage for all nodes
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
+        # track the start and end points of genes, no alleles should overlap in their sequence
+        read_tracking = {}
         # iterate through the paths
         for path in pathsOfinterest:
             # get the genes in the path
@@ -2429,6 +2448,7 @@ class GeneMerGraph:
                     )
                     # add the allele to the cluster dictionary
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
+                    read_tracking[f"{geneOfInterest}_{allele_count}"] = set()
                     allele_count += 1
             # iterate through the reads in this path
             for read_id in self.get_reads():  # pathsOfinterest[path]:
@@ -2461,10 +2481,30 @@ class GeneMerGraph:
                             gene_clusters[indices_in_path[gene_index]].append(
                                 f"{read_id}_{sequence_start}_{sequence_end}"
                             )
+                            # add the read to the tracking dictionary
+                            read_tracking[indices_in_path[gene_index]].add(
+                                f"{read_id}_{sequence_start}_{sequence_end}"
+                            )
                             # estimate the copy number of the allele
                             copy_numbers[indices_in_path[gene_index]] = max(
                                 1.0, min(path_coverages[path]) / mean_node_coverage
                             )
+        sorted_alleles = sorted(
+            [a for a in read_tracking], key=lambda x: len(read_tracking[x]), reverse=True
+        )
+        to_delete = set()
+        for i in range(len(sorted_alleles)):
+            a1 = sorted_alleles[i]
+            if a1 in to_delete:
+                continue
+            for a2 in sorted_alleles[i + 1 :]:
+                if a1 == a2:
+                    continue
+                if len(read_tracking[a1] & read_tracking[a2]) > 0:
+                    to_delete.add(a2)
+        for d in to_delete:
+            del gene_clusters[d]
+            del copy_numbers[d]
         return gene_clusters, copy_numbers
 
     def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
@@ -2640,12 +2680,13 @@ class GeneMerGraph:
     def get_AMR_anchors(self, AMRNodes):
         # Initialize the node anchor set
         nodeAnchors = set()
+        terminals = {}
         # Iterate over all AMR node hashes
         for nodeHash in AMRNodes:
+            terminals[nodeHash] = []
             node = self.get_node_by_hash(nodeHash)
             is_anchor = False  # Assume the node is not an anchor until proven otherwise
             singletons = []
-            terminals = []
             # double check that there are no fw or reverse AMR connections
             forward_neighbors = self.get_forward_neighbors(node)
             # get the backward neighbors for this node
@@ -2662,7 +2703,7 @@ class GeneMerGraph:
                 # If the read has only one node, it is isolated
                 if len(read_nodes) == 1 and read_nodes[0] == nodeHash:
                     singletons.append(True)
-                    terminals.append(True)
+                    terminals[nodeHash].append(True)
                     break
                 else:
                     singletons.append(False)
@@ -2677,13 +2718,13 @@ class GeneMerGraph:
                             ):
                                 is_anchor = True
                                 break
-                            terminals.append(False)
+                            terminals[nodeHash].append(False)
                         else:
-                            terminals.append(True)
+                            terminals[nodeHash].append(True)
                 if is_anchor:
                     nodeAnchors.add(nodeHash)
                     break
-            if all(s is True for s in singletons) or all(t is True for t in terminals):
+            if all(s is True for s in singletons) or all(t is True for t in terminals[nodeHash]):
                 # double check that there are no fw or reverse AMR connections
                 forward_neighbors = self.get_forward_neighbors(node)
                 # get the backward neighbors for this node
@@ -2693,6 +2734,10 @@ class GeneMerGraph:
                 # get the backward neighbors that contain an AMR gene
                 backwardAMRNodes = [n for n in backward_neighbors if n.__hash__() in AMRNodes]
                 if len(backwardAMRNodes) == 0 or len(forwardAMRNodes) == 0:
+                    nodeAnchors.add(nodeHash)
+        for nodeHash in terminals:
+            if len(terminals[nodeHash]) > 0:
+                if terminals[nodeHash].count(True) / len(terminals[nodeHash]) > 0.3:
                     nodeAnchors.add(nodeHash)
         return nodeAnchors
 

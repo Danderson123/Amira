@@ -262,9 +262,11 @@ def main() -> None:
         sys.stderr.write("\nAmira: loading FASTQ file.\n")
     fastq_content = parse_fastq(args.reads)
     # remove underscores in read names
-    fastq_content = {re.sub(r"\W+", "", r): fastq_content[r] for r in fastq_content}
+    fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
     # write the modified fastq data to the output directoy
     read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+    if ".gz" not in read_fastq_path:
+        read_fastq_path += ".gz"
     write_fastq(
         read_fastq_path,
         fastq_content,
@@ -394,6 +396,7 @@ def main() -> None:
     new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
         graph.remove_junk_reads(0.80)
     )
+
     node_min_coverage = args.node_min_coverage
     if not args.quiet:
         message = "\nAmira: removing low coverage components "
@@ -407,6 +410,7 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
     # collect the reads that have fewer than k genes
@@ -438,6 +442,7 @@ def main() -> None:
     overall_mean_node_coverage = overall_mean_node_coverages[geneMer_size]
     if not args.quiet:
         sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n")
+        sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}\n")
     # correct the graph
     cleaning_iterations = 30
     new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
@@ -529,6 +534,11 @@ def main() -> None:
     # write out the longest reads
     with open(os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"), "w") as o:
         o.write("\n".join(longest_reads_for_genes))
+    longest_read_lengths = {}
+    for row in longest_reads_for_genes:
+        longest_read_lengths[row.split("\n")[0].replace(">", "")] = len(
+            "".join(row.split("\n")[1:])
+        )
     # run racon to polish the pandora consensus
     if not args.quiet:
         sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
@@ -560,7 +570,7 @@ def main() -> None:
     # estimate the copy numbers
     if not args.quiet:
         sys.stderr.write("\nAmira: estimating cellular copy numbers\n")
-    copy_numbers = estimate_copy_numbers(
+    copy_numbers, mean_depth_per_reference = estimate_copy_numbers(
         mean_read_depth,
         os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
         read_fastq_path,
@@ -568,9 +578,16 @@ def main() -> None:
         args.samtools_path,
     )
     estimates = []
+    copy_depths = []
+    read_lengths = []
     for index, row in result_df.iterrows():
         estimates.append(copy_numbers[row["Amira allele"]])
+        copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
+        read_lengths.append(longest_read_lengths[row["Amira allele"]])
     result_df["Approximate copy number"] = estimates
+    if args.debug:
+        result_df["Mean depth"] = copy_depths
+        result_df["Longest read length"] = read_lengths
     # get the component of each allele
     if args.output_components is True:
         result_df["Component ID"] = result_df.apply(
