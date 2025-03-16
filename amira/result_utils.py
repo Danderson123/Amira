@@ -132,6 +132,13 @@ def filter_results(
                 alleles_to_delete.append(row["Amira allele"])
                 continue
             else:
+                if row["Approximate copy number"] < min_relative_depth:
+                    message = f"\nAmira: allele {row['Amira allele']} removed "
+                    message += "due to insufficient relative read depth "
+                    message += f"({row['Approximate copy number']}).\n"
+                    sys.stderr.write(message)
+                    alleles_to_delete.append(row["Amira allele"])
+                    continue
                 if coverage < 90:
                     flags.append("Partially present gene.")
                 if row["Approximate copy number"] < min_relative_depth:
@@ -882,7 +889,16 @@ def genotype_promoters(
 
 def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
     # Run samtools depth command and capture output
-    command = [samtools_path, "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP,QCFAIL,DUP", bam_file]
+    command = [
+        samtools_path,
+        "mpileup",
+        "-aa",
+        "-Q",
+        "0",
+        "--ff",
+        "UNMAP,QCFAIL,DUP,SUPPLEMENTARY",
+        bam_file,
+    ]
     # Run the command and capture the output
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     # Parse the mpileup output
@@ -925,7 +941,7 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
     }
     os.remove(sam_file)
     os.remove(bam_file)
-    return normalised_depths
+    return normalised_depths, mean_depth_per_reference
 
 
 def write_fastqs_for_genes_with_short_reads(
@@ -974,6 +990,7 @@ def write_fastqs_for_genes(
                         fastq_content,
                         output_dir,
                         allele,
+
                     )
                 )
                 supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][
