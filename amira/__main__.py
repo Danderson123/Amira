@@ -137,6 +137,14 @@ def get_options() -> argparse.Namespace:
         default=0.9,
     )
     parser.add_argument(
+        "--min-relative-read-depth",
+        dest="min_depth",
+        required=False,
+        type=float,
+        help="Minimum relative read depth to keep an AMR gene (default=0.3).",
+        default=0.3
+    )
+    parser.add_argument(
         "--cores",
         dest="cores",
         type=int,
@@ -187,13 +195,6 @@ def get_options() -> argparse.Namespace:
         action="store_true",
         default=False,
         help="Suppress progress updates (default=False).",
-    )
-    parser.add_argument(
-        "--filter-contamination",
-        dest="filter_contamination",
-        action="store_true",
-        default=False,
-        help="Filter AMR genes that are suspected contaminants (default=False).",
     )
     parser.add_argument(
         "--debug",
@@ -295,7 +296,6 @@ def main() -> None:
                 f"FASTQ file: {os.path.basename(args.reads)}\n"
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
-                f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
         annotatedReads, sample_genesOfInterest, gene_position_dict = process_pandora_json(
             args.pandoraJSON, genesOfInterest, args.gene_positions
@@ -314,7 +314,6 @@ def main() -> None:
                 f"FASTQ file: {os.path.basename(args.reads)}\n"
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
-                f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
             sys.stderr.write("\nAmira: loading Pandora SAM file\n")
         # load the pandora consensus
@@ -597,12 +596,12 @@ def main() -> None:
     # filter hits from the result df
     result_df = filter_results(
         result_df,
-        args.filter_contamination,
         supplemented_clusters_of_interest,
         annotatedReads,
         sample_genesOfInterest,
         args.identity,
         args.coverage,
+        args.min_depth,
     )
     # genotype promoters if specified
     if args.promoters:

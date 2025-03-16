@@ -95,12 +95,12 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
 
 def filter_results(
     result_df,
-    filter_contamination,
     supplemented_clusters_of_interest,
     annotatedReads,
     sample_genesOfInterest,
     required_identity,
     required_coverage,
+    min_relative_depth,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
@@ -132,6 +132,13 @@ def filter_results(
                 alleles_to_delete.append(row["Amira allele"])
                 continue
             else:
+                if row["Approximate copy number"] < min_relative_depth:
+                    message = f"\nAmira: allele {row['Amira allele']} removed "
+                    message += "due to insufficient relative read depth "
+                    message += f"({row['Approximate copy number']}).\n"
+                    sys.stderr.write(message)
+                    alleles_to_delete.append(row["Amira allele"])
+                    continue
                 if coverage < 90:
                     flags.append("Partially present gene.")
         # remove alleles where all of the reads just contain AMR genes
@@ -140,15 +147,7 @@ def filter_results(
             all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
             for r in reads
         ):
-            # check if filter contaminants is on
-            if filter_contamination is True:
-                alleles_to_delete.append(row["Amira allele"])
-                message = f"\nAmira: allele {row['Amira allele']} removed "
-                message += "due to suspected contamination.\n"
-                sys.stderr.write(message)
-                continue
-            else:
-                flags.append("Potential contaminant.")
+            flags.append("Potential contaminant.")
         # collect the flags
         comments.append(" ".join(flags))
     # remove genes as necessary
@@ -982,7 +981,7 @@ def write_fastqs_for_genes(
             for allele in clusters_of_interest[component][gene]:
                 if (
                     len(clusters_of_interest[component][gene][allele])
-                    > overall_mean_node_coverage / 20
+                    > overall_mean_node_coverage
                 ):
                     files_to_assemble.append(
                         write_allele_fastq(

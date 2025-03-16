@@ -2889,7 +2889,6 @@ class GeneMerGraph:
                 mean_node_coverage / 20,
                 geneOfInterest,
                 cores,
-                # max(5, mean_node_coverage / 20),
             )
             # split the paths into subpaths
             finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
@@ -2908,7 +2907,7 @@ class GeneMerGraph:
                 if gene_name not in allele_counts:
                     allele_counts[gene_name] = 1
                 # add this allele if there are 5 or more reads
-                if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:
+                if len(finalAllelesOfInterest[allele]):# >= mean_node_coverage / 20:
                     if component not in clustered_reads:
                         clustered_reads[component] = {}
                         cluster_copy_numbers[component] = {}
