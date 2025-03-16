@@ -598,7 +598,7 @@ def main() -> None:
         annotatedReads,
         sample_genesOfInterest,
         args.identity,
-        args.coverage
+        args.coverage,
     )
     # genotype promoters if specified
     if args.promoters:

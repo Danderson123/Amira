@@ -990,7 +990,6 @@ def write_fastqs_for_genes(
                         fastq_content,
                         output_dir,
                         allele,
-
                     )
                 )
                 supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][
