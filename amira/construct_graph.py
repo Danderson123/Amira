@@ -2889,7 +2889,6 @@ class GeneMerGraph:
                 mean_node_coverage / 20,
                 geneOfInterest,
                 cores,
-                # max(5, mean_node_coverage / 20),
             )
             # split the paths into subpaths
             finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
@@ -2907,28 +2906,21 @@ class GeneMerGraph:
                 gene_name = "_".join(underscore_split[:-1])
                 if gene_name not in allele_counts:
                     allele_counts[gene_name] = 1
-                # add this allele if there are 5 or more reads
-                if len(finalAllelesOfInterest[allele]) >= mean_node_coverage / 20:
-                    if component not in clustered_reads:
-                        clustered_reads[component] = {}
-                        cluster_copy_numbers[component] = {}
-                    if geneOfInterest not in clustered_reads[component]:
-                        clustered_reads[component][geneOfInterest] = {}
-                        cluster_copy_numbers[component][geneOfInterest] = {}
-                    clustered_reads[component][geneOfInterest][
-                        f"{gene_name}_{allele_counts[gene_name]}"
-                    ] = finalAllelesOfInterest[allele]
-                    # get the copy number estimates
-                    cluster_copy_numbers[component][geneOfInterest][
-                        f"{gene_name}_{allele_counts[gene_name]}"
-                    ] = copy_numbers[allele]
-                    # increment the allele count
-                    allele_counts[gene_name] += 1
-                else:
-                    message = f"Amira: allele {allele} in component {component} "
-                    message += "filtered due to an insufficient number of reads "
-                    message += f"({len(finalAllelesOfInterest[allele])}).\n"
-                    sys.stderr.write(message)
+                if component not in clustered_reads:
+                    clustered_reads[component] = {}
+                    cluster_copy_numbers[component] = {}
+                if geneOfInterest not in clustered_reads[component]:
+                    clustered_reads[component][geneOfInterest] = {}
+                    cluster_copy_numbers[component][geneOfInterest] = {}
+                clustered_reads[component][geneOfInterest][
+                    f"{gene_name}_{allele_counts[gene_name]}"
+                ] = finalAllelesOfInterest[allele]
+                # get the copy number estimates
+                cluster_copy_numbers[component][geneOfInterest][
+                    f"{gene_name}_{allele_counts[gene_name]}"
+                ] = copy_numbers[allele]
+                # increment the allele count
+                allele_counts[gene_name] += 1
             # assign node hashes to components
             component_nodeHashesOfInterest = {}
             for n in nodeHashesOfInterest:
