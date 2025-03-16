@@ -136,7 +136,9 @@ def filter_results(
                     flags.append("Partially present gene.")
                 if row["Approximate copy number"] < min_relative_depth:
                     message = f"\nAmira: allele {row['Amira allele']} removed "
-                    message += f"due to insufficient read depth ({row['Approximate copy number']}).\n"
+                    message += (
+                        f"due to insufficient read depth ({row['Approximate copy number']}).\n"
+                    )
                     sys.stderr.write(message)
                     alleles_to_delete.append(row["Amira allele"])
                     continue
@@ -862,7 +864,9 @@ def genotype_promoters(
                 SNPs_present["Coverage (%)"].append(prop_covered)
                 SNPs_present["Cigar string"].append(closest_reference["Cigar string"])
                 SNPs_present["Amira allele"].append(promoter_allele_name)
-                SNPs_present["Number of reads used for polishing"].append(closest_reference["Number of reads used for polishing"])
+                SNPs_present["Number of reads used for polishing"].append(
+                    closest_reference["Number of reads used for polishing"]
+                )
                 SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
                 if output_components is True:
                     SNPs_present["Component ID"].append(row["Component ID"])
@@ -972,9 +976,9 @@ def write_fastqs_for_genes(
                         allele,
                     )
                 )
-                supplemented_clusters_of_interest[allele] = clusters_of_interest[component][
-                    gene
-                ][allele]
+                supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][
+                    allele
+                ]
                 # store the component of the allele
                 allele_component_mapping[allele] = component
                 # iterate through the reads

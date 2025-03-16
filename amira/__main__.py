@@ -356,9 +356,8 @@ def main() -> None:
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads used for polishing\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
@@ -421,9 +420,8 @@ def main() -> None:
     if len(new_annotatedReads) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads used for polishing\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
@@ -553,9 +551,8 @@ def main() -> None:
     if len(result_df) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads used for polishing\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
