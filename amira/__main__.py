@@ -137,12 +137,12 @@ def get_options() -> argparse.Namespace:
         default=0.9,
     )
     parser.add_argument(
-        "--min-relative-read-depth",
-        dest="min_depth",
+        "--min-relative-depth",
+        dest="min_relative_depth",
+        help="Minimum relative read depth to keep an AMR gene (default=0.3).",
         required=False,
         type=float,
-        help="Minimum relative read depth to keep an AMR gene (default=0.3).",
-        default=0.3
+        default=0.3,
     )
     parser.add_argument(
         "--cores",
@@ -356,9 +356,8 @@ def main() -> None:
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
@@ -421,9 +420,8 @@ def main() -> None:
     if len(new_annotatedReads) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
@@ -559,9 +557,8 @@ def main() -> None:
     if len(result_df) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
@@ -596,12 +593,12 @@ def main() -> None:
     # filter hits from the result df
     result_df = filter_results(
         result_df,
+        args.min_relative_depth,
         supplemented_clusters_of_interest,
         annotatedReads,
         sample_genesOfInterest,
         args.identity,
-        args.coverage,
-        args.min_depth,
+        args.coverage
     )
     # genotype promoters if specified
     if args.promoters:
