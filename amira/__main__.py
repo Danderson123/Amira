@@ -83,28 +83,28 @@ def get_options() -> argparse.Namespace:
         dest="node_min_coverage",
         type=int,
         default=3,
-        help="Minimum threshold for gene-mer coverage (default=3).",
+        help="Minimum threshold for gene-mer coverage in the graph (default=3).",
     )
     parser.add_argument(
         "-g",
         dest="gene_min_coverage",
         type=int,
         default=1,
-        help="Minimum relative threshold for gene filtering (default=0.1).",
+        help="Minimum relative threshold to remove all instances of a gene (default=0.1).",
     )
     parser.add_argument(
         "--minimum-length-proportion",
         dest="lower_gene_length_threshold",
         type=float,
         default=0.5,
-        help="Minimum length threshold for gene filtering (default=0.5).",
+        help="Minimum length threshold to filter a gene from a read (default=0.5).",
     )
     parser.add_argument(
         "--maximum-length-proportion",
         dest="upper_gene_length_threshold",
         type=float,
         default=1.5,
-        help="Maximum length threshold for gene filtering (default=1.5).",
+        help="Maximum length threshold to filter a gene from a read (default=1.5).",
     )
     parser.add_argument(
         "--sample-size",
@@ -118,12 +118,12 @@ def get_options() -> argparse.Namespace:
         dest="promoters",
         action="store_true",
         default=False,
-        help=argparse.SUPPRESS,
+        help="Genotype the promoter sequences of certain AMR genes (only for Escherichia_coli).",
     )
     parser.add_argument(
         "--identity",
         dest="identity",
-        help="Minimum identity to a reference allele to report an AMR gene (default=0.9).",
+        help="Minimum identity to a reference allele needed to report an AMR gene (default=0.9).",
         required=False,
         type=float,
         default=0.9,
@@ -131,7 +131,7 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--coverage",
         dest="coverage",
-        help="Minimum coverage of a reference allele to report an AMR gene (default=0.9).",
+        help="Minimum alignment coverage of a reference allele to keep an AMR gene (default=0.9).",
         required=False,
         type=float,
         default=0.9,
