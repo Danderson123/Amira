@@ -251,12 +251,17 @@ def convert_pandora_output(
     # filter genes that do not meet the minimum coverage threshold
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
-        annotatedReads[r] = [
-            gene for gene in annotatedReads[r] if geneCounts[gene[1:]] >= geneMinCoverage
-        ]
-        for g in range(len(annotatedReads[r])):
-            if annotatedReads[r][g][1:] in genesOfInterest:
-                subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
+        new_calls = []
+        new_positions = []
+        for i in range(len(annotatedReads[r])):
+            gene = annotatedReads[r][i]
+            if geneCounts[gene[1:]] >= geneMinCoverage:
+                new_calls.append(gene)
+                new_positions.append(gene_position_dict[r][i])
+                if gene[1:] in genesOfInterest:
+                    subsettedGenesOfInterest.add(gene[1:])
+        annotatedReads[r] = new_calls
+        gene_position_dict[r] = new_positions
     assert not len(annotatedReads) == 0
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
 
