@@ -91,20 +91,26 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
     return gene_name, strandlessGene
 
 
-def load_species_specific_files(species):
+def load_species_specific_files(species, AMR_gene_reference_FASTA, sequence_names, core_genes):
     from pathlib import Path
 
-    species_dir = Path(__file__).resolve().parent / "assets"
-    if not os.path.exists(f"{species_dir}/{species}"):
-        sys.stderr.write(f"\nAmira: {species} is not a supported species name.\n")
-        sys.exit(1)
+    if AMR_gene_reference_FASTA is None or sequence_names is None or core_genes is None:
+        species_dir = Path(__file__).resolve().parent / "assets"
+        if not os.path.exists(f"{species_dir}/{species}"):
+            sys.stderr.write(f"\nAmira: {species} is not a supported species name.\n")
+            sys.exit(1)
+        else:
+            if AMR_gene_reference_FASTA is None:
+                AMR_gene_reference_FASTA = os.path.join(
+                    f"{species_dir}/{species}", "AMR_alleles_unified.fa"
+                )
+            if sequence_names is None:
+                sequence_names = os.path.join(f"{species_dir}/{species}", "AMR_calls.json")
+            if core_genes is None:
+                core_genes = os.path.join(f"{species_dir}/{species}", "core_genes.txt")
+        return AMR_gene_reference_FASTA, sequence_names, core_genes
     else:
-        AMR_gene_reference_FASTA = os.path.join(
-            f"{species_dir}/{species}", "AMR_alleles_unified.fa"
-        )
-        sequence_names = os.path.join(f"{species_dir}/{species}", "AMR_calls.json")
-        core_genes = os.path.join(f"{species_dir}/{species}", "core_genes.txt")
-    return AMR_gene_reference_FASTA, sequence_names, core_genes
+        return AMR_gene_reference_FASTA, sequence_names, core_genes
 
 
 def remove_poorly_mapped_genes(
