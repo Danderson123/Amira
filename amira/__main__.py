@@ -90,7 +90,7 @@ def get_options() -> argparse.Namespace:
         dest="gene_min_coverage",
         type=int,
         default=1,
-        help="Minimum threshold for gene filtering (default=1).",
+        help="Minimum relative threshold for gene filtering (default=0.1).",
     )
     parser.add_argument(
         "--minimum-length-proportion",
@@ -139,10 +139,10 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--min-relative-depth",
         dest="min_relative_depth",
-        help="Minimum relative read depth to keep an AMR gene (default=0.3).",
+        help="Minimum cellular copy number estimate needed to keep an AMR gene (default=0.2).",
         required=False,
         type=float,
-        default=0.3,
+        default=0.2,
     )
     parser.add_argument(
         "--cores",

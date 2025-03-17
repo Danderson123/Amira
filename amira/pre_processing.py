@@ -181,7 +181,7 @@ def convert_pandora_output(
     pandoraSam: str,
     pandora_consensus: dict[str, list[str]],
     genesOfInterest: set[str],
-    geneMinCoverage: int,
+    relativeMinGeneThreshold: int,
     gene_length_lower_threshold: float,
     gene_length_upper_threshold: float,
     read_path: str,
@@ -246,10 +246,13 @@ def convert_pandora_output(
                     distances[read_name] = []
                 distances[read_name].append(regionStart - read_tracking[read.query_name]["end"])
                 read_tracking[read.query_name]["end"] = regionEnd
+    # get the min relative gene frequency
+    geneMinCoverage = statistics.mean(geneCounts.values()) * relativeMinGeneThreshold
+    # filter genes that do not meet the minimum coverage threshold
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
         annotatedReads[r] = [
-            gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1
+            gene for gene in annotatedReads[r] if geneCounts[gene[1:]] >= geneMinCoverage
         ]
         for g in range(len(annotatedReads[r])):
             if annotatedReads[r][g][1:] in genesOfInterest:
