@@ -88,8 +88,8 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "-g",
         dest="gene_min_coverage",
-        type=int,
-        default=1,
+        type=float,
+        default=0.1,
         help="Minimum relative threshold to remove all instances of a gene (default=0.1).",
     )
     parser.add_argument(
