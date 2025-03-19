@@ -6,6 +6,7 @@ import statistics
 import subprocess
 import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pysam
@@ -945,7 +946,7 @@ def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
 def kmer_cutoff_estimation(kmer_counts):
     i_values = np.array(list(kmer_counts.keys()))
     xi_values = np.array(list(kmer_counts.values()))
-    
+
     # Define the likelihood function
     def neg_log_likelihood(params):
         w, c = params  # w = error proportion, c =coverage mean
@@ -972,8 +973,8 @@ def kmer_cutoff_estimation(kmer_counts):
         error_prob = poisson.pmf(i, mu=1) * w_opt
         real_prob = poisson.pmf(i, mu=c_opt) * (1 - w_opt)
         if real_prob > error_prob:
-            return i 
-    return 0 
+            return i
+    return 0
 
 
 def estimate_kmer_depth(kmer_counts, histogram_path, debug=False):
@@ -986,12 +987,11 @@ def estimate_kmer_depth(kmer_counts, histogram_path, debug=False):
     depth = x_values[prominent_peaks[0]]  # X-value at first peak
     if debug is True:
         plt.bar(x_values, log_counts)
-        plt.plot(
-            x_values, smoothed_log_counts, color="red", label="Smoothed counts"
-        )
+        plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
         plt.xlim(0, 500)
         plt.savefig(histogram_path.replace(".filtered.histo", ".png"), dpi=600)
     return depth
+
 
 def import_jellyfish_histo(histo_path):
     with open(histo_path, "r") as f:
@@ -1023,7 +1023,9 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".jf")
     histo_out = full_reads.replace(".fastq.gz", ".histo")
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
-    command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command = (
+        f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    )
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
     # import the counts
@@ -1034,7 +1036,8 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
     histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
     kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
-    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
+    command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
