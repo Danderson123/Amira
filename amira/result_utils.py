@@ -12,6 +12,7 @@ import pysam
 from joblib import Parallel, delayed
 from scipy.optimize import minimize
 from scipy.stats import poisson
+from scipy.signal import find_peaks, savgol_filter
 from tqdm import tqdm
 
 from amira.read_utils import write_fastq
@@ -980,6 +981,15 @@ def kmer_cutoff_estimation(kmer_counts):
             return i  # Return first i where real k-mers dominate
     return 0  # Return None if no valid threshold found
 
+def estimate_kmer_depth(kmer_counts):
+    x_values, y_values = zip(*sorted(kmer_counts.items()))
+    log_counts = np.log(np.array(y_values) + 1)
+    window_length = min(30, len(log_counts) // 2 * 2 + 1)
+    smoothed_log_counts = savgol_filter(log_counts, window_length, 3)
+    peak_indices, _ = find_peaks(smoothed_log_counts)
+    prominent_peaks = np.sort(peak_indices)
+    depth = x_values[prominent_peaks[0]]  # X-value at first peak
+    return depth
 
 def import_jellyfish_histo(histo_path):
     with open(histo_path, "r") as f:
@@ -1011,9 +1021,7 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".jf")
     histo_out = full_reads.replace(".fastq.gz", ".histo")
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
-    command = (
-        f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
-    )
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
     # import the counts
@@ -1024,13 +1032,14 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
     histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
     kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
-    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
-    command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
     subprocess.run(command, shell=True, check=True)
-    # import the counts
-    filtered_counts = load_kmer_counts(kmers_out)
-    return statistics.mode(filtered_counts), jf_out
+    # estimate the read depth from the kmerss
+    kmer_depth = estimate_kmer_depth(kmer_counts)
+    sys.stderr.write(f"\nAmira: estimated k-mer depth = {kmer_depth}.\n")
+    return kmer_depth, jf_out
+
 
 
 def estimate_depth(counts_file):
@@ -1042,7 +1051,6 @@ def estimate_depth(counts_file):
 def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
     # define k and w
     k = 15
-    threads = 6
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads)
     # estimate cellular copy numbers for each subset fastq
