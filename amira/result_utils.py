@@ -1053,13 +1053,13 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
         )
     ):
         # make a sketch of the locus reads
-        jf_out = locus_reads.replace(".fastq", ".jf")
-        kmers_out = locus_reads.replace(".fastq", ".kmers.txt")
+        jf_out = locus_reads.replace(".fastq.gz", ".jf")
+        kmers_out = locus_reads.replace(".fastq.gz", ".kmers.txt")
         command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} "
         command += f"-C <(zcat {locus_reads}) -o {jf_out}'"
         command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
         # query the kmers
-        counts_file = kmers_out = locus_reads.replace(".fastq", ".kmer_counts.txt")
+        counts_file = kmers_out = locus_reads.replace(".fastq.gz", ".kmer_counts.txt")
         command = (
             f"bash -c 'jellyfish query -s <(zcat {locus_reads}) {full_jf_out} > {counts_file}'"
         )
@@ -1067,7 +1067,7 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
         # get the counts of the requested kmers
         depth_estimate = estimate_depth(counts_file)
         # get the allele
-        allele_name = os.path.basename(locus_reads).replace(".locus.fastq", "")
+        allele_name = os.path.basename(locus_reads).replace(".locus.fastq.gz", "")
         # store the depth estimate
         normalised_depths[allele_name] = depth_estimate / read_depth
         mean_depth_per_reference[allele_name] = depth_estimate

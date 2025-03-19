@@ -240,7 +240,7 @@ def write_debug_files(
     output_dir: str,
     cores: int,
 ) -> GeneMerGraph:
-    sys.stderr.write("\nAmira: building pre-correction gene-mer graph\n")
+    sys.stderr.write("\nAmira: building pre-correction gene-mer graph.\n")
     raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, cores)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
@@ -326,7 +326,7 @@ def main() -> None:
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
             )
-            sys.stderr.write("\nAmira: loading Pandora SAM file\n")
+            sys.stderr.write("\nAmira: loading Pandora SAM file.\n")
         # load the pandora consensus
         pandora_consensus = parse_fastq(pandoraConsensus)
         # process the output of pandora
@@ -362,7 +362,7 @@ def main() -> None:
         mean_read_depth = get_core_gene_mean_depth(
             os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes, args.samtools_path
         )
-        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}\n")
+        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
@@ -379,7 +379,7 @@ def main() -> None:
         write_debug_files(annotatedReads, 3, sample_genesOfInterest, args.output_dir, args.cores)
     # build the gene-mer graph
     if not args.quiet:
-        sys.stderr.write("\nAmira: building intitial gene-mer graph\n")
+        sys.stderr.write("\nAmira: building intitial gene-mer graph.\n")
     graph = build_multiprocessed_graph(annotatedReads, 3, args.cores, gene_position_dict)
     # get the mean node coverages at different k-mer lengths
     overall_mean_node_coverages = get_overall_mean_node_coverages(graph)
@@ -409,7 +409,7 @@ def main() -> None:
     node_min_coverage = args.node_min_coverage
     if not args.quiet:
         message = "\nAmira: removing low coverage components "
-        message += f"and nodes with coverage < {node_min_coverage}\n"
+        message += f"and nodes with coverage < {node_min_coverage}.\n"
         sys.stderr.write(message)
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
@@ -439,7 +439,7 @@ def main() -> None:
         sys.exit(0)
     # choose a value for k
     if not args.quiet:
-        sys.stderr.write("\nAmira: selecting a gene-mer size (k)\n")
+        sys.stderr.write("\nAmira: selecting a gene-mer size (k).\n")
     geneMer_size = choose_kmer_size(
         overall_mean_node_coverages[3],
         new_annotatedReads,
@@ -449,8 +449,8 @@ def main() -> None:
     )
     overall_mean_node_coverage = overall_mean_node_coverages[geneMer_size]
     if not args.quiet:
-        sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n")
-        sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}\n")
+        sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n.")
+        sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}.\n")
     # correct the graph
     cleaning_iterations = 30
     new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
@@ -469,7 +469,7 @@ def main() -> None:
     )
     # build the corrected gene-mer graph
     if not args.quiet:
-        sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
+        sys.stderr.write("\nAmira: building corrected gene-mer graph.\n")
     with open(os.path.join(args.output_dir, "corrected_gene_calls_after_filtering.json"), "w") as o:
         o.write(json.dumps(new_annotatedReads))
     with open(
@@ -490,7 +490,7 @@ def main() -> None:
             node.color_node(sample_genesOfInterest)
     # write out the graph as a GML
     if not args.quiet:
-        sys.stderr.write("\nAmira: writing gene-mer graph\n")
+        sys.stderr.write("\nAmira: writing gene-mer graph.\n")
     graph.generate_gml(
         os.path.join(args.output_dir, "gene_mer_graph"),
         geneMer_size,
@@ -519,7 +519,7 @@ def main() -> None:
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
     # subset the fastq data based on the cluster assignments
     if not args.quiet:
-        sys.stderr.write("\nAmira: writing fastqs\n")
+        sys.stderr.write("\nAmira: writing fastqs.\n")
     (
         longest_reads_for_genes,
         supplemented_clusters_of_interest,
@@ -549,7 +549,7 @@ def main() -> None:
         )
     # run racon to polish the pandora consensus
     if not args.quiet:
-        sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
+        sys.stderr.write("\nAmira: obtaining nucleotide sequences.\n")
     result_df = get_alleles(
         files_to_assemble,
         args.racon_path,
@@ -576,7 +576,7 @@ def main() -> None:
         sys.exit(0)
     # estimate the copy numbers
     if not args.quiet:
-        sys.stderr.write("\nAmira: estimating cellular copy numbers\n")
+        sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
     copy_numbers, mean_depth_per_reference = estimate_copy_numbers(
         mean_read_depth,
         os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
@@ -614,7 +614,7 @@ def main() -> None:
     # genotype promoters if specified
     if args.promoters:
         if not args.quiet:
-            sys.stderr.write("\nAmira: genotyping promoters\n")
+            sys.stderr.write("\nAmira: genotyping promoters.\n")
         result_df = genotype_promoters(
             result_df,
             reference_alleles,
@@ -635,7 +635,7 @@ def main() -> None:
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
     if not args.quiet:
         # display the runtime
-        sys.stderr.write(f"\nAmira: Total runtime {round(time.time() - start_time)} seconds\n")
+        sys.stderr.write(f"\nAmira: Total runtime {round(time.time() - start_time)} seconds.\n")
     sys.exit(0)
 
 
