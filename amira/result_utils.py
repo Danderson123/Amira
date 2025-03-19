@@ -90,6 +90,18 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
         os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"),
         read_subset,
     )
+    full_read_subset = {}
+    for r in reads_for_allele:
+        underscore_split = r.split("_")
+        fastq_data = fastq_content[underscore_split[0]].copy()
+        fastq_data["sequence"] = fastq_data["sequence"]
+        fastq_data["quality"] = fastq_data["quality"]
+        if fastq_data["sequence"] != "":
+            full_read_subset[underscore_split[0]] = fastq_data
+    write_fastq(
+        os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".locus.fastq.gz"),
+        full_read_subset,
+    )
     return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
 
 
@@ -924,7 +936,7 @@ def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
     return mean_depths
 
 
-def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
+def old_estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
     sam_file = ref_file.replace(".fasta", ".sam")
     bam_file = sam_file.replace(".sam", ".bam")
     command = f"minimap2 -x map-ont -t {threads} "
@@ -941,6 +953,116 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
     }
     os.remove(sam_file)
     os.remove(bam_file)
+    return normalised_depths, mean_depth_per_reference
+
+
+def kmer_cutoff_estimation(kmer_counts):
+    import numpy as np
+    from scipy.optimize import minimize
+    from scipy.stats import poisson
+
+    # Convert k-mer count dictionary into sorted arrays
+    i_values = np.array(list(kmer_counts.keys()))
+    xi_values = np.array(list(kmer_counts.values()))
+
+    # Define the likelihood function
+    def neg_log_likelihood(params):
+        w, c = params  # w: error proportion, c: coverage mean
+        if w < 0 or w > 1 or c <= 0:
+            return np.inf  # Enforce valid parameter range
+
+        # Compute Poisson probabilities
+        error_prob = poisson.pmf(i_values, mu=1)
+        real_prob = poisson.pmf(i_values, mu=c)
+
+        # Mixture model
+        mix_prob = w * error_prob + (1 - w) * real_prob
+        mix_prob[mix_prob == 0] = 1e-10  # Avoid log(0) issues
+
+        # Compute negative log-likelihood
+        return -np.sum(xi_values * np.log(mix_prob))
+
+    # Initial parameter guesses
+    init_params = [0.1, 10]  # Initial guess: w=0.5, c=mean count
+    # Optimize using BFGS algorithm
+    result = minimize(
+        neg_log_likelihood, init_params, method="L-BFGS-B", bounds=[(0, 1), (1e-5, None)]
+    )
+    # Extract optimized parameters
+    w_opt, c_opt = result.x
+    # Compute the responsibility of real k-mers vs error k-mers
+    for i in i_values:
+        error_prob = poisson.pmf(i, mu=1) * w_opt
+        real_prob = poisson.pmf(i, mu=c_opt) * (1 - w_opt)
+        if real_prob > error_prob:
+            return i
+    return 0
+
+
+def estimate_overall_read_depth(full_reads, k, w):
+    import statistics
+    import subprocess
+
+    import sourmash
+
+    full_reads_sig = full_reads.replace(".fastq", ".sig")
+    command = f"sourmash sketch dna -p k={k},scaled={w},abund {full_reads} -o {full_reads_sig}"
+    subprocess.run(command, shell=True, check=True)
+    full_sig = sourmash.load_one_signature(full_reads_sig)
+    # estimate the kmer cutoff
+    cutoff = kmer_cutoff_estimation(full_sig.minhash.hashes)
+    command = f"sourmash sig filter -m {cutoff} {full_reads_sig} "
+    command += f"> {full_reads_sig.replace(".sig", ".filtered.sig")}"
+    subprocess.run(command, shell=True, check=True)
+    full_sig = sourmash.load_one_signature(full_reads_sig.replace(".sig", ".filtered.sig"))
+    full_mh = full_sig.minhash
+    kmer_counts = list(full_mh.hashes.values())
+    return statistics.mode(kmer_counts), full_mh
+
+
+def estimate_depth(full_mh, locus_reads_sig):
+    import statistics
+
+    import sourmash
+
+    # import minhash for the locus reads
+    locus_sig = sourmash.load_one_signature(locus_reads_sig)
+    locus_mh = locus_sig.minhash
+    # mean k-mer count of locus sig hashes
+    full_hashes = full_mh.hashes
+    # Use list comprehension with `.get()` for fast access
+    abundances = [full_hashes[k] for k in locus_mh.hashes if k in full_hashes]
+    return statistics.median(abundances)
+
+
+def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
+    import glob
+    import os
+    import subprocess
+
+    # define k and w
+    k = 15
+    w = 1
+    # estimate the overall depth
+    read_depth, full_mh = estimate_overall_read_depth(fastq_file, k, w)
+    # estimate cellular copy numbers for each subset fastq
+    normalised_depths, mean_depth_per_reference = {}, {}
+    for locus_reads in glob.glob(
+        os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq.gz")
+    ):
+        # make a sketch of the locus reads
+        locus_reads_sig = locus_reads.replace(".fastq.gz", ".sig")
+        command = (
+            f"sourmash sketch dna -p k={k},scaled={w},abund {locus_reads} -o {locus_reads_sig}"
+        )
+        subprocess.run(command, shell=True, check=True)
+        # compare the two signatures
+        depth_estimate = estimate_depth(full_mh, locus_reads_sig)
+        # get the allele
+        allele_name = os.path.basename(locus_reads).replace(".locus.fastq.gz", "")
+        # store the depth estimate
+        normalised_depths[allele_name] = depth_estimate / read_depth
+        mean_depth_per_reference[allele_name] = depth_estimate
     return normalised_depths, mean_depth_per_reference
 
 
