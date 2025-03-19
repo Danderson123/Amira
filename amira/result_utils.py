@@ -983,11 +983,13 @@ def estimate_kmer_depth(kmer_counts, histogram_path, debug=False):
     window_length = min(30, len(log_counts) // 2 * 2 + 1)
     smoothed_log_counts = savgol_filter(log_counts, window_length, 3)
     peak_indices, _ = find_peaks(smoothed_log_counts)
-    prominent_peaks = np.sort(peak_indices)
-    depth = x_values[prominent_peaks[0]]  # X-value at first peak
+    # Get the highest peak
+    max_peak_index = peak_indices[np.argmax(smoothed_log_counts[peak_indices])]
+    depth = x_values[max_peak_index]  # Get k-mer depth based on x-values
     if debug is True:
         plt.bar(x_values, log_counts)
         plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
+        plt.axvline(depth, color="red")
         plt.xlim(0, 500)
         plt.savefig(histogram_path.replace(".filtered.histo", ".png"), dpi=600)
     return depth
@@ -1060,6 +1062,14 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
     k = 15
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads)
+    loci_reads = glob.glob(
+        os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq.gz")
+    )
+    # get the genomic copy number of each gene
+    gene_counts = {}
+    for locus in loci_reads:
+        gene = "_".join(os.path.basename(os.path.dirname(locus)).split("_")[:-1])
+        gene_counts[gene] = gene_counts.get(gene, 0) + 1
     # estimate cellular copy numbers for each subset fastq
     normalised_depths, mean_depth_per_reference = {}, {}
     for locus_reads in tqdm(
@@ -1067,14 +1077,8 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
             os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq.gz")
         )
     ):
-        # make a sketch of the locus reads
-        jf_out = locus_reads.replace(".fastq.gz", ".jf")
-        kmers_out = locus_reads.replace(".fastq.gz", ".kmers.txt")
-        command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} "
-        command += f"-C <(zcat {locus_reads}) -o {jf_out}'"
-        command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
         # query the kmers
-        counts_file = kmers_out = locus_reads.replace(".fastq.gz", ".kmer_counts.txt")
+        counts_file = locus_reads.replace(".fastq.gz", ".kmer_counts.txt")
         command = (
             f"bash -c 'jellyfish query -s <(zcat {locus_reads}) {full_jf_out} > {counts_file}'"
         )
@@ -1083,8 +1087,10 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
         depth_estimate = estimate_depth(counts_file)
         # get the allele
         allele_name = os.path.basename(locus_reads).replace(".locus.fastq.gz", "")
+        # get the gene
+        gene = "_".join(allele_name.split("_")[:-1])
         # store the depth estimate
-        normalised_depths[allele_name] = depth_estimate / read_depth
+        normalised_depths[allele_name] = depth_estimate / (read_depth * gene_counts[gene])
         mean_depth_per_reference[allele_name] = depth_estimate
     return normalised_depths, mean_depth_per_reference
 
