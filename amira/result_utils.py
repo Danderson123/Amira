@@ -1011,7 +1011,9 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".jf")
     histo_out = full_reads.replace(".fastq.gz", ".histo")
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
-    command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command = (
+        f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    )
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
     # import the counts
@@ -1022,7 +1024,8 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
     histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
     kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
-    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
+    command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
     subprocess.run(command, shell=True, check=True)
     # import the counts
@@ -1052,11 +1055,14 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
         # make a sketch of the locus reads
         jf_out = locus_reads.replace(".fastq", ".jf")
         kmers_out = locus_reads.replace(".fastq", ".kmers.txt")
-        command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {locus_reads}) -o {jf_out}'"
+        command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} "
+        command += f"-C <(zcat {locus_reads}) -o {jf_out}'"
         command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
         # query the kmers
         counts_file = kmers_out = locus_reads.replace(".fastq", ".kmer_counts.txt")
-        command = f"bash -c 'jellyfish query -s <(zcat {locus_reads}) {full_jf_out} > {counts_file}'"
+        command = (
+            f"bash -c 'jellyfish query -s <(zcat {locus_reads}) {full_jf_out} > {counts_file}'"
+        )
         subprocess.run(command, shell=True, check=True)
         # get the counts of the requested kmers
         depth_estimate = estimate_depth(counts_file)
