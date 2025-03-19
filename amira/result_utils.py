@@ -943,46 +943,40 @@ def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
 
 
 def kmer_cutoff_estimation(kmer_counts):
-
-    # Convert k-mer count dictionary into sorted arrays
     i_values = np.array(list(kmer_counts.keys()))
     xi_values = np.array(list(kmer_counts.values()))
-
+    
     # Define the likelihood function
     def neg_log_likelihood(params):
-        w, c = params  # w: error proportion, c: coverage mean
+        w, c = params  # w = error proportion, c =coverage mean
         if w < 0 or w > 1 or c <= 0:
-            return np.inf  # Enforce valid parameter range
-
-        # Compute Poisson probabilities
+            return np.inf
+        # compute Poisson probabilities
         error_prob = poisson.pmf(i_values, mu=1)
         real_prob = poisson.pmf(i_values, mu=c)
-
-        # Mixture model
+        # mixture model
         mix_prob = w * error_prob + (1 - w) * real_prob
-        mix_prob[mix_prob == 0] = 1e-10  # Avoid log(0) issues
-
-        # Compute negative log-likelihood
+        mix_prob[mix_prob == 0] = 1e-10
+        # compute negative log-likelihood
         return -np.sum(xi_values * np.log(mix_prob))
 
-    # Initial parameter guesses
-    init_params = [0.1, 10]  # Initial guess: w=0.5, c=mean count
-    # Optimize using BFGS algorithm
+    # initial parameters
+    init_params = [0.1, 10]
+    # optimise parameters using BFGS
     result = minimize(
         neg_log_likelihood, init_params, method="L-BFGS-B", bounds=[(0, 1), (1e-5, None)]
     )
-    # Extract optimized parameters
+    # get optimised parameters
     w_opt, c_opt = result.x
-    # Compute the responsibility of real k-mers vs error k-mers
     for i in i_values:
         error_prob = poisson.pmf(i, mu=1) * w_opt
         real_prob = poisson.pmf(i, mu=c_opt) * (1 - w_opt)
         if real_prob > error_prob:
-            return i  # Return first i where real k-mers dominate
-    return 0  # Return None if no valid threshold found
+            return i 
+    return 0 
 
 
-def estimate_kmer_depth(kmer_counts):
+def estimate_kmer_depth(kmer_counts, histogram_path, debug=False):
     x_values, y_values = zip(*sorted(kmer_counts.items()))
     log_counts = np.log(np.array(y_values) + 1)
     window_length = min(30, len(log_counts) // 2 * 2 + 1)
@@ -990,8 +984,14 @@ def estimate_kmer_depth(kmer_counts):
     peak_indices, _ = find_peaks(smoothed_log_counts)
     prominent_peaks = np.sort(peak_indices)
     depth = x_values[prominent_peaks[0]]  # X-value at first peak
+    if debug is True:
+        plt.bar(x_values, log_counts)
+        plt.plot(
+            x_values, smoothed_log_counts, color="red", label="Smoothed counts"
+        )
+        plt.xlim(0, 500)
+        plt.savefig(histogram_path.replace(".filtered.histo", ".png"), dpi=600)
     return depth
-
 
 def import_jellyfish_histo(histo_path):
     with open(histo_path, "r") as f:
@@ -1023,9 +1023,7 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".jf")
     histo_out = full_reads.replace(".fastq.gz", ".histo")
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
-    command = (
-        f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
-    )
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
     # import the counts
@@ -1036,12 +1034,14 @@ def estimate_overall_read_depth(full_reads, k, threads):
     jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
     histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
     kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
-    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
-    command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
+    command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
+    # import the counts
+    filtered_kmer_counts = import_jellyfish_histo(histo_out)
     # estimate the read depth from the kmerss
-    kmer_depth = estimate_kmer_depth(kmer_counts)
+    kmer_depth = estimate_kmer_depth(filtered_kmer_counts, histo_out)
     sys.stderr.write(f"\nAmira: estimated k-mer depth = {kmer_depth}.\n")
     return kmer_depth, jf_out
 
@@ -1053,7 +1053,7 @@ def estimate_depth(counts_file):
 
 
 def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
-    # define k and w
+    # define k
     k = 15
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads)
