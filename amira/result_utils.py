@@ -1,12 +1,17 @@
+import glob
 import json
 import os
 import shutil
+import statistics
 import subprocess
 import sys
 
+import numpy as np
 import pandas as pd
 import pysam
 from joblib import Parallel, delayed
+from scipy.optimize import minimize
+from scipy.stats import poisson
 from tqdm import tqdm
 
 from amira.read_utils import write_fastq
@@ -936,30 +941,7 @@ def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
     return mean_depths
 
 
-def old_estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
-    sam_file = ref_file.replace(".fasta", ".sam")
-    bam_file = sam_file.replace(".sam", ".bam")
-    command = f"minimap2 -x map-ont -t {threads} "
-    command += f"-a --MD --eqx -o {sam_file} {ref_file} {fastq_file} "
-    command += f"&& {samtools_path} sort {sam_file} > {bam_file}"
-    subprocess.run(command, shell=True, check=True)
-    # get mean depths across each reference
-    mean_depth_per_reference = get_mean_read_depth_per_contig(bam_file, samtools_path)
-    # normalise by the mean depth across core genes
-    if mean_read_depth is None:
-        mean_read_depth = min(mean_depth_per_reference.values())
-    normalised_depths = {
-        c: round(mean_depth_per_reference[c] / mean_read_depth, 2) for c in mean_depth_per_reference
-    }
-    os.remove(sam_file)
-    os.remove(bam_file)
-    return normalised_depths, mean_depth_per_reference
-
-
 def kmer_cutoff_estimation(kmer_counts):
-    import numpy as np
-    from scipy.optimize import minimize
-    from scipy.stats import poisson
 
     # Convert k-mer count dictionary into sorted arrays
     i_values = np.array(list(kmer_counts.keys()))
@@ -995,71 +977,90 @@ def kmer_cutoff_estimation(kmer_counts):
         error_prob = poisson.pmf(i, mu=1) * w_opt
         real_prob = poisson.pmf(i, mu=c_opt) * (1 - w_opt)
         if real_prob > error_prob:
-            return i
-    return 0
+            return i  # Return first i where real k-mers dominate
+    return 0  # Return None if no valid threshold found
 
 
-def estimate_overall_read_depth(full_reads, k, w):
-    import statistics
-    import subprocess
+def import_jellyfish_histo(histo_path):
+    with open(histo_path, "r") as f:
+        lines = f.read().split("\n")
+    kmer_counts = {}
+    for line in lines:
+        if line != "":
+            val = int(line.split(" ")[0])
+            count = int(line.split(" ")[1])
+            kmer_counts[val] = count
+    return kmer_counts
 
-    import sourmash
 
-    full_reads_sig = full_reads.replace(".fastq", ".sig")
-    command = f"sourmash sketch dna -p k={k},scaled={w},abund {full_reads} -o {full_reads_sig}"
+def load_kmer_counts(counts_file):
+    # load the counts
+    abundances = []
+    with open(counts_file) as i:
+        for line in i:
+            parts = line.split()
+            if len(parts) == 2:  # Ensure line has both k-mer and count
+                count = int(parts[1])
+                if count != 0:
+                    abundances.append(count)
+    return abundances
+
+
+def estimate_overall_read_depth(full_reads, k, threads):
+    jf_out = full_reads.replace(".fastq", ".jf")
+    histo_out = full_reads.replace(".fastq", ".histo")
+    sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
+    command = f"jellyfish count -m {k} -s 20M -t {threads} -C {full_reads} -o {jf_out}"
+    command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
-    full_sig = sourmash.load_one_signature(full_reads_sig)
+    # import the counts
+    kmer_counts = import_jellyfish_histo(histo_out)
     # estimate the kmer cutoff
-    cutoff = kmer_cutoff_estimation(full_sig.minhash.hashes)
-    command = f"sourmash sig filter -m {cutoff} {full_reads_sig} "
-    command += f"> {full_reads_sig.replace(".sig", ".filtered.sig")}"
+    cutoff = kmer_cutoff_estimation(kmer_counts)
+    sys.stderr.write(f"\nAmira: filtering k-mers with count below cutoff ({cutoff}).\n")
+    jf_out = full_reads.replace(".fastq", ".filtered.jf")
+    histo_out = full_reads.replace(".fastq", ".filtered.histo")
+    kmers_out = full_reads.replace(".fastq", ".filtered.kmers.txt")
+    command = f"jellyfish count -m {k} -s 20M -L {cutoff} -t {threads} -C {full_reads} -o {jf_out}"
+    command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
     subprocess.run(command, shell=True, check=True)
-    full_sig = sourmash.load_one_signature(full_reads_sig.replace(".sig", ".filtered.sig"))
-    full_mh = full_sig.minhash
-    kmer_counts = list(full_mh.hashes.values())
-    return statistics.mode(kmer_counts), full_mh
+    # import the counts
+    filtered_counts = load_kmer_counts(kmers_out)
+    return statistics.mode(filtered_counts), jf_out
 
 
-def estimate_depth(full_mh, locus_reads_sig):
-    import statistics
-
-    import sourmash
-
-    # import minhash for the locus reads
-    locus_sig = sourmash.load_one_signature(locus_reads_sig)
-    locus_mh = locus_sig.minhash
-    # mean k-mer count of locus sig hashes
-    full_hashes = full_mh.hashes
-    # Use list comprehension with `.get()` for fast access
-    abundances = [full_hashes[k] for k in locus_mh.hashes if k in full_hashes]
+def estimate_depth(counts_file):
+    # load the counts
+    abundances = load_kmer_counts(counts_file)
     return statistics.median(abundances)
 
 
 def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
-    import glob
-    import os
-    import subprocess
-
     # define k and w
     k = 15
-    w = 1
+    threads = 6
     # estimate the overall depth
-    read_depth, full_mh = estimate_overall_read_depth(fastq_file, k, w)
+    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads)
     # estimate cellular copy numbers for each subset fastq
     normalised_depths, mean_depth_per_reference = {}, {}
-    for locus_reads in glob.glob(
-        os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq.gz")
+    for locus_reads in tqdm(
+        glob.glob(
+            os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq")
+        )
     ):
         # make a sketch of the locus reads
-        locus_reads_sig = locus_reads.replace(".fastq.gz", ".sig")
-        command = (
-            f"sourmash sketch dna -p k={k},scaled={w},abund {locus_reads} -o {locus_reads_sig}"
-        )
+        jf_out = locus_reads.replace(".fastq", ".jf")
+        kmers_out = locus_reads.replace(".fastq", ".kmers.txt")
+        command = f"jellyfish count -m {k} -s 20M -t {threads} -C {locus_reads} -o {jf_out}"
+        command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
+        # query the kmers
+        counts_file = kmers_out = locus_reads.replace(".fastq", ".kmer_counts.txt")
+        command = f"jellyfish query -s {locus_reads} {full_jf_out} > {counts_file}"
         subprocess.run(command, shell=True, check=True)
-        # compare the two signatures
-        depth_estimate = estimate_depth(full_mh, locus_reads_sig)
+        # get the counts of the requested kmers
+        depth_estimate = estimate_depth(counts_file)
         # get the allele
-        allele_name = os.path.basename(locus_reads).replace(".locus.fastq.gz", "")
+        allele_name = os.path.basename(locus_reads).replace(".locus.fastq", "")
         # store the depth estimate
         normalised_depths[allele_name] = depth_estimate / read_depth
         mean_depth_per_reference[allele_name] = depth_estimate

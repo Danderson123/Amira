@@ -260,6 +260,11 @@ def convert_pandora_output(
                 new_positions.append(gene_position_dict[r][i])
                 if gene[1:] in genesOfInterest:
                     subsettedGenesOfInterest.add(gene[1:])
+            else:
+                if gene[1:] in genesOfInterest:
+                    message = f"\nAmira: filtering AMR gene {gene[1:]} "
+                    message += f"due to insufficient frequency ({geneCounts[gene[1:]]}).\n"
+                    sys.stderr.write(message)
         annotatedReads[r] = new_calls
         gene_position_dict[r] = new_positions
     assert not len(annotatedReads) == 0
