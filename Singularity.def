@@ -28,7 +28,8 @@ From: ubuntu:20.04
         libncurses5-dev \
         bzip2 \
         ca-certificates \
-        cmake
+        cmake \
+        jellyfish
 
     # Set GCC/G++ to version 10
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave /usr/bin/g++ g++ /usr/bin/g++-10 --slave /usr/bin/gcov gcov /usr/bin/gcov-10

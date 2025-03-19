@@ -9,4 +9,3 @@ dependencies:
   - samtools=1.18
   - racon=1.4.10
   - minimap2=2.17
-  - jellyfish=2.3.1
