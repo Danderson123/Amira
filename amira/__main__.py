@@ -502,7 +502,7 @@ def main() -> None:
         output_component_fastqs(args.output_dir, graph, fastq_content)
     # assign reads to AMR genes by path
     if not args.quiet:
-        sys.stderr.write("\nAmira: clustering reads\n")
+        sys.stderr.write("\nAmira: clustering reads.\n")
     (
         clusters_to_add,
         clusters_of_interest,
