@@ -1029,7 +1029,7 @@ def load_kmer_counts(counts_file):
     return abundances
 
 
-def estimate_overall_read_depth(full_reads, k, threads):
+def estimate_overall_read_depth(full_reads, k, threads, debug):
     # count the k-mers in the full read set
     jf_out = full_reads.replace(".fastq.gz", ".jf")
     histo_out = full_reads.replace(".fastq.gz", ".histo")
@@ -1055,8 +1055,7 @@ def estimate_overall_read_depth(full_reads, k, threads):
     # import the counts
     filtered_kmer_counts = import_jellyfish_histo(histo_out)
     # estimate the read depth from the kmerss
-    kmer_depth = estimate_kmer_depth(filtered_kmer_counts, histo_out)
-    sys.stderr.write(f"\nAmira: estimated k-mer depth = {kmer_depth}.\n")
+    kmer_depth = estimate_kmer_depth(filtered_kmer_counts, histo_out, debug)
     return kmer_depth, jf_out
 
 
@@ -1067,7 +1066,14 @@ def estimate_depth(counts_file):
 
 
 def estimate_copy_numbers(
-    fastq_content, path_reads, amira_alleles, fastq_file, threads, samtools_path
+    fastq_content,
+    path_reads,
+    amira_alleles,
+    fastq_file,
+    threads,
+    samtools_path,
+    raw_read_depth,
+    debug,
 ):
     # make the output directory
     outdir = os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "path_reads")
@@ -1089,7 +1095,10 @@ def estimate_copy_numbers(
     # define k
     k = 15
     # estimate the overall depth
-    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads)
+    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
+    # read depth can be quite wrong for low depth samples
+    read_depth = min(read_depth, raw_read_depth)
+    sys.stderr.write(f"\nAmira: estimated k-mer depth = {read_depth}.\n")
     # get the genomic copy number of each gene
     gene_counts = {}
     for i in path_mapping:

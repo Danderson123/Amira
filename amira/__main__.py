@@ -3,6 +3,7 @@ import json
 import os
 import random
 import re
+import statistics
 import sys
 import time
 
@@ -314,8 +315,14 @@ def main() -> None:
         # sort the keys
         annotatedReads = dict(sorted(annotatedReads.items()))
         pandora_consensus = parse_fastq(args.pandoraConsensus)
-        # initialise mean read depth
-        mean_read_depth = None
+        # get the mean depth across core genes
+        with open(core_genes) as i:
+            core = set(i.read().split("\n"))
+        counts = {}
+        for r in annotatedReads:
+            for g in annotatedReads[r]:
+                counts[g[1:]] = counts.get(g[1:], 0) + 1
+        mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
     # load the pandora consensus and convert to a dictionary
     if pandoraSam:
         if not args.quiet:
@@ -579,6 +586,8 @@ def main() -> None:
         read_fastq_path,
         args.cores,
         args.samtools_path,
+        mean_read_depth,
+        args.debug,
     )
     estimates = []
     copy_depths = []
