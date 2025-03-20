@@ -2501,7 +2501,6 @@ class GeneMerGraph:
             [a for a in read_tracking], key=lambda x: len(read_tracking[x]), reverse=True
         )
         clusters_to_delete = set()
-        paths_to_delete = set()
         for i in range(len(sorted_alleles)):
             a1 = sorted_alleles[i]
             if a1 in clusters_to_delete:
@@ -2511,13 +2510,8 @@ class GeneMerGraph:
                     continue
                 if len(read_tracking[a1] & read_tracking[a2]) > 0:
                     clusters_to_delete.add(a2)
-                    for p in path_reads:
-                        if f"+{a2}" in p or f"-{a2}" in p:
-                            paths_to_delete.add(p)
         for d in clusters_to_delete:
             del gene_clusters[d]
-        for d in paths_to_delete:
-            del path_reads[d]
         return gene_clusters, path_reads
 
     def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
