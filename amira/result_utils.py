@@ -1,4 +1,3 @@
-import glob
 import json
 import os
 import shutil
@@ -27,7 +26,9 @@ def get_found_genes(clusters_of_interest):
     return found_genes
 
 
-def add_amr_alleles(short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes):
+def add_amr_alleles(
+    short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes, path_reads
+):
     clusters_to_add = {}
     for read_id in short_reads:
         for g in range(len(short_reads[read_id])):
@@ -37,6 +38,10 @@ def add_amr_alleles(short_reads, short_read_gene_positions, sample_genesOfIntere
                     clusters_to_add[f"{strandless_gene}_1"] = []
                 gene_start, gene_end = short_read_gene_positions[read_id][g]
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
+                path_tuple = tuple([f"+{strandless_gene}_1"])
+                if path_tuple not in path_reads:
+                    path_reads[path_tuple] = set()
+                path_reads[path_tuple].add(read_id)
     return clusters_to_add
 
 
@@ -58,20 +63,36 @@ def process_reads(
     overall_mean_node_coverage,
 ):
     # Step 1: Assign reads to genes
-    clusters_of_interest = graph.assign_reads_to_genes(
+    clusters_of_interest, path_reads = graph.assign_reads_to_genes(
         sample_genesOfInterest, cores, {}, overall_mean_node_coverage
     )
     # Step 2: Get the unique genes found in clusters of interest
     found_genes_of_interest = get_found_genes(clusters_of_interest)
     # Step 3: Add AMR alleles that come from short reads
     clusters_to_add = add_amr_alleles(
-        short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes_of_interest
+        short_reads,
+        short_read_gene_positions,
+        sample_genesOfInterest,
+        found_genes_of_interest,
+        path_reads,
     )
     # Return the processed results
-    return (
-        clusters_to_add,
-        clusters_of_interest,
+    return (clusters_to_add, clusters_of_interest, path_reads)
+
+
+def write_path_fastq(reads_for_path, fastq_content, output_dir, path_id):
+    read_subset = {}
+    for r in reads_for_path:
+        fastq_data = fastq_content[r].copy()
+        if fastq_data["sequence"] != "":
+            read_subset[r] = fastq_data
+    if not os.path.exists(os.path.join(output_dir)):
+        os.mkdir(os.path.join(output_dir))
+    write_fastq(
+        os.path.join(output_dir, f"{path_id}.fastq.gz"),
+        read_subset,
     )
+    return os.path.join(output_dir, f"{path_id}.fastq.gz")
 
 
 def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name):
@@ -96,18 +117,6 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
     write_fastq(
         os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz"),
         read_subset,
-    )
-    full_read_subset = {}
-    for r in reads_for_allele:
-        underscore_split = r.split("_")
-        fastq_data = fastq_content[underscore_split[0]].copy()
-        fastq_data["sequence"] = fastq_data["sequence"]
-        fastq_data["quality"] = fastq_data["quality"]
-        if fastq_data["sequence"] != "":
-            full_read_subset[underscore_split[0]] = fastq_data
-    write_fastq(
-        os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".locus.fastq.gz"),
-        full_read_subset,
     )
     return os.path.join(output_dir, "AMR_allele_fastqs", allele_name, allele_name + ".fastq.gz")
 
@@ -1057,26 +1066,42 @@ def estimate_depth(counts_file):
     return statistics.median(abundances)
 
 
-def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
+def estimate_copy_numbers(
+    fastq_content, path_reads, amira_alleles, fastq_file, threads, samtools_path
+):
+    # make the output directory
+    outdir = os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "path_reads")
+    # write out the reads for each path
+    sys.stderr.write("\nAmira: writing out the reads for each path.\n")
+    path_mapping = {}
+    path_list = list(path_reads.keys())
+    path_fastqs = []
+    for i in range(len(path_list)):
+        # asign an id to each path
+        path_id = i + 1
+        path = path_list[i]
+        path_mapping[path_id] = list(path)
+        # write out the reads of each path
+        path_fastqs.append(write_path_fastq(path_reads[path], fastq_content, outdir, path_id))
+    # write out the mapping
+    with open(os.path.join(outdir, "path_id_mapping.json"), "w") as o:
+        o.write(json.dumps(path_mapping))
     # define k
     k = 15
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads)
-    loci_reads = glob.glob(
-        os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq.gz")
-    )
     # get the genomic copy number of each gene
     gene_counts = {}
-    for locus in loci_reads:
-        gene = "_".join(os.path.basename(os.path.dirname(locus)).split("_")[:-1])
-        gene_counts[gene] = gene_counts.get(gene, 0) + 1
-    # estimate cellular copy numbers for each subset fastq
+    for i in path_mapping:
+        gene_counts[i] = {}
+        for g in path_mapping[i]:
+            strandless = g[1:]
+            if strandless in amira_alleles:
+                gene = "_".join(strandless.split("_")[:-1])
+                gene_counts[i][gene] = gene_counts[i].get(gene, 0) + 1
+    # estimate cellular cpy numbers for each subset fastq
     normalised_depths, mean_depth_per_reference = {}, {}
-    for locus_reads in tqdm(
-        glob.glob(
-            os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "*", "*.locus.fastq.gz")
-        )
-    ):
+    for locus_reads in tqdm(path_fastqs):
         # query the kmers
         counts_file = locus_reads.replace(".fastq.gz", ".kmer_counts.txt")
         command = (
@@ -1085,13 +1110,21 @@ def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtoo
         subprocess.run(command, shell=True, check=True)
         # get the counts of the requested kmers
         depth_estimate = estimate_depth(counts_file)
+        # get the id of the path
+        path_id = int(os.path.basename(locus_reads).replace(".fastq.gz", ""))
         # get the allele
-        allele_name = os.path.basename(locus_reads).replace(".locus.fastq.gz", "")
-        # get the gene
-        gene = "_".join(allele_name.split("_")[:-1])
-        # store the depth estimate
-        normalised_depths[allele_name] = depth_estimate / (read_depth * gene_counts[gene])
-        mean_depth_per_reference[allele_name] = depth_estimate
+        full_path = path_mapping[path_id]
+        for g in full_path:
+            allele_name = g[1:]
+            if allele_name not in amira_alleles:
+                continue
+            # get the gene
+            gene = "_".join(allele_name.split("_")[:-1])
+            # store the depth estimate
+            normalised_depths[allele_name] = depth_estimate / (
+                read_depth * gene_counts[path_id][gene]
+            )
+            mean_depth_per_reference[allele_name] = depth_estimate
     return normalised_depths, mean_depth_per_reference
 
 

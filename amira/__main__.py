@@ -503,10 +503,7 @@ def main() -> None:
     # assign reads to AMR genes by path
     if not args.quiet:
         sys.stderr.write("\nAmira: clustering reads.\n")
-    (
-        clusters_to_add,
-        clusters_of_interest,
-    ) = process_reads(
+    (clusters_to_add, clusters_of_interest, path_reads) = process_reads(
         graph,
         sample_genesOfInterest,
         args.cores,
@@ -540,8 +537,6 @@ def main() -> None:
         allele_component_mapping,
     )
     # write out the longest reads
-    with open(os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"), "w") as o:
-        o.write("\n".join(longest_reads_for_genes))
     longest_read_lengths = {}
     for row in longest_reads_for_genes:
         longest_read_lengths[row.split("\n")[0].replace(">", "")] = len(
@@ -578,8 +573,9 @@ def main() -> None:
     if not args.quiet:
         sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
     copy_numbers, mean_depth_per_reference = estimate_copy_numbers(
-        mean_read_depth,
-        os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
+        fastq_content,
+        path_reads,
+        set(result_df["Amira allele"]),
         read_fastq_path,
         args.cores,
         args.samtools_path,

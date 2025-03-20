@@ -2422,11 +2422,11 @@ class GeneMerGraph:
         geneOfInterest,
         pathsOfinterest,
         path_coverages,
+        path_reads,
         mean_node_coverage=None,
     ):
         allele_count = 1
         gene_clusters = {}
-        copy_numbers = {}
         # get the mean node coverage for all nodes
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
@@ -2434,6 +2434,8 @@ class GeneMerGraph:
         read_tracking = {}
         # iterate through the paths
         for path in pathsOfinterest:
+            # keep track of a modified version of the path
+            modified_path = list(path)
             # get the genes in the path
             genes_in_path = list(path)
             reverse_genes_in_path = self.reverse_list_of_genes(genes_in_path)
@@ -2449,9 +2451,14 @@ class GeneMerGraph:
                     # add the allele to the cluster dictionary
                     gene_clusters[f"{geneOfInterest}_{allele_count}"] = []
                     read_tracking[f"{geneOfInterest}_{allele_count}"] = set()
+                    # modify the path with the allele name
+                    modified_path[g] = f"{genes_in_path[g][0]}{geneOfInterest}_{allele_count}"
+                    # increment the allele count
                     allele_count += 1
+            # convert the modified path to a tuple
+            modified_path = tuple(modified_path)
             # iterate through the reads in this path
-            for read_id in self.get_reads():  # pathsOfinterest[path]:
+            for read_id in self.get_reads():
                 # get the genes on the read
                 genes_on_read = self.get_reads()[read_id]
                 # get the positions of the path on the read
@@ -2466,6 +2473,11 @@ class GeneMerGraph:
                 else:
                     continue
                 if len(positions_of_path) == 1:
+                    # add the path to the path reads
+                    if modified_path not in path_reads:
+                        path_reads[modified_path] = set()
+                    # add the reads to the path reads
+                    path_reads[modified_path].add(read_id)
                     # iterate through the path indices
                     for path_start, path_end in positions_of_path:
                         for gene_index in indices_in_path:
@@ -2485,27 +2497,28 @@ class GeneMerGraph:
                             read_tracking[indices_in_path[gene_index]].add(
                                 f"{read_id}_{sequence_start}_{sequence_end}"
                             )
-                            # estimate the copy number of the allele
-                            copy_numbers[indices_in_path[gene_index]] = max(
-                                1.0, min(path_coverages[path]) / mean_node_coverage
-                            )
         sorted_alleles = sorted(
             [a for a in read_tracking], key=lambda x: len(read_tracking[x]), reverse=True
         )
-        to_delete = set()
+        clusters_to_delete = set()
+        paths_to_delete = set()
         for i in range(len(sorted_alleles)):
             a1 = sorted_alleles[i]
-            if a1 in to_delete:
+            if a1 in clusters_to_delete:
                 continue
             for a2 in sorted_alleles[i + 1 :]:
                 if a1 == a2:
                     continue
                 if len(read_tracking[a1] & read_tracking[a2]) > 0:
-                    to_delete.add(a2)
-        for d in to_delete:
+                    clusters_to_delete.add(a2)
+                    for p in path_reads:
+                        if f"+{a2}" in p or f"-{a2}" in p:
+                            paths_to_delete.add(p)
+        for d in clusters_to_delete:
             del gene_clusters[d]
-            del copy_numbers[d]
-        return gene_clusters, copy_numbers
+        for d in paths_to_delete:
+            del path_reads[d]
+        return gene_clusters, path_reads
 
     def new_get_minhashes_for_paths(self, pathsOfInterest, fastq_dict):
         path_minhashes = {}
@@ -2637,7 +2650,7 @@ class GeneMerGraph:
                     # Intersection count for different nodes
                     intersecting_reads = read_sets[i].intersection(read_sets[j])
                     matrix[i][j] = matrix[j][i] = len(intersecting_reads)
-        return matrix, node_hashes
+        return matrix, node_hashes  # iterate through the components
 
     def get_node_with_highest_subthreshold_connections(self, matrix, threshold):
         # Start by assuming no nodes are below the threshold sufficiently
@@ -2832,6 +2845,31 @@ class GeneMerGraph:
                 ]
         return final_paths, seen_nodes, final_path_coverages
 
+    def assign_final_alleles_to_components(
+        self, finalAllelesOfInterest, clustered_reads, allele_counts, geneOfInterest
+    ):
+        # iterate through the alleles
+        for allele in finalAllelesOfInterest:
+            # get the component of this allele
+            for read_id in finalAllelesOfInterest[allele]:
+                for node_hash in self.get_readNodes()["_".join(read_id.split("_")[:-2])]:
+                    component = self.get_node_by_hash(node_hash).get_component()
+                    break
+                break
+            underscore_split = allele.split("_")
+            gene_name = "_".join(underscore_split[:-1])
+            if gene_name not in allele_counts:
+                allele_counts[gene_name] = 1
+            if component not in clustered_reads:
+                clustered_reads[component] = {}
+            if geneOfInterest not in clustered_reads[component]:
+                clustered_reads[component][geneOfInterest] = {}
+            clustered_reads[component][geneOfInterest][
+                f"{gene_name}_{allele_counts[gene_name]}"
+            ] = finalAllelesOfInterest[allele]
+            # increment the allele count
+            allele_counts[gene_name] += 1
+
     def get_paths_for_gene(
         self,
         node_suffix_tree,
@@ -2854,12 +2892,61 @@ class GeneMerGraph:
         self.get_singleton_paths(seen_nodes, nodeAnchors, final_paths, final_path_coverages)
         return final_paths, final_path_coverages
 
+    def collect_component_missed_genes(
+        self,
+        component_nodeHashesOfInterest,
+        clustered_reads,
+        allele_counts,
+        geneOfInterest,
+        path_reads,
+    ):
+        # iterate through the components
+        for component in component_nodeHashesOfInterest:
+            nodeHashesOfInterest = component_nodeHashesOfInterest[component]
+            # get the reads containing the nodes
+            reads = self.collect_reads_in_path(nodeHashesOfInterest)
+            # add the component to the clustered reads
+            if component not in clustered_reads:
+                clustered_reads[component] = {}
+            if geneOfInterest not in clustered_reads[component]:
+                clustered_reads[component][geneOfInterest] = {}
+            # collect all of the reads containing the gene
+            if (
+                component in clustered_reads
+                and len(clustered_reads[component][geneOfInterest]) == 0
+            ):
+                # add the allele
+                if geneOfInterest not in allele_counts:
+                    allele_counts[geneOfInterest] = 1
+                allele_name = f"{geneOfInterest}_{allele_counts[geneOfInterest]}"
+                allele_name_tuple = tuple([f"+{allele_name}"])
+                clustered_reads[component][geneOfInterest][allele_name] = []
+                # get the reads
+                reads = self.collect_reads_in_path(nodeHashesOfInterest)
+                # get the positions of all occurrences of the AMR gene
+                for read_id in reads:
+                    # get the genes on the read
+                    genes = self.get_reads()[read_id]
+                    # get the index of each occurrence of the gene on the read
+                    indices = [i for i, gene in enumerate(genes) if gene[1:] == geneOfInterest]
+                    # get the positions of the gene on each read
+                    for i in indices:
+                        gene_start, gene_end = self.get_gene_positions()[read_id][i]
+                        clustered_reads[component][geneOfInterest][allele_name].append(
+                            f"{read_id}_{gene_start}_{gene_end}"
+                        )
+                    # add the read to the path reads
+                    if allele_name_tuple not in path_reads:
+                        path_reads[allele_name_tuple] = set()
+                    path_reads[allele_name_tuple].add(read_id)
+                allele_counts[geneOfInterest] += 1
+
     def assign_reads_to_genes(
         self, listOfGenes, cores, allele_counts={}, mean_node_coverage=None, path_threshold=5
     ):
         # initialise dictionaries to track the alleles
         clustered_reads = {}
-        cluster_copy_numbers = {}
+        path_reads = {}
         # get the mean node coverage if it is not specified
         if mean_node_coverage is None:
             mean_node_coverage = self.get_mean_node_coverage()
@@ -2891,36 +2978,13 @@ class GeneMerGraph:
                 cores,
             )
             # split the paths into subpaths
-            finalAllelesOfInterest, copy_numbers = self.split_into_subpaths(
-                geneOfInterest, pathsOfInterest, pathCoverages, mean_node_coverage
+            finalAllelesOfInterest, path_reads = self.split_into_subpaths(
+                geneOfInterest, pathsOfInterest, pathCoverages, path_reads, mean_node_coverage
             )
-            # iterate through the alleles
-            for allele in finalAllelesOfInterest:
-                # get the component of this allele
-                for read_id in finalAllelesOfInterest[allele]:
-                    for node_hash in self.get_readNodes()["_".join(read_id.split("_")[:-2])]:
-                        component = self.get_node_by_hash(node_hash).get_component()
-                        break
-                    break
-                underscore_split = allele.split("_")
-                gene_name = "_".join(underscore_split[:-1])
-                if gene_name not in allele_counts:
-                    allele_counts[gene_name] = 1
-                if component not in clustered_reads:
-                    clustered_reads[component] = {}
-                    cluster_copy_numbers[component] = {}
-                if geneOfInterest not in clustered_reads[component]:
-                    clustered_reads[component][geneOfInterest] = {}
-                    cluster_copy_numbers[component][geneOfInterest] = {}
-                clustered_reads[component][geneOfInterest][
-                    f"{gene_name}_{allele_counts[gene_name]}"
-                ] = finalAllelesOfInterest[allele]
-                # get the copy number estimates
-                cluster_copy_numbers[component][geneOfInterest][
-                    f"{gene_name}_{allele_counts[gene_name]}"
-                ] = copy_numbers[allele]
-                # increment the allele count
-                allele_counts[gene_name] += 1
+            # assign the clusters to components
+            self.assign_final_alleles_to_components(
+                finalAllelesOfInterest, clustered_reads, allele_counts, geneOfInterest
+            )
             # assign node hashes to components
             component_nodeHashesOfInterest = {}
             for n in nodeHashesOfInterest:
@@ -2928,53 +2992,15 @@ class GeneMerGraph:
                 if node_component not in component_nodeHashesOfInterest:
                     component_nodeHashesOfInterest[node_component] = set()
                 component_nodeHashesOfInterest[node_component].add(n)
-            # iterate through the components
-            for component in component_nodeHashesOfInterest:
-                nodeHashesOfInterest = component_nodeHashesOfInterest[component]
-                # get the reads containing the nodes
-                reads = self.collect_reads_in_path(nodeHashesOfInterest)
-                # add the component to the clustered reads
-                if component not in clustered_reads:
-                    clustered_reads[component] = {}
-                    cluster_copy_numbers[component] = {}
-                if geneOfInterest not in clustered_reads[component]:
-                    clustered_reads[component][geneOfInterest] = {}
-                    cluster_copy_numbers[component][geneOfInterest] = {}
-                # collect all of the reads containing the gene
-                if (
-                    component in clustered_reads
-                    and len(clustered_reads[component][geneOfInterest]) == 0
-                ):
-                    # add the allele
-                    if geneOfInterest not in allele_counts:
-                        allele_counts[geneOfInterest] = 1
-                    allele_name = f"{geneOfInterest}_{allele_counts[geneOfInterest]}"
-                    clustered_reads[component][geneOfInterest][allele_name] = []
-                    cluster_copy_numbers[component][geneOfInterest][allele_name] = max(
-                        1.0,
-                        min(
-                            [
-                                self.get_node_by_hash(h).get_node_coverage()
-                                for h in nodeHashesOfInterest
-                            ]
-                        ),
-                    )
-                    # get the reads
-                    reads = self.collect_reads_in_path(nodeHashesOfInterest)
-                    # get the positions of all occurrences of the AMR gene
-                    for read_id in reads:
-                        # get the genes on the read
-                        genes = self.get_reads()[read_id]
-                        # get the index of each occurrence of the gene on the read
-                        indices = [i for i, gene in enumerate(genes) if gene[1:] == geneOfInterest]
-                        # get the positions of the gene on each read
-                        for i in indices:
-                            gene_start, gene_end = self.get_gene_positions()[read_id][i]
-                            clustered_reads[component][geneOfInterest][allele_name].append(
-                                f"{read_id}_{gene_start}_{gene_end}"
-                            )
-                    allele_counts[geneOfInterest] += 1
-        return clustered_reads
+            # collect AMR genes in the component but without a cluster
+            self.collect_component_missed_genes(
+                component_nodeHashesOfInterest,
+                clustered_reads,
+                allele_counts,
+                geneOfInterest,
+                path_reads,
+            )
+        return clustered_reads, path_reads
 
     def remove_non_AMR_associated_nodes(self, genesOfInterest):
         # get the reads containing AMR genes
