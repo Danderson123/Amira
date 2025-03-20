@@ -90,7 +90,7 @@ def get_options() -> argparse.Namespace:
         dest="gene_min_coverage",
         type=float,
         default=0.1,
-        help="Minimum relative threshold to remove all instances of a gene (default=0.1).",
+        help="Minimum relative threshold to remove all instances of a gene (default=0.2).",
     )
     parser.add_argument(
         "--minimum-length-proportion",
