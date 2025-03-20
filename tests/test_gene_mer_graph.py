@@ -4586,7 +4586,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         )
 
         # execution
-        actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages)
+        actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages, {})
         # assertion
         self.assertEqual(len(actual_final_paths), 2)
         for k in actual_final_paths:
@@ -4654,7 +4654,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             suffix_tree, gene_call_subset, nodeHashesOfInterest, 1, "gene5", 1
         )
         # execution
-        actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages)
+        actual_final_paths, _ = graph.split_into_subpaths("gene5", paths, path_coverages, {})
         # assertion
         self.assertEqual(len(actual_final_paths), 3)
         for k in actual_final_paths:
