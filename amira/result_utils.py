@@ -129,10 +129,18 @@ def filter_results(
     sample_genesOfInterest,
     required_identity,
     required_coverage,
+    mean_read_depth
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     comments = []
+    # skip filtering by copy number if mean read depth is <20x
+    if mean_read_depth < 20:
+        skip_depth_filtering = True
+        message = f"\nAmira: skipping filtering by depth as read depth <20x.\n"
+        sys.stderr.write(message)
+    else:
+        skip_depth_filtering = False
     # modify required coverage to make a percentage
     required_coverage = required_coverage * 100
     for index, row in result_df.iterrows():
@@ -160,23 +168,16 @@ def filter_results(
                 alleles_to_delete.append(row["Amira allele"])
                 continue
             else:
-                if row["Approximate copy number"] < min_relative_depth:
-                    message = f"\nAmira: allele {row['Amira allele']} removed "
-                    message += "due to insufficient relative read depth "
-                    message += f"({row['Approximate copy number']}).\n"
-                    sys.stderr.write(message)
-                    alleles_to_delete.append(row["Amira allele"])
-                    continue
+                if skip_depth_filtering is False:
+                    if row["Approximate copy number"] < min_relative_depth:
+                        message = f"\nAmira: allele {row['Amira allele']} removed "
+                        message += "due to insufficient relative read depth "
+                        message += f"({row['Approximate copy number']}).\n"
+                        sys.stderr.write(message)
+                        alleles_to_delete.append(row["Amira allele"])
+                        continue
                 if coverage < 90:
                     flags.append("Partially present gene.")
-                if row["Approximate copy number"] < min_relative_depth:
-                    message = f"\nAmira: allele {row['Amira allele']} removed "
-                    message += (
-                        f"due to insufficient read depth ({row['Approximate copy number']}).\n"
-                    )
-                    sys.stderr.write(message)
-                    alleles_to_delete.append(row["Amira allele"])
-                    continue
         # remove alleles where all of the reads just contain AMR genes
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
