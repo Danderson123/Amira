@@ -615,7 +615,7 @@ def main() -> None:
         sample_genesOfInterest,
         args.identity,
         args.coverage,
-        mean_read_depth
+        mean_read_depth,
     )
     # genotype promoters if specified
     if args.promoters:

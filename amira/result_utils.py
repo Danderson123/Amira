@@ -129,7 +129,7 @@ def filter_results(
     sample_genesOfInterest,
     required_identity,
     required_coverage,
-    mean_read_depth
+    mean_read_depth,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
@@ -137,7 +137,7 @@ def filter_results(
     # skip filtering by copy number if mean read depth is <20x
     if mean_read_depth < 20:
         skip_depth_filtering = True
-        message = f"\nAmira: skipping filtering by depth as read depth <20x.\n"
+        message = "\nAmira: skipping filtering by depth as read depth <20x.\n"
         sys.stderr.write(message)
     else:
         skip_depth_filtering = False
