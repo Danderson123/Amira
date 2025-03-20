@@ -1094,7 +1094,7 @@ def estimate_copy_numbers(
     with open(os.path.join(outdir, "path_id_mapping.json"), "w") as o:
         o.write(json.dumps(path_mapping))
     # define k
-    k = 15
+    k = 13
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
     # read depth can be quite wrong for low depth samples

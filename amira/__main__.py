@@ -323,6 +323,7 @@ def main() -> None:
             for g in annotatedReads[r]:
                 counts[g[1:]] = counts.get(g[1:], 0) + 1
         mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
+        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # load the pandora consensus and convert to a dictionary
     if pandoraSam:
         if not args.quiet:
