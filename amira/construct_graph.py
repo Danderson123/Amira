@@ -2474,6 +2474,7 @@ class GeneMerGraph:
                     continue
                 if len(positions_of_path) == 1:
                     # add the path to the path reads
+                    print(path_reads)
                     if modified_path not in path_reads:
                         path_reads[modified_path] = set()
                     # add the reads to the path reads

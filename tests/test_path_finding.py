@@ -1114,7 +1114,7 @@ class TestPathFindingConstructor(unittest.TestCase):
             1,
         )
         finalAllelesOfInterest, copy_numbers = graph.split_into_subpaths(
-            "dfrA17", full_blocks, full_block_coverages, 188, {}
+            "dfrA17", full_blocks, full_block_coverages, {}, 188
         )
         # assertion
         self.assertEqual(len(full_blocks), 3)
