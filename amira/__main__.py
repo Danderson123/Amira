@@ -90,7 +90,7 @@ def get_options() -> argparse.Namespace:
         "-g",
         dest="gene_min_coverage",
         type=float,
-        default=0.1,
+        default=0.2,
         help="Minimum relative threshold to remove all instances of a gene (default=0.2).",
     )
     parser.add_argument(
@@ -140,7 +140,7 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--min-relative-depth",
         dest="min_relative_depth",
-        help="Minimum cellular copy number estimate needed to keep an AMR gene (default=0.2).",
+        help="Minimum relative read depth to keep an AMR gene (default=0.2).",
         required=False,
         type=float,
         default=0.2,
@@ -359,6 +359,21 @@ def main() -> None:
             if total_reads > args.sample_size:
                 # Convert the items to a list before sampling
                 annotatedReads = dict(random.sample(list(annotatedReads.items()), args.sample_size))
+                # get the mean depth across core genes
+                with open(core_genes) as i:
+                    core = set(i.read().split("\n"))
+                counts = {}
+                for r in annotatedReads:
+                    for g in annotatedReads[r]:
+                        counts[g[1:]] = counts.get(g[1:], 0) + 1
+                mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
+            else:
+                # get the mean depth across core genes
+                mean_read_depth = get_core_gene_mean_depth(
+                    os.path.join(args.output_dir, "mapped_to_consensus.bam"),
+                    core_genes,
+                    args.samtools_path,
+                )
         # write out the gene calls
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -366,10 +381,6 @@ def main() -> None:
             o.write(json.dumps(gene_position_dict))
         with open(os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"), "w") as o:
             o.write(json.dumps(annotatedReads))
-        # get the mean depth across core genes
-        mean_read_depth = get_core_gene_mean_depth(
-            os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes, args.samtools_path
-        )
         sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
@@ -597,9 +608,9 @@ def main() -> None:
         estimates.append(copy_numbers[row["Amira allele"]])
         copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
         read_lengths.append(longest_read_lengths[row["Amira allele"]])
+    result_df["Mean read depth"] = copy_depths
     result_df["Approximate copy number"] = estimates
     if args.debug:
-        result_df["Mean depth"] = copy_depths
         result_df["Longest read length"] = read_lengths
     # get the component of each allele
     if args.output_components is True:

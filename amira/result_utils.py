@@ -169,10 +169,11 @@ def filter_results(
                 continue
             else:
                 if skip_depth_filtering is False:
-                    if row["Approximate copy number"] < min_relative_depth:
+                    relative_depth = row["Mean read depth"] / mean_read_depth
+                    if relative_depth < min_relative_depth:
                         message = f"\nAmira: allele {row['Amira allele']} removed "
                         message += "due to insufficient relative read depth "
-                        message += f"({row['Approximate copy number']}).\n"
+                        message += f"({relative_depth}).\n"
                         sys.stderr.write(message)
                         alleles_to_delete.append(row["Amira allele"])
                         continue
@@ -1094,7 +1095,7 @@ def estimate_copy_numbers(
     with open(os.path.join(outdir, "path_id_mapping.json"), "w") as o:
         o.write(json.dumps(path_mapping))
     # define k
-    k = 13
+    k = 15
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
     # read depth can be quite wrong for low depth samples
