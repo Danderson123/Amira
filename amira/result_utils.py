@@ -1098,8 +1098,6 @@ def estimate_copy_numbers(
     k = 15
     # estimate the overall depth
     read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
-    # read depth can be quite wrong for low depth samples
-    read_depth = min(read_depth, raw_read_depth)
     sys.stderr.write(f"\nAmira: estimated k-mer depth = {read_depth}.\n")
     # get the genomic copy number of each gene
     gene_counts = {}
