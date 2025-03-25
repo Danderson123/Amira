@@ -91,20 +91,26 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
     return gene_name, strandlessGene
 
 
-def load_species_specific_files(species):
+def load_species_specific_files(species, AMR_gene_reference_FASTA, sequence_names, core_genes):
     from pathlib import Path
 
-    species_dir = Path(__file__).resolve().parent / "assets"
-    if not os.path.exists(f"{species_dir}/{species}"):
-        sys.stderr.write(f"\nAmira: {species} is not a supported species name.\n")
-        sys.exit(1)
+    if AMR_gene_reference_FASTA is None or sequence_names is None or core_genes is None:
+        species_dir = Path(__file__).resolve().parent / "assets"
+        if not os.path.exists(f"{species_dir}/{species}"):
+            sys.stderr.write(f"\nAmira: {species} is not a supported species name.\n")
+            sys.exit(1)
+        else:
+            if AMR_gene_reference_FASTA is None:
+                AMR_gene_reference_FASTA = os.path.join(
+                    f"{species_dir}/{species}", "AMR_alleles_unified.fa"
+                )
+            if sequence_names is None:
+                sequence_names = os.path.join(f"{species_dir}/{species}", "AMR_calls.json")
+            if core_genes is None:
+                core_genes = os.path.join(f"{species_dir}/{species}", "core_genes.txt")
+        return AMR_gene_reference_FASTA, sequence_names, core_genes
     else:
-        AMR_gene_reference_FASTA = os.path.join(
-            f"{species_dir}/{species}", "AMR_alleles_unified.fa"
-        )
-        sequence_names = os.path.join(f"{species_dir}/{species}", "AMR_calls.json")
-        core_genes = os.path.join(f"{species_dir}/{species}", "core_genes.txt")
-    return AMR_gene_reference_FASTA, sequence_names, core_genes
+        return AMR_gene_reference_FASTA, sequence_names, core_genes
 
 
 def remove_poorly_mapped_genes(
@@ -175,7 +181,7 @@ def convert_pandora_output(
     pandoraSam: str,
     pandora_consensus: dict[str, list[str]],
     genesOfInterest: set[str],
-    geneMinCoverage: int,
+    relativeMinGeneThreshold: int,
     gene_length_lower_threshold: float,
     gene_length_upper_threshold: float,
     read_path: str,
@@ -240,14 +246,27 @@ def convert_pandora_output(
                     distances[read_name] = []
                 distances[read_name].append(regionStart - read_tracking[read.query_name]["end"])
                 read_tracking[read.query_name]["end"] = regionEnd
+    # get the min relative gene frequency
+    geneMinCoverage = statistics.mean(geneCounts.values()) * relativeMinGeneThreshold
+    # filter genes that do not meet the minimum coverage threshold
     subsettedGenesOfInterest = set()
     for r in tqdm(annotatedReads):
-        annotatedReads[r] = [
-            gene for gene in annotatedReads[r] if geneCounts[gene[1:]] > geneMinCoverage - 1
-        ]
-        for g in range(len(annotatedReads[r])):
-            if annotatedReads[r][g][1:] in genesOfInterest:
-                subsettedGenesOfInterest.add(annotatedReads[r][g][1:])
+        new_calls = []
+        new_positions = []
+        for i in range(len(annotatedReads[r])):
+            gene = annotatedReads[r][i]
+            if geneCounts[gene[1:]] >= geneMinCoverage:
+                new_calls.append(gene)
+                new_positions.append(gene_position_dict[r][i])
+                if gene[1:] in genesOfInterest:
+                    subsettedGenesOfInterest.add(gene[1:])
+            else:
+                if gene[1:] in genesOfInterest:
+                    message = f"\nAmira: filtering AMR gene {gene[1:]} "
+                    message += f"due to insufficient frequency ({geneCounts[gene[1:]]}).\n"
+                    sys.stderr.write(message)
+        annotatedReads[r] = new_calls
+        gene_position_dict[r] = new_positions
     assert not len(annotatedReads) == 0
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
 

@@ -3,6 +3,7 @@ import json
 import os
 import random
 import re
+import statistics
 import sys
 import time
 
@@ -83,28 +84,28 @@ def get_options() -> argparse.Namespace:
         dest="node_min_coverage",
         type=int,
         default=3,
-        help="Minimum threshold for gene-mer coverage (default=3).",
+        help="Minimum threshold for gene-mer coverage in the graph (default=3).",
     )
     parser.add_argument(
         "-g",
         dest="gene_min_coverage",
-        type=int,
-        default=1,
-        help="Minimum threshold for gene filtering (default=1).",
+        type=float,
+        default=0.2,
+        help="Minimum relative threshold to remove all instances of a gene (default=0.2).",
     )
     parser.add_argument(
         "--minimum-length-proportion",
         dest="lower_gene_length_threshold",
         type=float,
         default=0.5,
-        help="Minimum length threshold for gene filtering (default=0.5).",
+        help="Minimum length threshold to filter a gene from a read (default=0.5).",
     )
     parser.add_argument(
         "--maximum-length-proportion",
         dest="upper_gene_length_threshold",
         type=float,
         default=1.5,
-        help="Maximum length threshold for gene filtering (default=1.5).",
+        help="Maximum length threshold to filter a gene from a read (default=1.5).",
     )
     parser.add_argument(
         "--sample-size",
@@ -118,12 +119,12 @@ def get_options() -> argparse.Namespace:
         dest="promoters",
         action="store_true",
         default=False,
-        help=argparse.SUPPRESS,
+        help="Genotype the promoter sequences of certain AMR genes (only for Escherichia_coli).",
     )
     parser.add_argument(
         "--identity",
         dest="identity",
-        help="Minimum identity to a reference allele to report an AMR gene (default=0.9).",
+        help="Minimum identity to a reference allele needed to report an AMR gene (default=0.9).",
         required=False,
         type=float,
         default=0.9,
@@ -131,10 +132,18 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--coverage",
         dest="coverage",
-        help="Minimum coverage of a reference allele to report an AMR gene (default=0.9).",
+        help="Minimum alignment coverage of a reference allele to keep an AMR gene (default=0.9).",
         required=False,
         type=float,
         default=0.9,
+    )
+    parser.add_argument(
+        "--min-relative-depth",
+        dest="min_relative_depth",
+        help="Minimum relative read depth to keep an AMR gene (default=0.2).",
+        required=False,
+        type=float,
+        default=0.2,
     )
     parser.add_argument(
         "--cores",
@@ -189,13 +198,6 @@ def get_options() -> argparse.Namespace:
         help="Suppress progress updates (default=False).",
     )
     parser.add_argument(
-        "--filter-contamination",
-        dest="filter_contamination",
-        action="store_true",
-        default=False,
-        help="Filter AMR genes that are suspected contaminants (default=False).",
-    )
-    parser.add_argument(
         "--debug",
         dest="debug",
         action="store_true",
@@ -216,6 +218,15 @@ def get_options() -> argparse.Namespace:
         default=False,
         help="Output FASTQs of the reads for each connected component (default=False).",
     )
+    parser.add_argument(
+        "--amr-fasta", dest="amr_fasta", help=argparse.SUPPRESS, required=False, default=None
+    )
+    parser.add_argument(
+        "--amr-calls", dest="amr_calls", help=argparse.SUPPRESS, required=False, default=None
+    )
+    parser.add_argument(
+        "--core-genes", dest="core_genes", help=argparse.SUPPRESS, required=False, default=None
+    )
     parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
     if args.pandoraJSON and not args.gene_positions:
@@ -230,7 +241,7 @@ def write_debug_files(
     output_dir: str,
     cores: int,
 ) -> GeneMerGraph:
-    sys.stderr.write("\nAmira: building pre-correction gene-mer graph\n")
+    sys.stderr.write("\nAmira: building pre-correction gene-mer graph.\n")
     raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, cores)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
@@ -252,7 +263,9 @@ def main() -> None:
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
     # get the relevant species-specific files
-    AMR_gene_reference_FASTA, sequence_names, core_genes = load_species_specific_files(args.species)
+    AMR_gene_reference_FASTA, sequence_names, core_genes = load_species_specific_files(
+        args.species, args.amr_fasta, args.amr_calls, args.core_genes
+    )
     # import the list of genes of interest
     reference_alleles, genesOfInterest = process_reference_alleles(
         AMR_gene_reference_FASTA, args.promoters
@@ -262,9 +275,11 @@ def main() -> None:
         sys.stderr.write("\nAmira: loading FASTQ file.\n")
     fastq_content = parse_fastq(args.reads)
     # remove underscores in read names
-    fastq_content = {re.sub(r"\W+", "", r): fastq_content[r] for r in fastq_content}
+    fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
     # write the modified fastq data to the output directoy
     read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+    if ".gz" not in read_fastq_path:
+        read_fastq_path += ".gz"
     write_fastq(
         read_fastq_path,
         fastq_content,
@@ -293,7 +308,6 @@ def main() -> None:
                 f"FASTQ file: {os.path.basename(args.reads)}\n"
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
-                f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
         annotatedReads, sample_genesOfInterest, gene_position_dict = process_pandora_json(
             args.pandoraJSON, genesOfInterest, args.gene_positions
@@ -301,8 +315,15 @@ def main() -> None:
         # sort the keys
         annotatedReads = dict(sorted(annotatedReads.items()))
         pandora_consensus = parse_fastq(args.pandoraConsensus)
-        # initialise mean read depth
-        mean_read_depth = None
+        # get the mean depth across core genes
+        with open(core_genes) as i:
+            core = set(i.read().split("\n"))
+        counts = {}
+        for r in annotatedReads:
+            for g in annotatedReads[r]:
+                counts[g[1:]] = counts.get(g[1:], 0) + 1
+        mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
+        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # load the pandora consensus and convert to a dictionary
     if pandoraSam:
         if not args.quiet:
@@ -312,9 +333,8 @@ def main() -> None:
                 f"FASTQ file: {os.path.basename(args.reads)}\n"
                 f"Subsample reads: {args.sample_reads}\n"
                 f"Trim graph: {False if args.no_trim else True}\n"
-                f"Filter suspected contaminants: {args.filter_contamination}\n"
             )
-            sys.stderr.write("\nAmira: loading Pandora SAM file\n")
+            sys.stderr.write("\nAmira: loading Pandora SAM file.\n")
         # load the pandora consensus
         pandora_consensus = parse_fastq(pandoraConsensus)
         # process the output of pandora
@@ -339,6 +359,21 @@ def main() -> None:
             if total_reads > args.sample_size:
                 # Convert the items to a list before sampling
                 annotatedReads = dict(random.sample(list(annotatedReads.items()), args.sample_size))
+                # get the mean depth across core genes
+                with open(core_genes) as i:
+                    core = set(i.read().split("\n"))
+                counts = {}
+                for r in annotatedReads:
+                    for g in annotatedReads[r]:
+                        counts[g[1:]] = counts.get(g[1:], 0) + 1
+                mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
+            else:
+                # get the mean depth across core genes
+                mean_read_depth = get_core_gene_mean_depth(
+                    os.path.join(args.output_dir, "mapped_to_consensus.bam"),
+                    core_genes,
+                    args.samtools_path,
+                )
         # write out the gene calls
         with open(
             os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"), "w"
@@ -346,18 +381,13 @@ def main() -> None:
             o.write(json.dumps(gene_position_dict))
         with open(os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"), "w") as o:
             o.write(json.dumps(annotatedReads))
-        # get the mean depth across core genes
-        mean_read_depth = get_core_gene_mean_depth(
-            os.path.join(args.output_dir, "mapped_to_consensus.bam"), core_genes, args.samtools_path
-        )
-        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}\n")
+        sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # terminate if no AMR genes were found
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
@@ -368,7 +398,7 @@ def main() -> None:
         write_debug_files(annotatedReads, 3, sample_genesOfInterest, args.output_dir, args.cores)
     # build the gene-mer graph
     if not args.quiet:
-        sys.stderr.write("\nAmira: building intitial gene-mer graph\n")
+        sys.stderr.write("\nAmira: building intitial gene-mer graph.\n")
     graph = build_multiprocessed_graph(annotatedReads, 3, args.cores, gene_position_dict)
     # get the mean node coverages at different k-mer lengths
     overall_mean_node_coverages = get_overall_mean_node_coverages(graph)
@@ -394,10 +424,11 @@ def main() -> None:
     new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
         graph.remove_junk_reads(0.80)
     )
+
     node_min_coverage = args.node_min_coverage
     if not args.quiet:
         message = "\nAmira: removing low coverage components "
-        message += f"and nodes with coverage < {node_min_coverage}\n"
+        message += f"and nodes with coverage < {node_min_coverage}.\n"
         sys.stderr.write(message)
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
@@ -407,6 +438,7 @@ def main() -> None:
     graph.remove_low_coverage_components(5)
     graph.filter_graph(node_min_coverage, 1)
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
     # collect the reads that have fewer than k genes
@@ -418,16 +450,15 @@ def main() -> None:
     if len(new_annotatedReads) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
         sys.exit(0)
     # choose a value for k
     if not args.quiet:
-        sys.stderr.write("\nAmira: selecting a gene-mer size (k)\n")
+        sys.stderr.write("\nAmira: selecting a gene-mer size (k).\n")
     geneMer_size = choose_kmer_size(
         overall_mean_node_coverages[3],
         new_annotatedReads,
@@ -437,7 +468,8 @@ def main() -> None:
     )
     overall_mean_node_coverage = overall_mean_node_coverages[geneMer_size]
     if not args.quiet:
-        sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n")
+        sys.stderr.write(f"\nAmira: selected k={geneMer_size}\n.")
+        sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}.\n")
     # correct the graph
     cleaning_iterations = 30
     new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
@@ -456,7 +488,7 @@ def main() -> None:
     )
     # build the corrected gene-mer graph
     if not args.quiet:
-        sys.stderr.write("\nAmira: building corrected gene-mer graph\n")
+        sys.stderr.write("\nAmira: building corrected gene-mer graph.\n")
     with open(os.path.join(args.output_dir, "corrected_gene_calls_after_filtering.json"), "w") as o:
         o.write(json.dumps(new_annotatedReads))
     with open(
@@ -477,7 +509,7 @@ def main() -> None:
             node.color_node(sample_genesOfInterest)
     # write out the graph as a GML
     if not args.quiet:
-        sys.stderr.write("\nAmira: writing gene-mer graph\n")
+        sys.stderr.write("\nAmira: writing gene-mer graph.\n")
     graph.generate_gml(
         os.path.join(args.output_dir, "gene_mer_graph"),
         geneMer_size,
@@ -489,11 +521,8 @@ def main() -> None:
         output_component_fastqs(args.output_dir, graph, fastq_content)
     # assign reads to AMR genes by path
     if not args.quiet:
-        sys.stderr.write("\nAmira: clustering reads\n")
-    (
-        clusters_to_add,
-        clusters_of_interest,
-    ) = process_reads(
+        sys.stderr.write("\nAmira: clustering reads.\n")
+    (clusters_to_add, clusters_of_interest, path_reads) = process_reads(
         graph,
         sample_genesOfInterest,
         args.cores,
@@ -506,7 +535,7 @@ def main() -> None:
         os.mkdir(os.path.join(args.output_dir, "AMR_allele_fastqs"))
     # subset the fastq data based on the cluster assignments
     if not args.quiet:
-        sys.stderr.write("\nAmira: writing fastqs\n")
+        sys.stderr.write("\nAmira: writing fastqs.\n")
     (
         longest_reads_for_genes,
         supplemented_clusters_of_interest,
@@ -527,11 +556,14 @@ def main() -> None:
         allele_component_mapping,
     )
     # write out the longest reads
-    with open(os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"), "w") as o:
-        o.write("\n".join(longest_reads_for_genes))
+    longest_read_lengths = {}
+    for row in longest_reads_for_genes:
+        longest_read_lengths[row.split("\n")[0].replace(">", "")] = len(
+            "".join(row.split("\n")[1:])
+        )
     # run racon to polish the pandora consensus
     if not args.quiet:
-        sys.stderr.write("\nAmira: obtaining nucleotide sequences\n")
+        sys.stderr.write("\nAmira: obtaining nucleotide sequences.\n")
     result_df = get_alleles(
         files_to_assemble,
         args.racon_path,
@@ -550,27 +582,36 @@ def main() -> None:
     if len(result_df) == 0:
         # write an empty dataframe
         results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
-        results += (
-            "Identity (%)\tCoverage (%)\tAmira allele\tNumber of reads\tApproximate copy number\n"
-        )
+        results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+        results += "Number of reads used for polishing\tApproximate copy number\n"
         with open(os.path.join(args.output_dir, "amira_results.tsv"), "w") as o:
             o.write(results)
         # exit
         sys.exit(0)
     # estimate the copy numbers
     if not args.quiet:
-        sys.stderr.write("\nAmira: estimating cellular copy numbers\n")
-    copy_numbers = estimate_copy_numbers(
-        mean_read_depth,
-        os.path.join(args.output_dir, "AMR_allele_fastqs", "longest_reads.fasta"),
+        sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
+    copy_numbers, mean_depth_per_reference = estimate_copy_numbers(
+        fastq_content,
+        path_reads,
+        set(result_df["Amira allele"]),
         read_fastq_path,
         args.cores,
         args.samtools_path,
+        mean_read_depth,
+        args.debug,
     )
     estimates = []
+    copy_depths = []
+    read_lengths = []
     for index, row in result_df.iterrows():
         estimates.append(copy_numbers[row["Amira allele"]])
+        copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
+        read_lengths.append(longest_read_lengths[row["Amira allele"]])
+    result_df["Mean read depth"] = copy_depths
     result_df["Approximate copy number"] = estimates
+    if args.debug:
+        result_df["Longest read length"] = read_lengths
     # get the component of each allele
     if args.output_components is True:
         result_df["Component ID"] = result_df.apply(
@@ -580,17 +621,18 @@ def main() -> None:
     # filter hits from the result df
     result_df = filter_results(
         result_df,
-        args.filter_contamination,
+        args.min_relative_depth,
         supplemented_clusters_of_interest,
         annotatedReads,
         sample_genesOfInterest,
         args.identity,
         args.coverage,
+        mean_read_depth,
     )
     # genotype promoters if specified
     if args.promoters:
         if not args.quiet:
-            sys.stderr.write("\nAmira: genotyping promoters\n")
+            sys.stderr.write("\nAmira: genotyping promoters.\n")
         result_df = genotype_promoters(
             result_df,
             reference_alleles,
@@ -611,7 +653,7 @@ def main() -> None:
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
     if not args.quiet:
         # display the runtime
-        sys.stderr.write(f"\nAmira: Total runtime {round(time.time() - start_time)} seconds\n")
+        sys.stderr.write(f"\nAmira: Total runtime {round(time.time() - start_time)} seconds.\n")
     sys.exit(0)
 
 

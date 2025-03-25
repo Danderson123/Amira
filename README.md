@@ -18,6 +18,7 @@ Amira requires Python and three additional non-Python tools for optimal function
 - **minimap2** for sequence alignment.
 - **samtools** for processing alignments.
 - **racon** for allele polishing.
+- **Jellyfish** for cellular copy number estimation.
 
 ## Installation
 
@@ -73,6 +74,7 @@ Amira requires Pandora, minimap2 and racon. Follow the links below for instructi
 - [minimap2 installation guide](https://github.com/lh3/minimap2)
 - [samtools installation guide](https://www.htslib.org/download/)
 - [racon installation guide](https://github.com/isovic/racon)
+- [Jellyfish installation guide](https://github.com/gmarcais/Jellyfish)
 
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 

@@ -1,12 +1,18 @@
 import json
 import os
 import shutil
+import statistics
 import subprocess
 import sys
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pysam
 from joblib import Parallel, delayed
+from scipy.optimize import minimize
+from scipy.signal import find_peaks, savgol_filter
+from scipy.stats import poisson
 from tqdm import tqdm
 
 from amira.read_utils import write_fastq
@@ -20,7 +26,9 @@ def get_found_genes(clusters_of_interest):
     return found_genes
 
 
-def add_amr_alleles(short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes):
+def add_amr_alleles(
+    short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes, path_reads
+):
     clusters_to_add = {}
     for read_id in short_reads:
         for g in range(len(short_reads[read_id])):
@@ -30,6 +38,10 @@ def add_amr_alleles(short_reads, short_read_gene_positions, sample_genesOfIntere
                     clusters_to_add[f"{strandless_gene}_1"] = []
                 gene_start, gene_end = short_read_gene_positions[read_id][g]
                 clusters_to_add[f"{strandless_gene}_1"].append(f"{read_id}_{gene_start}_{gene_end}")
+                path_tuple = tuple([f"+{strandless_gene}_1"])
+                if path_tuple not in path_reads:
+                    path_reads[path_tuple] = set()
+                path_reads[path_tuple].add(read_id)
     return clusters_to_add
 
 
@@ -51,20 +63,36 @@ def process_reads(
     overall_mean_node_coverage,
 ):
     # Step 1: Assign reads to genes
-    clusters_of_interest = graph.assign_reads_to_genes(
+    clusters_of_interest, path_reads = graph.assign_reads_to_genes(
         sample_genesOfInterest, cores, {}, overall_mean_node_coverage
     )
     # Step 2: Get the unique genes found in clusters of interest
     found_genes_of_interest = get_found_genes(clusters_of_interest)
     # Step 3: Add AMR alleles that come from short reads
     clusters_to_add = add_amr_alleles(
-        short_reads, short_read_gene_positions, sample_genesOfInterest, found_genes_of_interest
+        short_reads,
+        short_read_gene_positions,
+        sample_genesOfInterest,
+        found_genes_of_interest,
+        path_reads,
     )
     # Return the processed results
-    return (
-        clusters_to_add,
-        clusters_of_interest,
+    return (clusters_to_add, clusters_of_interest, path_reads)
+
+
+def write_path_fastq(reads_for_path, fastq_content, output_dir, path_id):
+    read_subset = {}
+    for r in reads_for_path:
+        fastq_data = fastq_content[r].copy()
+        if fastq_data["sequence"] != "":
+            read_subset[r] = fastq_data
+    if not os.path.exists(os.path.join(output_dir)):
+        os.mkdir(os.path.join(output_dir))
+    write_fastq(
+        os.path.join(output_dir, f"{path_id}.fastq.gz"),
+        read_subset,
     )
+    return os.path.join(output_dir, f"{path_id}.fastq.gz")
 
 
 def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name):
@@ -95,16 +123,24 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
 
 def filter_results(
     result_df,
-    filter_contamination,
+    min_relative_depth,
     supplemented_clusters_of_interest,
     annotatedReads,
     sample_genesOfInterest,
     required_identity,
     required_coverage,
+    mean_read_depth,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     comments = []
+    # skip filtering by copy number if mean read depth is <20x
+    if mean_read_depth < 20:
+        skip_depth_filtering = True
+        message = "\nAmira: skipping filtering by depth as read depth <20x.\n"
+        sys.stderr.write(message)
+    else:
+        skip_depth_filtering = False
     # modify required coverage to make a percentage
     required_coverage = required_coverage * 100
     for index, row in result_df.iterrows():
@@ -132,6 +168,15 @@ def filter_results(
                 alleles_to_delete.append(row["Amira allele"])
                 continue
             else:
+                if skip_depth_filtering is False:
+                    relative_depth = row["Mean read depth"] / mean_read_depth
+                    if relative_depth < min_relative_depth:
+                        message = f"\nAmira: allele {row['Amira allele']} removed "
+                        message += "due to insufficient relative read depth "
+                        message += f"({relative_depth}).\n"
+                        sys.stderr.write(message)
+                        alleles_to_delete.append(row["Amira allele"])
+                        continue
                 if coverage < 90:
                     flags.append("Partially present gene.")
         # remove alleles where all of the reads just contain AMR genes
@@ -140,15 +185,7 @@ def filter_results(
             all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
             for r in reads
         ):
-            # check if filter contaminants is on
-            if filter_contamination is True:
-                alleles_to_delete.append(row["Amira allele"])
-                message = f"\nAmira: allele {row['Amira allele']} removed "
-                message += "due to suspected contamination.\n"
-                sys.stderr.write(message)
-                continue
-            else:
-                flags.append("Potential contaminant.")
+            flags.append("Potential contaminant.")
         # collect the flags
         comments.append(" ".join(flags))
     # remove genes as necessary
@@ -501,7 +538,7 @@ def compare_reads_to_references(
                     "Coverage (%)": 0,
                     "Cigar string": "",
                     "Amira allele": allele_name,
-                    "Number of reads": len(unique_reads),
+                    "Number of reads used for polishing": len(unique_reads),
                 }
         bam_file = map_reads(
             output_dir,
@@ -562,7 +599,7 @@ def compare_reads_to_references(
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Cigar string": cigarstring,
                 "Amira allele": allele_name,
-                "Number of reads": len(unique_reads),
+                "Number of reads used for polishing": len(unique_reads),
             }
         if len(references) > 1:
             (closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings) = (
@@ -616,7 +653,7 @@ def compare_reads_to_references(
                 ),
                 "Cigar string": "/".join(cigarstrings),
                 "Amira allele": allele_name,
-                "Number of reads": len(unique_reads),
+                "Number of reads used for polishing": len(unique_reads),
             }
     else:
         if len(references) != 0:
@@ -658,7 +695,7 @@ def compare_reads_to_references(
                 "Coverage (%)": min(100.0, round(coverage_proportion * 100, 1)),
                 "Cigar string": cigarstring,
                 "Amira allele": allele_name,
-                "Number of reads": len(unique_reads),
+                "Number of reads used for polishing": len(unique_reads),
             }
         else:
             return {
@@ -670,7 +707,7 @@ def compare_reads_to_references(
                 "Coverage (%)": 0,
                 "Cigar string": "",
                 "Amira allele": allele_name,
-                "Number of reads": len(unique_reads),
+                "Number of reads used for polishing": len(unique_reads),
             }
 
 
@@ -780,7 +817,7 @@ def genotype_promoters(
                 "Coverage (%)": [],
                 "Cigar string": [],
                 "Amira allele": [],
-                "Number of reads": [],
+                "Number of reads used for polishing": [],
                 "Approximate copy number": [],
             }
             if output_components is True:
@@ -864,7 +901,9 @@ def genotype_promoters(
                 SNPs_present["Coverage (%)"].append(prop_covered)
                 SNPs_present["Cigar string"].append(closest_reference["Cigar string"])
                 SNPs_present["Amira allele"].append(promoter_allele_name)
-                SNPs_present["Number of reads"].append(closest_reference["Number of reads"])
+                SNPs_present["Number of reads used for polishing"].append(
+                    closest_reference["Number of reads used for polishing"]
+                )
                 SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
                 if output_components is True:
                     SNPs_present["Component ID"].append(row["Component ID"])
@@ -880,7 +919,16 @@ def genotype_promoters(
 
 def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
     # Run samtools depth command and capture output
-    command = [samtools_path, "mpileup", "-aa", "-Q", "0", "--ff", "UNMAP,QCFAIL,DUP", bam_file]
+    command = [
+        samtools_path,
+        "mpileup",
+        "-aa",
+        "-Q",
+        "0",
+        "--ff",
+        "UNMAP,QCFAIL,DUP,SUPPLEMENTARY",
+        bam_file,
+    ]
     # Run the command and capture the output
     result = subprocess.run(command, capture_output=True, text=True, check=True)
     # Parse the mpileup output
@@ -906,24 +954,187 @@ def get_mean_read_depth_per_contig(bam_file, samtools_path, core_genes=None):
     return mean_depths
 
 
-def estimate_copy_numbers(mean_read_depth, ref_file, fastq_file, threads, samtools_path):
-    sam_file = ref_file.replace(".fasta", ".sam")
-    bam_file = sam_file.replace(".sam", ".bam")
-    command = f"minimap2 -x map-ont -t {threads} "
-    command += f"-a --MD --eqx -o {sam_file} {ref_file} {fastq_file} "
-    command += f"&& {samtools_path} sort {sam_file} > {bam_file}"
+def kmer_cutoff_estimation(kmer_counts):
+    i_values = np.array(list(kmer_counts.keys()))
+    xi_values = np.array(list(kmer_counts.values()))
+
+    # Define the likelihood function
+    def neg_log_likelihood(params):
+        w, c = params  # w = error proportion, c =coverage mean
+        if w < 0 or w > 1 or c <= 0:
+            return np.inf
+        # compute Poisson probabilities
+        error_prob = poisson.pmf(i_values, mu=1)
+        real_prob = poisson.pmf(i_values, mu=c)
+        # mixture model
+        mix_prob = w * error_prob + (1 - w) * real_prob
+        mix_prob[mix_prob == 0] = 1e-10
+        # compute negative log-likelihood
+        return -np.sum(xi_values * np.log(mix_prob))
+
+    # initial parameters
+    init_params = [0.1, 10]
+    # optimise parameters using BFGS
+    result = minimize(
+        neg_log_likelihood, init_params, method="L-BFGS-B", bounds=[(0, 1), (1e-5, None)]
+    )
+    # get optimised parameters
+    w_opt, c_opt = result.x
+    for i in i_values:
+        error_prob = poisson.pmf(i, mu=1) * w_opt
+        real_prob = poisson.pmf(i, mu=c_opt) * (1 - w_opt)
+        if real_prob > error_prob:
+            return i
+    return 0
+
+
+def estimate_kmer_depth(kmer_counts, histogram_path, debug=False):
+    x_values, y_values = zip(*sorted(kmer_counts.items()))
+    log_counts = np.log(np.array(y_values) + 1)
+    window_length = min(30, len(log_counts) // 2 * 2 + 1)
+    smoothed_log_counts = savgol_filter(log_counts, window_length, 3)
+    peak_indices, _ = find_peaks(smoothed_log_counts)
+    # Get the highest peak
+    max_peak_index = peak_indices[np.argmax(smoothed_log_counts[peak_indices])]
+    depth = x_values[max_peak_index]  # Get k-mer depth based on x-values
+    if debug is True:
+        plt.bar(x_values, log_counts)
+        plt.plot(x_values, smoothed_log_counts, color="red", label="Smoothed counts")
+        plt.axvline(depth, color="red")
+        plt.xlim(0, 500)
+        plt.savefig(histogram_path.replace(".filtered.histo", ".png"), dpi=600)
+    return depth
+
+
+def import_jellyfish_histo(histo_path):
+    with open(histo_path, "r") as f:
+        lines = f.read().split("\n")
+    kmer_counts = {}
+    for line in lines:
+        if line != "":
+            val = int(line.split(" ")[0])
+            count = int(line.split(" ")[1])
+            kmer_counts[val] = count
+    return kmer_counts
+
+
+def load_kmer_counts(counts_file):
+    # load the counts
+    abundances = []
+    with open(counts_file) as i:
+        for line in i:
+            parts = line.split()
+            if len(parts) == 2:  # Ensure line has both k-mer and count
+                count = int(parts[1])
+                if count != 0:
+                    abundances.append(count)
+    return abundances
+
+
+def estimate_overall_read_depth(full_reads, k, threads, debug):
+    # count the k-mers in the full read set
+    jf_out = full_reads.replace(".fastq.gz", ".jf")
+    histo_out = full_reads.replace(".fastq.gz", ".histo")
+    sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
+    command = (
+        f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    )
+    command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
-    # get mean depths across each reference
-    mean_depth_per_reference = get_mean_read_depth_per_contig(bam_file, samtools_path)
-    # normalise by the mean depth across core genes
-    if mean_read_depth is None:
-        mean_read_depth = min(mean_depth_per_reference.values())
-    normalised_depths = {
-        c: round(mean_depth_per_reference[c] / mean_read_depth, 2) for c in mean_depth_per_reference
-    }
-    os.remove(sam_file)
-    os.remove(bam_file)
-    return normalised_depths
+    # import the counts
+    kmer_counts = import_jellyfish_histo(histo_out)
+    # estimate the kmer cutoff
+    cutoff = kmer_cutoff_estimation(kmer_counts)
+    sys.stderr.write(f"\nAmira: filtering k-mers with count below cutoff ({cutoff}).\n")
+    jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
+    histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
+    kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
+    command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
+    command += f" && jellyfish histo {jf_out} > {histo_out}"
+    subprocess.run(command, shell=True, check=True)
+    # import the counts
+    filtered_kmer_counts = import_jellyfish_histo(histo_out)
+    # estimate the read depth from the kmerss
+    kmer_depth = estimate_kmer_depth(filtered_kmer_counts, histo_out, debug)
+    return kmer_depth, jf_out
+
+
+def estimate_depth(counts_file):
+    # load the counts
+    abundances = load_kmer_counts(counts_file)
+    return statistics.median(abundances)
+
+
+def estimate_copy_numbers(
+    fastq_content,
+    path_reads,
+    amira_alleles,
+    fastq_file,
+    threads,
+    samtools_path,
+    raw_read_depth,
+    debug,
+):
+    # make the output directory
+    outdir = os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "path_reads")
+    # write out the reads for each path
+    sys.stderr.write("\nAmira: writing out the reads for each path.\n")
+    path_mapping = {}
+    path_list = list(path_reads.keys())
+    path_fastqs = []
+    for i in range(len(path_list)):
+        # asign an id to each path
+        path_id = i + 1
+        path = path_list[i]
+        path_mapping[path_id] = list(path)
+        # write out the reads of each path
+        path_fastqs.append(write_path_fastq(path_reads[path], fastq_content, outdir, path_id))
+    # write out the mapping
+    with open(os.path.join(outdir, "path_id_mapping.json"), "w") as o:
+        o.write(json.dumps(path_mapping))
+    # define k
+    k = 15
+    # estimate the overall depth
+    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
+    sys.stderr.write(f"\nAmira: estimated k-mer depth = {read_depth}.\n")
+    # get the genomic copy number of each gene
+    gene_counts = {}
+    for i in path_mapping:
+        gene_counts[i] = {}
+        for g in path_mapping[i]:
+            strandless = g[1:]
+            if strandless in amira_alleles:
+                gene = "_".join(strandless.split("_")[:-1])
+                gene_counts[i][gene] = gene_counts[i].get(gene, 0) + 1
+    # estimate cellular cpy numbers for each subset fastq
+    normalised_depths, mean_depth_per_reference = {}, {}
+    for locus_reads in tqdm(path_fastqs):
+        # query the kmers
+        counts_file = locus_reads.replace(".fastq.gz", ".kmer_counts.txt")
+        command = (
+            f"bash -c 'jellyfish query -s <(zcat {locus_reads}) {full_jf_out} > {counts_file}'"
+        )
+        subprocess.run(command, shell=True, check=True)
+        # get the counts of the requested kmers
+        depth_estimate = estimate_depth(counts_file)
+        # get the id of the path
+        path_id = int(os.path.basename(locus_reads).replace(".fastq.gz", ""))
+        # get the allele
+        full_path = path_mapping[path_id]
+        for g in full_path:
+            allele_name = g[1:]
+            if allele_name not in amira_alleles:
+                continue
+            # get the gene
+            gene = "_".join(allele_name.split("_")[:-1])
+            # store the depth estimate
+            normalised_depths[allele_name] = depth_estimate / (
+                read_depth * gene_counts[path_id][gene]
+            )
+            mean_depth_per_reference[allele_name] = depth_estimate
+    return normalised_depths, mean_depth_per_reference
 
 
 def write_fastqs_for_genes_with_short_reads(
@@ -937,26 +1148,21 @@ def write_fastqs_for_genes_with_short_reads(
     allele_component_mapping,
 ):
     for allele in clusters_to_add:
-        if len(clusters_to_add[allele]) > overall_mean_node_coverage / 20:
-            files_to_assemble.append(
-                write_allele_fastq(clusters_to_add[allele], fastq_content, output_dir, allele)
-            )
-            supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
-            allele_component_mapping[allele] = None
-            # iterate through the reads
-            longest_read = None
-            longest_read_length = 0
-            for read in clusters_to_add[allele]:
-                read_name = "_".join(read.split("_")[:-2])
-                read_length = len(fastq_content[read_name]["sequence"])
-                if read_length > longest_read_length:
-                    longest_read_length = read_length
-                    longest_read = read_name
-            longest_reads_for_genes.append(f">{allele}\n{fastq_content[longest_read]['sequence']}")
-        else:
-            message = f"\nAmira: allele {allele} removed "
-            message += f"due to an insufficient number of reads ({len(clusters_to_add[allele])}).\n"
-            sys.stderr.write(message)
+        files_to_assemble.append(
+            write_allele_fastq(clusters_to_add[allele], fastq_content, output_dir, allele)
+        )
+        supplemented_clusters_of_interest[allele] = clusters_to_add[allele]
+        allele_component_mapping[allele] = None
+        # iterate through the reads
+        longest_read = None
+        longest_read_length = 0
+        for read in clusters_to_add[allele]:
+            read_name = "_".join(read.split("_")[:-2])
+            read_length = len(fastq_content[read_name]["sequence"])
+            if read_length > longest_read_length:
+                longest_read_length = read_length
+                longest_read = read_name
+        longest_reads_for_genes.append(f">{allele}\n{fastq_content[longest_read]['sequence']}")
     return longest_reads_for_genes, files_to_assemble
 
 
@@ -971,40 +1177,31 @@ def write_fastqs_for_genes(
     for component in tqdm(clusters_of_interest):
         for gene in clusters_of_interest[component]:
             for allele in clusters_of_interest[component][gene]:
-                if (
-                    len(clusters_of_interest[component][gene][allele])
-                    > overall_mean_node_coverage / 20
-                ):
-                    files_to_assemble.append(
-                        write_allele_fastq(
-                            clusters_of_interest[component][gene][allele],
-                            fastq_content,
-                            output_dir,
-                            allele,
-                        )
+                files_to_assemble.append(
+                    write_allele_fastq(
+                        clusters_of_interest[component][gene][allele],
+                        fastq_content,
+                        output_dir,
+                        allele,
                     )
-                    supplemented_clusters_of_interest[allele] = clusters_of_interest[component][
-                        gene
-                    ][allele]
-                    # store the component of the allele
-                    allele_component_mapping[allele] = component
-                    # iterate through the reads
-                    longest_read = None
-                    longest_read_length = 0
-                    for read in clusters_of_interest[component][gene][allele]:
-                        read_name = "_".join(read.split("_")[:-2])
-                        read_length = len(fastq_content[read_name]["sequence"])
-                        if read_length > longest_read_length:
-                            longest_read_length = read_length
-                            longest_read = read_name
-                    longest_reads_for_genes.append(
-                        f">{allele}\n{fastq_content[longest_read]['sequence']}"
-                    )
-                else:
-                    message = f"\nAmira: allele {allele} removed "
-                    message += "due to an insufficient number of reads "
-                    message += f"({len(clusters_of_interest[component][gene][allele])}).\n"
-                    sys.stderr.write(message)
+                )
+                supplemented_clusters_of_interest[allele] = clusters_of_interest[component][gene][
+                    allele
+                ]
+                # store the component of the allele
+                allele_component_mapping[allele] = component
+                # iterate through the reads
+                longest_read = None
+                longest_read_length = 0
+                for read in clusters_of_interest[component][gene][allele]:
+                    read_name = "_".join(read.split("_")[:-2])
+                    read_length = len(fastq_content[read_name]["sequence"])
+                    if read_length > longest_read_length:
+                        longest_read_length = read_length
+                        longest_read = read_name
+                longest_reads_for_genes.append(
+                    f">{allele}\n{fastq_content[longest_read]['sequence']}"
+                )
     return (
         longest_reads_for_genes,
         supplemented_clusters_of_interest,

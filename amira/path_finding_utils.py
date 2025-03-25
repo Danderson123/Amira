@@ -204,9 +204,10 @@ def process_anchors(sub_tree, nodeAnchors, a1, full_blocks, reads, tree, thresho
 def generate_contexts(block_reads, block_duplicates, reads):
     contexts = {}
     for read_id in block_reads:
-        positions_of_path = find_sublist_indices(reads[read_id], block_reads[read_id])
+        block = block_reads[read_id]
+        positions_of_path = find_sublist_indices(reads[read_id], block)
         assert len(positions_of_path) > 0
-        canonical = get_canonical_representation(block_reads[read_id])
+        canonical = get_canonical_representation(block)
         canonical_tuple = tuple(canonical)
         block_duplicates = update_duplicates(block_duplicates, canonical_tuple, positions_of_path)
         if len(positions_of_path) == 1:
