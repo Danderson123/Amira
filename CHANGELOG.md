@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.8.0](https://github.com/Danderson123/Amira/compare/v0.7.0...v0.8.0) (2025-03-25)
+
+
+### Miscellaneous Chores
+
+* version bump ([487c6b0](https://github.com/Danderson123/Amira/commit/487c6b0ce33cffb7062feb0d4a19a8cd65af5669))
+
+
+### Documentation
+
+* improve arguement documentation ([431dcab](https://github.com/Danderson123/Amira/commit/431dcabdeaeca49f0a741ea88d52a0b06eb17747))
+
+
+### Features
+
+* allow parsing of species files from command line ([a0dc317](https://github.com/Danderson123/Amira/commit/a0dc31700390a930fda3cc6d3e9cdcbecb45fa49))
+* estimate copy numbers of paths and apply to covered AMR genes ([870f5e3](https://github.com/Danderson123/Amira/commit/870f5e361da297a124fe1c30ffcb771e237af1f4))
+* use jellyfish to estimate cellular copy numbers ([5198fe2](https://github.com/Danderson123/Amira/commit/5198fe203729cdc342ca93a53f01e6ea624b631d))
+* use kmer counts to estimate cellular copy number ([1ac9040](https://github.com/Danderson123/Amira/commit/1ac9040869091e09c9b36504ee7307bac72e92b7))
+
+
+### Bug Fixes
+
+* add jellyfish to singularity recipe ([00b24d4](https://github.com/Danderson123/Amira/commit/00b24d450bc435497122927273228e4700a66e86))
+* add test files ([cee63ba](https://github.com/Danderson123/Amira/commit/cee63ba1eb7b017e4d3481da462a9f16a46616be))
+* bug fix for non-redundant path filtering ([f5cfa38](https://github.com/Danderson123/Amira/commit/f5cfa38d643fb81db71b28d6ef890212cc8ffcb5))
+* bug in gene positions when path does not need correcting ([a9a9652](https://github.com/Danderson123/Amira/commit/a9a9652b683fdb1ad3440b6102bf88f67b19e3f7))
+* build container from main ([b65cc54](https://github.com/Danderson123/Amira/commit/b65cc5465b3f70d7760b0a262029cd34d12ffb63))
+* correctly modify gene positions ([5925772](https://github.com/Danderson123/Amira/commit/5925772fddd8176e8b92171bf986924644486b2a))
+* divide depth estimate by genomic copy number ([943577f](https://github.com/Danderson123/Amira/commit/943577f570c6e1e6c59d5f1280dbbd8733772e49))
+* do not filter out whole paths ([adfa1eb](https://github.com/Danderson123/Amira/commit/adfa1eb2ee368b93ea54690beb94e265371b4809))
+* don't specify jellyfish version in recipe ([818437d](https://github.com/Danderson123/Amira/commit/818437dead53c57d48194461bd47045dcc218112))
+* estimate peak coverage from filtered histogram ([5c2ef2c](https://github.com/Danderson123/Amira/commit/5c2ef2c3864c89599395d6c351d277a102b49b4c))
+* file extension bug ([429bfe6](https://github.com/Danderson123/Amira/commit/429bfe6844a1e52fdf2df94a3dd16b5c5b122d1e))
+* filter alleles solely based on relative read depth ([f645a20](https://github.com/Danderson123/Amira/commit/f645a20dcf6c0ff6dc977d42fc4d644c6777104d))
+* filter gene positions too ([a05b1ff](https://github.com/Danderson123/Amira/commit/a05b1ff207c0cdf08325fbaa874f953f444be880))
+* filter genes based on relative frequency ([f559141](https://github.com/Danderson123/Amira/commit/f559141ba2262f0f9016b78672dfc6448b6cde5e))
+* fix bug where path finding is blind to paths that start within an internal block ([0b0012d](https://github.com/Danderson123/Amira/commit/0b0012dbbcdd494aa8b9b1fae290a86d9911b157))
+* fix bug where path finding is blind to paths that start within an internal block ([03f1020](https://github.com/Danderson123/Amira/commit/03f102036c145bd851092ad63639244b6844f53e))
+* fix bug where path finding is blind to paths that start within an internal block ([f8dc458](https://github.com/Danderson123/Amira/commit/f8dc458ff27db994c249769e9c686c8869534937))
+* gene coverage default val ([756870f](https://github.com/Danderson123/Amira/commit/756870f7d84b2a4180ae3d1ee3529ce6dd424c92))
+* gunzip reads before giving to jellyfish ([c865567](https://github.com/Danderson123/Amira/commit/c86556770d58aec2f419f2f10e086ce9255aefd3))
+* increase debugging information ([78e9408](https://github.com/Danderson123/Amira/commit/78e9408ad7e65fc5781942884d3002e9b499e9bf))
+* increase debugging information ([87737e2](https://github.com/Danderson123/Amira/commit/87737e23099f1c580f14ffc1dd6c5c6d44c5a404))
+* increase gene_min_coverage default ([ac38d91](https://github.com/Danderson123/Amira/commit/ac38d9196da1bc0fb826d70c72d96424f8d8b02a))
+* increase k-mer size and filter by mean relative depth instead of copy number ([f879ce7](https://github.com/Danderson123/Amira/commit/f879ce774ca95e33ca83c4873ba1a10513d779c7))
+* minor bug fix for read ids ([09b5d47](https://github.com/Danderson123/Amira/commit/09b5d4790d6b984aa21354fbdc6e13799b8f93db))
+* ouput node coverage ([557f84a](https://github.com/Danderson123/Amira/commit/557f84a2fcba6f805827b0976636e8d026ce4a6a))
+* reduce kmer size ([f78ab56](https://github.com/Danderson123/Amira/commit/f78ab561b73f470a7206f8c7c939dbe436aa865b))
+* remove print statement ([9fc6349](https://github.com/Danderson123/Amira/commit/9fc63498e56ece9530cd64412aee9d28e276735c))
+* remove redundant tests ([b5da866](https://github.com/Danderson123/Amira/commit/b5da866d1d5dcecd714a3c4d0b759c15c6d5c73c))
+* remove redundant variables ([08230cd](https://github.com/Danderson123/Amira/commit/08230cd006e3edafbe68ece2837443cc9a8f5028))
+* removes contamination filtering and replaces with filtering by depth ([428d01a](https://github.com/Danderson123/Amira/commit/428d01a9f8479f52adbd2682e713ef14b70b4cc5))
+* resolve conflicts ([ac6c46f](https://github.com/Danderson123/Amira/commit/ac6c46f68ecd4a7bf0f53ec45ef3bc29737dcd5f))
+* revert back to short reads ([f39e422](https://github.com/Danderson123/Amira/commit/f39e4225fb649bd70d6752bbbebbee113cf8f9bf))
+* skip relative depth based filtering if read coverage is low ([eb83fad](https://github.com/Danderson123/Amira/commit/eb83fad1b0dfc9241f56261bcfdcbe80e7335a10))
+* skip supplementary reads ([6115e40](https://github.com/Danderson123/Amira/commit/6115e40a6668e83d711e3e6d90b522e32b55308a))
+* stop pandora from filtering based on coverage ([f77d228](https://github.com/Danderson123/Amira/commit/f77d228ccd6758f66807eb4d8fd6bd89daa1741f))
+* unittest fix ([6f006a6](https://github.com/Danderson123/Amira/commit/6f006a6ce23a2998dbe54d7fb5c3cfbecaa52680))
+* unittest fix ([05bd1ec](https://github.com/Danderson123/Amira/commit/05bd1ec91f5a37863d4b7e5b439806cd0d0c2193))
+* use estimated read depth when kmer depth estimate is too high ([d4a411f](https://github.com/Danderson123/Amira/commit/d4a411f12959b39a03265143c5de75d7da623a23))
+* use initial reads to supplement AMR genes ([e128d57](https://github.com/Danderson123/Amira/commit/e128d579a9b866a4f1530c283363ab462684b7f6))
+* use kmer depth to get copy number estimate ([bfeddba](https://github.com/Danderson123/Amira/commit/bfeddba8db1faab18ecbb888be66ec3cfd4da586))
+* use main branch for Singularity container ([899311f](https://github.com/Danderson123/Amira/commit/899311f568dac64f3fbc72f61500e5b79a7f244d))
+* use scipy find peaks to estimate mean k-mer depth ([a85faf4](https://github.com/Danderson123/Amira/commit/a85faf42eb05013703ac595f213b3af2198d1496))
+
+
+### Styles
+
+* more consistent stderr messages ([b4a72b4](https://github.com/Danderson123/Amira/commit/b4a72b49806e7b0ec62224cd63c528b39131de72))
+* pre-commit reformatting ([2ca3bc1](https://github.com/Danderson123/Amira/commit/2ca3bc1ec070202f7386bc5426eef03cd94df815))
+* pre-commit reformatting ([697e0e3](https://github.com/Danderson123/Amira/commit/697e0e344b1f95dd27ada1bb743f8c2c0d15e226))
+* pre-commit reformatting ([4fd4030](https://github.com/Danderson123/Amira/commit/4fd403070a08306fd89dd0c536ee11e4ddc941d2))
+* pre-commit reformatting ([01de505](https://github.com/Danderson123/Amira/commit/01de505f909aa4d708090c006a074a8eda053110))
+* pre-commit reformatting ([86bab63](https://github.com/Danderson123/Amira/commit/86bab63d7ff6c79b5ea14215d350751ae632b4c6))
+* pre-commit reformatting ([e06c36d](https://github.com/Danderson123/Amira/commit/e06c36d7f3bd1b28d4df7706ac66ba181235e82f))
+* pre-commit reformatting ([8084235](https://github.com/Danderson123/Amira/commit/8084235471d7f380493f5971a2a5bcf3eee43afd))
+* pre-commit reformatting ([7270d99](https://github.com/Danderson123/Amira/commit/7270d99c9a30a4e7775a836fe78248ad98ad8be7))
+* pre-commit reformatting ([7182e75](https://github.com/Danderson123/Amira/commit/7182e757231ee7b96dd99475e1029ef81a1d2ebc))
+
 ## [0.7.0](https://github.com/Danderson123/Amira/compare/v0.6.5...v0.7.0) (2025-03-04)
 
 
