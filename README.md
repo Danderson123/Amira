@@ -14,7 +14,7 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 - **Python >=3.9,<3.13**.
 - **Poetry** to manage the Python dependencies.
-- **Pandora** to identify the genes on each sequencing read.
+- **Pandora >=0.12.0** to identify the genes on each sequencing read.
 - **minimap2** for sequence alignment.
 - **samtools** for processing alignments.
 - **racon** for allele polishing.
@@ -68,7 +68,7 @@ poetry install
 You will need to install the non-Python dependencies separately if you opt for this method.
 
 ### Installing Non-Python Dependencies
-Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
+Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below for instructions on building binaries for each tool:
 
 - [Pandora installation guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
 - [minimap2 installation guide](https://github.com/lh3/minimap2)
