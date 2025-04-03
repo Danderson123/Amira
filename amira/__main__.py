@@ -277,9 +277,11 @@ def main() -> None:
     # remove underscores in read names
     fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
     # write the modified fastq data to the output directoy
-    read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
-    if ".gz" not in read_fastq_path:
-        read_fastq_path += ".gz"
+    if ".gz" not in args.reads:
+        read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+    else:
+        read_fastq_path = os.path.join(args.output_dir, os.path.basename(os.path.basename(args.reads)))
+    read_fastq_path += "fastq.gz"
     write_fastq(
         read_fastq_path,
         fastq_content,
