@@ -278,10 +278,10 @@ def main() -> None:
     fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
     # write the modified fastq data to the output directoy
     if ".gz" not in args.reads:
-        read_fastq_path = os.path.join(args.output_dir, os.path.basename(args.reads))
+        read_fastq_path = os.path.join(args.output_dir, os.path.splitext(args.reads)[0])
     else:
-        read_fastq_path = os.path.join(args.output_dir, os.path.basename(os.path.basename(args.reads)))
-    read_fastq_path += "fastq.gz"
+        read_fastq_path = os.path.join(args.output_dir, os.path.splitext(os.path.splitext(os.path.basename(args.reads))[0])[0])
+    read_fastq_path += ".fastq.gz"
     write_fastq(
         read_fastq_path,
         fastq_content,
