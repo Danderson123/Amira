@@ -2199,7 +2199,7 @@ class GeneMerGraph:
         # Convert to list and precompute strings
         unique_paths = list(unique_paths)
         path_data = []
-        
+
         for p in unique_paths:
             path_str = self.list_to_str(p)
             path_rev_str = self.list_to_str(reversed(p))
@@ -2215,7 +2215,8 @@ class GeneMerGraph:
         for p, p_str, p_rev_str, p_len in tqdm(path_data):
             # Check if this path (or its reverse) is a subpath of any previous (longer or equal) one
             is_sub = any(
-                self.is_sublist_str(existing_str, p_str) or self.is_sublist_str(existing_str, p_rev_str)
+                self.is_sublist_str(existing_str, p_str)
+                or self.is_sublist_str(existing_str, p_rev_str)
                 for existing_str in path_str_set
             )
 

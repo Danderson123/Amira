@@ -63,6 +63,7 @@ def parse_fastq(fastq_file):
     # Return the dictionary of results
     return results
 
+
 def write_fastq(fastq_file, data):
     # Open the fastq file
     with gzip.open(fastq_file, "wt") as fh:
@@ -75,6 +76,7 @@ def write_fastq(fastq_file, data):
             lines.append(f"{value['quality']}\n")
         # write out the data
         fh.writelines(lines)
+
 
 def downsample_reads(fastq_content, read_path, output_dir, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads
