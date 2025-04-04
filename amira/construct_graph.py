@@ -2189,41 +2189,32 @@ class GeneMerGraph:
             sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
         )
 
-    def list_to_str(self, path):
-        return ",".join(map(str, path))
-
-    def is_sublist_str(self, long_string, short_string):
-        return short_string in long_string
-
     def filter_paths_between_bubble_starts(self, unique_paths):
-        # Convert to list and precompute strings
-        unique_paths = list(unique_paths)
-        path_data = []
-
-        for p in unique_paths:
-            path_str = self.list_to_str(p)
-            path_rev_str = self.list_to_str(reversed(p))
-            path_data.append((p, path_str, path_rev_str, len(p)))
-
-        # Sort by descending length
-        path_data.sort(key=lambda x: -x[3])
-
-        # Build a set of all longer/equal path strings to compare against
-        path_str_set = set()
+        # sort by ascending length
+        unique_paths = sorted(list(unique_paths), key=len)
         filtered_paths = []
-
-        for p, p_str, p_rev_str, p_len in tqdm(path_data):
-            # Check if this path (or its reverse) is a subpath of any previous (longer or equal) one
-            is_sub = any(
-                self.is_sublist_str(existing_str, p_str)
-                or self.is_sublist_str(existing_str, p_rev_str)
-                for existing_str in path_str_set
-            )
-
-            if not is_sub and p_len > 2:
-                filtered_paths.append((list(p), self.calculate_path_coverage(p)))
-                path_str_set.add(p_str)
-                path_str_set.add(p_rev_str)  # to catch future reversed sublists
+        # convert each path to a set
+        path_sets = [set(p) for p in unique_paths]
+        # get the number of unique paths
+        n = len(unique_paths)
+        for i in tqdm(range(len(unique_paths))):
+            p = unique_paths[i]
+            p_list = list(p)
+            rev_p_list = list(reversed(p_list))
+            p_set = path_sets[i]
+            is_sub = False
+            # compare to longest paths first
+            for j in reversed(range(i + 1, n)):
+                # skip if no nodes intersect
+                if not len(p_set & path_sets[j]) == len(p_set):
+                    continue
+                q = unique_paths[j]
+                # Check if `p` is a subpath of `q` or its reverse
+                if self.is_sublist(list(q), p_list) or self.is_sublist(list(q), rev_p_list):
+                    is_sub = True
+                    break
+            if not is_sub and len(p) > 2:
+                filtered_paths.append((p, self.calculate_path_coverage(p)))
 
         return filtered_paths
 
