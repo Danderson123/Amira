@@ -1036,14 +1036,6 @@ class GeneMerGraph:
                 nodeJunctions.add(node_hash)
         return nodeAnchors, nodeJunctions
 
-    def is_sublist(self, long_list, sub_list):
-        """Check if list is a sublist of long_list."""
-        assert isinstance(long_list, list) and isinstance(sub_list, list)
-        len_sub = len(sub_list)
-        return any(
-            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
-        )
-
     def extract_elements(self, lst):
         result = []
         for i in range(len(lst)):
@@ -2189,21 +2181,49 @@ class GeneMerGraph:
         }
         return sorted_filtered_paths
 
+    def is_sublist(self, long_list, sub_list):
+        """Check if list is a sublist of long_list."""
+        assert isinstance(long_list, list) and isinstance(sub_list, list)
+        len_sub = len(sub_list)
+        return any(
+            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
+        )
+
+    def list_to_str(self, path):
+        return ",".join(map(str, path))
+
+    def is_sublist_str(self, long_string, short_string):
+        return short_string in long_string
+
     def filter_paths_between_bubble_starts(self, unique_paths):
-        # convert to list
+        # Convert to list and precompute strings
         unique_paths = list(unique_paths)
-        # Assuming unique_paths is a list of lists or a similar iterable of iterables.
-        filtered_paths = []
+        path_data = []
+        
         for p in unique_paths:
-            p_list = list(p)
-            # Skip self-comparison and check for sublists in both forward and reversed directions
-            if not any(
-                self.is_sublist(list(q), list(p)) or self.is_sublist(list(q), list(reversed(p)))
-                for q in unique_paths
-                if q != p
-            ):
-                if len(p_list) > 2:
-                    filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
+            path_str = self.list_to_str(p)
+            path_rev_str = self.list_to_str(reversed(p))
+            path_data.append((p, path_str, path_rev_str, len(p)))
+
+        # Sort by descending length
+        path_data.sort(key=lambda x: -x[3])
+
+        # Build a set of all longer/equal path strings to compare against
+        path_str_set = set()
+        filtered_paths = []
+
+        for p, p_str, p_rev_str, p_len in tqdm(path_data):
+            # Check if this path (or its reverse) is a subpath of any previous (longer or equal) one
+            is_sub = any(
+                self.is_sublist_str(existing_str, p_str) or self.is_sublist_str(existing_str, p_rev_str)
+                for existing_str in path_str_set
+            )
+
+            if not is_sub and p_len > 2:
+                filtered_paths.append((list(p), self.calculate_path_coverage(p)))
+                path_str_set.add(p_str)
+                path_str_set.add(p_rev_str)  # to catch future reversed sublists
+
         return filtered_paths
 
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
@@ -2287,19 +2307,23 @@ class GeneMerGraph:
                 potential_bubble_starts_component, max_distance, cores
             )
             # filter the paths out if they are subpaths of longer paths
+            print("\nFILTERING\n")
             filtered_paths = self.filter_paths_between_bubble_starts(unique_paths)
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # get a minhash object for each path
             if use_minimizers:
+                print("\nMINIMIZERS\n")
                 path_minimizers = self.get_minhashes_for_paths(
                     sorted_filtered_paths, fastq_data, cores
                 )
             else:
                 path_minimizers = None
+            print("\nSEPARATE\n")
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
+            print("\nCORRECT\n")
             path_coverages += self.correct_bubble_paths(
                 sorted_filtered_paths,
                 fastq_data,

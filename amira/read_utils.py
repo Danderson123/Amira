@@ -63,20 +63,18 @@ def parse_fastq(fastq_file):
     # Return the dictionary of results
     return results
 
-
 def write_fastq(fastq_file, data):
     # Open the fastq file
     with gzip.open(fastq_file, "wt") as fh:
+        lines = []
         # Iterate over the data
         for identifier, value in data.items():
-            # Write the identifier line
-            fh.write(f"@{identifier}\n")
-            # Write the sequence line
-            fh.write(f'{value["sequence"]}\n')
-            # Write the placeholder quality lines
-            fh.write("+\n")
-            fh.write(f'{value["quality"]}\n')
-
+            lines.append(f"@{identifier}\n")
+            lines.append(f"{value['sequence']}\n")
+            lines.append("+\n")
+            lines.append(f"{value['quality']}\n")
+        # write out the data
+        fh.writelines(lines)
 
 def downsample_reads(fastq_content, read_path, output_dir, max_reads=100000):
     # If no downsampling is needed, return original annotatedReads

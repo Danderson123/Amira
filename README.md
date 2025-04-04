@@ -12,7 +12,7 @@ Amira leverages the full length of long read sequences to differentiate multi-co
 
 Amira requires Python and three additional non-Python tools for optimal functionality:
 
-- **Python >=3.9,<3.13**.
+- **Python >=3.10,<3.13**.
 - **Poetry** to manage the Python dependencies.
 - **Pandora >=0.12.0** to identify the genes on each sequencing read.
 - **minimap2** for sequence alignment.
