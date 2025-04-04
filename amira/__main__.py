@@ -280,7 +280,9 @@ def main() -> None:
     if ".gz" not in args.reads:
         read_fastq_path = os.path.join(args.output_dir, os.path.splitext(args.reads)[0])
     else:
-        read_fastq_path = os.path.join(args.output_dir, os.path.splitext(os.path.splitext(os.path.basename(args.reads))[0])[0])
+        read_fastq_path = os.path.join(
+            args.output_dir, os.path.splitext(os.path.splitext(os.path.basename(args.reads))[0])[0]
+        )
     read_fastq_path += ".fastq.gz"
     write_fastq(
         read_fastq_path,
