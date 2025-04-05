@@ -2197,7 +2197,7 @@ class GeneMerGraph:
         path_sets = [set(p) for p in unique_paths]
         # get the number of unique paths
         n = len(unique_paths)
-        for i in tqdm(range(len(unique_paths))):
+        for i in range(len(unique_paths)):
             p = unique_paths[i]
             p_list = list(p)
             rev_p_list = list(reversed(p_list))
@@ -2234,7 +2234,7 @@ class GeneMerGraph:
             node_minhashes[node_hash] = minhash
 
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
-        for path_tuple in batch:
+        for path_tuple in tqdm(batch):
             for node_hash in path_tuple:
                 path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
 
@@ -2299,23 +2299,19 @@ class GeneMerGraph:
                 potential_bubble_starts_component, max_distance, cores
             )
             # filter the paths out if they are subpaths of longer paths
-            print("\nFILTERING\n")
             filtered_paths = self.filter_paths_between_bubble_starts(unique_paths)
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # get a minhash object for each path
             if use_minimizers:
-                print("\nMINIMIZERS\n")
                 path_minimizers = self.get_minhashes_for_paths(
                     sorted_filtered_paths, fastq_data, cores
                 )
             else:
                 path_minimizers = None
-            print("\nSEPARATE\n")
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
-            print("\nCORRECT\n")
             path_coverages += self.correct_bubble_paths(
                 sorted_filtered_paths,
                 fastq_data,
