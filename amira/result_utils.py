@@ -960,7 +960,7 @@ def kmer_cutoff_estimation(kmer_counts):
 
     # Define the likelihood function
     def neg_log_likelihood(params):
-        w, c = params  # w = error proportion, c =coverage mean
+        w, c = params  # w = error proportion, c = coverage mean
         if w < 0 or w > 1 or c <= 0:
             return np.inf
         # compute Poisson probabilities

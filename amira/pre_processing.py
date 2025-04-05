@@ -250,6 +250,7 @@ def convert_pandora_output(
     geneMinCoverage = statistics.mean(geneCounts.values()) * relativeMinGeneThreshold
     # filter genes that do not meet the minimum coverage threshold
     subsettedGenesOfInterest = set()
+    filtered_genes = set()
     for r in tqdm(annotatedReads):
         new_calls = []
         new_positions = []
@@ -262,11 +263,13 @@ def convert_pandora_output(
                     subsettedGenesOfInterest.add(gene[1:])
             else:
                 if gene[1:] in genesOfInterest:
-                    message = f"\nAmira: filtering AMR gene {gene[1:]} "
-                    message += f"due to insufficient frequency ({geneCounts[gene[1:]]}).\n"
-                    sys.stderr.write(message)
+                    filtered_genes.add(gene[1:])
         annotatedReads[r] = new_calls
         gene_position_dict[r] = new_positions
+    for g in filtered_genes:
+        message = f"\nAmira: filtering AMR gene {g} "
+        message += f"due to insufficient frequency ({geneCounts[g]}).\n"
+        sys.stderr.write(message)
     assert not len(annotatedReads) == 0
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
 

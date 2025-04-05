@@ -1036,14 +1036,6 @@ class GeneMerGraph:
                 nodeJunctions.add(node_hash)
         return nodeAnchors, nodeJunctions
 
-    def is_sublist(self, long_list, sub_list):
-        """Check if list is a sublist of long_list."""
-        assert isinstance(long_list, list) and isinstance(sub_list, list)
-        len_sub = len(sub_list)
-        return any(
-            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
-        )
-
     def extract_elements(self, lst):
         result = []
         for i in range(len(lst)):
@@ -2189,21 +2181,41 @@ class GeneMerGraph:
         }
         return sorted_filtered_paths
 
+    def is_sublist(self, long_list, sub_list):
+        """Check if list is a sublist of long_list."""
+        assert isinstance(long_list, list) and isinstance(sub_list, list)
+        len_sub = len(sub_list)
+        return any(
+            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
+        )
+
     def filter_paths_between_bubble_starts(self, unique_paths):
-        # convert to list
-        unique_paths = list(unique_paths)
-        # Assuming unique_paths is a list of lists or a similar iterable of iterables.
+        # sort by ascending length
+        unique_paths = sorted(list(unique_paths), key=len)
         filtered_paths = []
-        for p in unique_paths:
+        # convert each path to a set
+        path_sets = [set(p) for p in unique_paths]
+        # get the number of unique paths
+        n = len(unique_paths)
+        for i in range(len(unique_paths)):
+            p = unique_paths[i]
             p_list = list(p)
-            # Skip self-comparison and check for sublists in both forward and reversed directions
-            if not any(
-                self.is_sublist(list(q), list(p)) or self.is_sublist(list(q), list(reversed(p)))
-                for q in unique_paths
-                if q != p
-            ):
-                if len(p_list) > 2:
-                    filtered_paths.append((p_list, self.calculate_path_coverage(p_list)))
+            rev_p_list = list(reversed(p_list))
+            p_set = path_sets[i]
+            is_sub = False
+            # compare to longest paths first
+            for j in reversed(range(i + 1, n)):
+                # skip if no nodes intersect
+                if not len(p_set & path_sets[j]) == len(p_set):
+                    continue
+                q = unique_paths[j]
+                # Check if `p` is a subpath of `q` or its reverse
+                if self.is_sublist(list(q), p_list) or self.is_sublist(list(q), rev_p_list):
+                    is_sub = True
+                    break
+            if not is_sub and len(p) > 2:
+                filtered_paths.append((p, self.calculate_path_coverage(p)))
+
         return filtered_paths
 
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
@@ -2222,7 +2234,7 @@ class GeneMerGraph:
             node_minhashes[node_hash] = minhash
 
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
-        for path_tuple in batch:
+        for path_tuple in tqdm(batch):
             for node_hash in path_tuple:
                 path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
 
