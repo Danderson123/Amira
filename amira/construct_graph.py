@@ -1863,9 +1863,6 @@ class GeneMerGraph:
                             lower_coverage_path = [n[0] for n in lower_coverage_path]
                             # see if this is the final round of correction
                             if path_minimizers is None:
-                                # if not, only correct paths with a mean coverage < 15
-                                # if lower_coverage >= min_path_coverage:
-                                #    continue
                                 if all(
                                     self.get_node_by_hash(n).get_node_coverage()
                                     >= min_path_coverage
@@ -1905,14 +1902,10 @@ class GeneMerGraph:
                                     correct_path = True
                             else:
                                 # see how similar the paths are based on their minimizers
-                                containment = max(
-                                    [
-                                        len(high_coverage_minimizers & low_coverage_minimizers)
-                                        / len(low_coverage_minimizers),
-                                        len(high_coverage_minimizers & low_coverage_minimizers)
-                                        / len(high_coverage_minimizers),
-                                    ]
-                                )
+                                inter = high_coverage_minimizers & low_coverage_minimizers
+                                denom1 = len(high_coverage_minimizers)
+                                denom2 = len(low_coverage_minimizers)
+                                containment = max(len(inter) / denom1, len(inter) / denom2)
                                 all_containments.append(str(containment))
                                 # if the containment is greater than the threshold
                                 if containment > threshold:
@@ -2137,7 +2130,7 @@ class GeneMerGraph:
         unique_paths = set()
         seen_pairs = set()
         # iterate through the bubble nodes
-        for start_hash, start_direction in tqdm(potential_bubble_starts_component):
+        for start_hash, start_direction in potential_bubble_starts_component:
             for stop_hash, stop_direction in potential_bubble_starts_component:
                 if start_hash == stop_hash:
                     continue
@@ -2234,7 +2227,7 @@ class GeneMerGraph:
             node_minhashes[node_hash] = minhash
 
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
-        for path_tuple in tqdm(batch):
+        for path_tuple in batch:
             for node_hash in path_tuple:
                 path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
 
