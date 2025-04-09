@@ -818,7 +818,7 @@ def genotype_promoters(
                 "Cigar string": [],
                 "Amira allele": [],
                 "Number of reads used for polishing": [],
-                "Approximate copy number": [],
+                "Approximate cellular copy number": [],
             }
             if output_components is True:
                 SNPs_present["Component ID"] = []
@@ -904,7 +904,7 @@ def genotype_promoters(
                 SNPs_present["Number of reads used for polishing"].append(
                     closest_reference["Number of reads used for polishing"]
                 )
-                SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
+                SNPs_present["Approximate cellular copy number"].append(row["Approximate cellular copy number"])
                 if output_components is True:
                     SNPs_present["Component ID"].append(row["Component ID"])
             # Close the files
@@ -1213,7 +1213,7 @@ def write_fastqs_for_genes(
 def write_empty_result(output_dir):
     results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
     results += "Identity (%)\tCoverage (%)\tAmira allele\t"
-    results += "Number of reads used for polishing\tApproximate copy number\n"
+    results += "Number of reads used for polishing\tApproximate cellular copy number\n"
     with open(os.path.join(output_dir, "amira_results.tsv"), "w") as o:
         o.write(results)
 
@@ -1229,7 +1229,7 @@ def supplement_result_df(
         copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
         read_lengths.append(longest_read_lengths[row["Amira allele"]])
     result_df["Mean read depth"] = copy_depths
-    result_df["Approximate copy number"] = estimates
+    result_df["Approximate cellular copy number"] = estimates
     if debug:
         result_df["Longest read length"] = read_lengths
     return result_df
