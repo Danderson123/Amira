@@ -56,11 +56,12 @@ def parse_fastq(fastq_file):
             return results
         except OSError:
             pass
-    with open(fastq_file, "r") as fh:
-        # Iterate over the lines in the file
-        for identifier, sequence, quality in parse_fastq_lines(fh):
-            # Add the identifier and sequence to the results dictionary
-            results[identifier.replace("\n", "")] = {"sequence": sequence, "quality": quality}
+    else:
+        with open(fastq_file, "r") as fh:
+            # Iterate over the lines in the file
+            for identifier, sequence, quality in parse_fastq_lines(fh):
+                # Add the identifier and sequence to the results dictionary
+                results[identifier.replace("\n", "")] = {"sequence": sequence, "quality": quality}
     # Return the dictionary of results
     return results
 
