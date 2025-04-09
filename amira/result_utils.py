@@ -904,7 +904,9 @@ def genotype_promoters(
                 SNPs_present["Number of reads used for polishing"].append(
                     closest_reference["Number of reads used for polishing"]
                 )
-                SNPs_present["Approximate cellular copy number"].append(row["Approximate cellular copy number"])
+                SNPs_present["Approximate cellular copy number"].append(
+                    row["Approximate cellular copy number"]
+                )
                 if output_components is True:
                     SNPs_present["Component ID"].append(row["Component ID"])
             # Close the files
