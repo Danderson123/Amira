@@ -84,7 +84,7 @@ After installation, make a note of the paths to these binaries as they will be r
 * [*Klebsiella pneumoniae*](https://drive.google.com/file/d/1DYG3QW3nrQfSckIX9Vjbhbqz5bRd9W3j/view?usp=drive_link)
 * [*Enterococcus faecium*](https://drive.google.com/file/d/1AzzFNRbH6VXPj5CX2txlcxhW8AhL9HSh/view?usp=sharing)
 
-**Note**: These panRGs can currently detect all acquired AMR genes in the NCBI Bacterial Antimicrobial Resistance Reference Gene Database as of 21st August 2024.
+**Note**: These panRGs can currently detect all acquired AMR genes in the [NCBI Bacterial Antimicrobial Resistance Reference Gene Database](https://www.ncbi.nlm.nih.gov/bioproject/313047) as of 21st August 2024.
 
 ## Running Amira
 

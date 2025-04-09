@@ -1,6 +1,7 @@
 import gzip
 import os
 import random
+import re
 import subprocess
 
 import matplotlib.pyplot as plt
@@ -96,4 +97,22 @@ def downsample_reads(fastq_content, read_path, output_dir, max_reads=100000):
     command = f"fastaq filter --ids_file {os.path.join(output_dir, 'selected_reads.txt')} "
     command += f"{read_path} {read_fastq_path}"
     subprocess.run(command, shell=True, check=True)
+    return read_fastq_path
+
+
+def write_modified_fastq(fastq_content, read_path, output_dir):
+    # remove underscores in read names
+    fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
+    # write the modified fastq data to the output directoy
+    if ".gz" not in read_path:
+        read_fastq_path = os.path.join(output_dir, os.path.splitext(os.path.basename(read_path))[0])
+    else:
+        read_fastq_path = os.path.join(
+            output_dir, os.path.splitext(os.path.splitext(os.path.basename(read_path))[0])[0]
+        )
+    read_fastq_path += ".fastq.gz"
+    write_fastq(
+        read_fastq_path,
+        fastq_content,
+    )
     return read_fastq_path
