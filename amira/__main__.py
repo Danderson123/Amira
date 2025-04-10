@@ -286,7 +286,7 @@ def main() -> None:
         sys.stderr.write("\nAmira: loading FASTQ file.\n")
     fastq_content = parse_fastq(args.reads)
     # write out the fastq with new read IDs
-    read_fastq_path = write_modified_fastq(fastq_content, args.reads, args.output_dir)
+    read_fastq_path, fastq_content = write_modified_fastq(fastq_content, args.reads, args.output_dir)
     # run pandora
     if args.pandoraSam is None and args.pandoraJSON is None:
         if not args.quiet:

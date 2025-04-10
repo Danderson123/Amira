@@ -116,4 +116,4 @@ def write_modified_fastq(fastq_content, read_path, output_dir):
         read_fastq_path,
         fastq_content,
     )
-    return read_fastq_path
+    return read_fastq_path, fastq_content
