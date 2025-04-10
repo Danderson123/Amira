@@ -67,7 +67,13 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--species",
         dest="species",
-        choices=["Escherichia_coli", "Klebsiella_pneumoniae", "Enterococcus_faecium"],
+        choices=[
+            "Escherichia_coli",
+            "Klebsiella_pneumoniae",
+            "Enterococcus_faecium",
+            "Streptococcus_pneumoniae",
+            "Staphylococcus_aureus",
+        ],
         help="The species you want to run Amira on.",
         required=True,
     )

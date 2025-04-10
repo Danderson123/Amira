@@ -24,6 +24,19 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 Follow these steps to install Amira and its dependencies.
 
+### With Conda
+
+Amira and its dependencies can installed via conda by running:
+
+```bash
+conda install bioconda:amira
+```
+
+You can then run amira with:
+```bash
+amira --help
+```
+
 ### With Singularity (preferred method)
 
 Amira and its dependencies can be run through Singularity. First build the container with:
@@ -83,6 +96,8 @@ After installation, make a note of the paths to these binaries as they will be r
 * [*Escherichia coli*](https://drive.google.com/file/d/13c_bUXnBEs9iEPPobou7-xEgkz_t08YP/view?usp=sharing)
 * [*Klebsiella pneumoniae*](https://drive.google.com/file/d/1DYG3QW3nrQfSckIX9Vjbhbqz5bRd9W3j/view?usp=drive_link)
 * [*Enterococcus faecium*](https://drive.google.com/file/d/1AzzFNRbH6VXPj5CX2txlcxhW8AhL9HSh/view?usp=sharing)
+* [*Staphylococcus aureus*]()
+* [*Streptococcus pneumoniae*]()
 
 **Note**: These panRGs can currently detect all acquired AMR genes in the [NCBI Bacterial Antimicrobial Resistance Reference Gene Database](https://www.ncbi.nlm.nih.gov/bioproject/313047) as of 21st August 2024.
 
