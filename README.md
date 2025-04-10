@@ -24,7 +24,7 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 Follow these steps to install Amira and its dependencies.
 
-### With Conda
+### With Conda (preferred method)
 
 Amira and its dependencies can installed via conda by running:
 
@@ -37,7 +37,7 @@ You can then run amira with:
 amira --help
 ```
 
-### With Singularity (preferred method)
+### With Singularity
 
 Amira and its dependencies can be run through Singularity. First build the container with:
 
