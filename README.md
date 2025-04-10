@@ -93,11 +93,11 @@ After installation, make a note of the paths to these binaries as they will be r
 
 ## Pre-built species-specific panRGs
 [Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read (see above for instructions to install Pandora). Click the relevant link below to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
-* [*Escherichia coli*](https://drive.google.com/file/d/13c_bUXnBEs9iEPPobou7-xEgkz_t08YP/view?usp=sharing)
-* [*Klebsiella pneumoniae*](https://drive.google.com/file/d/1DYG3QW3nrQfSckIX9Vjbhbqz5bRd9W3j/view?usp=drive_link)
-* [*Enterococcus faecium*](https://drive.google.com/file/d/1AzzFNRbH6VXPj5CX2txlcxhW8AhL9HSh/view?usp=sharing)
-* [*Staphylococcus aureus*]()
-* [*Streptococcus pneumoniae*]()
+* [*Escherichia coli*](https://figshare.com/ndownloader/files/53397995)
+* [*Klebsiella pneumoniae*](https://figshare.com/ndownloader/files/53398349)
+* [*Enterococcus faecium*](https://figshare.com/ndownloader/files/53395052)
+* [*Staphylococcus aureus*](https://figshare.com/ndownloader/files/53577833)
+* [*Streptococcus pneumoniae*](https://figshare.com/ndownloader/files/53577887)
 
 **Note**: These panRGs can currently detect all acquired AMR genes in the [NCBI Bacterial Antimicrobial Resistance Reference Gene Database](https://www.ncbi.nlm.nih.gov/bioproject/313047) as of 21st August 2024.
 
