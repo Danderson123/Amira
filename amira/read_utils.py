@@ -3,6 +3,7 @@ import os
 import random
 import re
 import subprocess
+import pysam
 
 import matplotlib.pyplot as plt
 
@@ -19,52 +20,15 @@ def plot_read_length_distribution(annotatedReads, output_dir):
     plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
     plt.close()
 
-
-def parse_fastq_lines(fh):
-    # Initialize a counter to keep track of the current line number
-    line_number = 0
-    # Iterate over the lines in the file
-    for line in fh:
-        # Increment the line number
-        line_number += 1
-        # If the line number is divisible by 4, it's a sequence identifier line
-        if line_number % 4 == 1:
-            # Extract the identifier from the line
-            identifier = line.split(" ")[0][1:]
-        # If the line number is divisible by 4, it's a sequence line
-        elif line_number % 4 == 2:
-            sequence = line.strip()
-        elif line_number % 4 == 0:
-            # Yield the identifier, sequence and quality
-            yield identifier, sequence, line.strip()
-
-
 def parse_fastq(fastq_file):
-    # Initialize an empty dictionary to store the results
-    results = {}
-    # Open the fastq file
-    if ".gz" in fastq_file:
-        try:
-            with gzip.open(fastq_file, "rt") as fh:
-                # Iterate over the lines in the file
-                for identifier, sequence, quality in parse_fastq_lines(fh):
-                    # Add the identifier and sequence to the results dictionary
-                    results[identifier.replace("\n", "")] = {
-                        "sequence": sequence,
-                        "quality": quality,
-                    }
-            return results
-        except OSError:
-            pass
-    else:
-        with open(fastq_file, "r") as fh:
-            # Iterate over the lines in the file
-            for identifier, sequence, quality in parse_fastq_lines(fh):
-                # Add the identifier and sequence to the results dictionary
-                results[identifier.replace("\n", "")] = {"sequence": sequence, "quality": quality}
-    # Return the dictionary of results
-    return results
-
+    fastq_dict = {}
+    with pysam.FastxFile(fastq_file) as fh:
+        for entry in fh:
+            fastq_dict[entry.name] = {
+                "sequence": entry.sequence,
+                "quality": entry.quality
+            }
+    return fastq_dict
 
 def write_fastq(fastq_file, data):
     # Open the fastq file
