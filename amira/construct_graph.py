@@ -2183,15 +2183,10 @@ class GeneMerGraph:
         )
 
     def filter_paths_between_bubble_starts(self, unique_paths):
-        from suffix_tree import Tree
         tree = Tree({i: p for i, p in enumerate(unique_paths)})
         # sort by ascending length
         unique_paths = sorted(list(unique_paths), key=len)
         filtered_paths = []
-        # convert each path to a set
-        path_sets = [set(p) for p in unique_paths]
-        # get the number of unique paths
-        n = len(unique_paths)
         for i in tqdm(range(len(unique_paths))):
             p = unique_paths[i]
             p_list = list(p)

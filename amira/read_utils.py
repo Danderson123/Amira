@@ -3,9 +3,9 @@ import os
 import random
 import re
 import subprocess
-import pysam
 
 import matplotlib.pyplot as plt
+import pysam
 
 
 def plot_read_length_distribution(annotatedReads, output_dir):
@@ -20,15 +20,14 @@ def plot_read_length_distribution(annotatedReads, output_dir):
     plt.savefig(os.path.join(output_dir, "read_lengths.png"), dpi=600)
     plt.close()
 
+
 def parse_fastq(fastq_file):
     fastq_dict = {}
     with pysam.FastxFile(fastq_file) as fh:
         for entry in fh:
-            fastq_dict[entry.name] = {
-                "sequence": entry.sequence,
-                "quality": entry.quality
-            }
+            fastq_dict[entry.name] = {"sequence": entry.sequence, "quality": entry.quality}
     return fastq_dict
+
 
 def write_fastq(fastq_file, data):
     # Open the fastq file
