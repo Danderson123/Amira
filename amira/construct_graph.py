@@ -1833,9 +1833,13 @@ class GeneMerGraph:
         # iterate through the path terminals
         path_coverages = []
         all_containments = []
+        count = 0
         for pair in tqdm(bubbles):
+            if count > 2:
+                sys.exit(0)
             if len(bubbles[pair]) > 1:
-                # sort the paths from highest to lower coverage
+                count += 1
+                # sort the paths from highest to lowest coverage
                 paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
                 # initialise a set to keep track of the paths we have already corrected
                 corrected_paths = set()
@@ -1853,7 +1857,10 @@ class GeneMerGraph:
                         fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
                         # get the minimzers if this is the final round of bubble popping
                         if path_minimizers is not None:
-                            high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
+#                            high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
+                            high_coverage_minimizers = set()
+                            for minHash in path_minimizers[tuple(higher_coverage_path)]:
+                                high_coverage_minimizers.update(minHash.hashes)
                         # iterate through the remaining paths
                         for lower_coverage_path, lower_coverage in paths[i + 1 :]:
                             # skip the correction if we have already corrected this path
@@ -1871,9 +1878,12 @@ class GeneMerGraph:
                                     continue
                             else:
                                 # if so, get the minimizers of the lower coverage path
-                                low_coverage_minimizers = path_minimizers[
-                                    tuple(lower_coverage_path)
-                                ]
+                                #low_coverage_minimizers = path_minimizers[
+                                #    tuple(lower_coverage_path)
+                                #]
+                                low_coverage_minimizers = set()
+                                for minHash in path_minimizers[tuple(lower_coverage_path)]:
+                                    low_coverage_minimizers.update(minHash.hashes)
                             # get the genes in the lower coverage path
                             lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
                             # get the k-mers in the low coverage path
@@ -1992,7 +2002,46 @@ class GeneMerGraph:
                 higher_index += 1
         return higher_mapping, lower_mapping
 
+    def longest_common_sublist(self, a, b):
+        """
+        Returns the longest contiguous common sublist between two lists `a` and `b`.
+        """
+        len_a, len_b = len(a), len(b)
+        dp = [[0] * (len_b + 1) for _ in range(len_a + 1)]
+        max_len = 0
+        end_a = 0
+        end_b = 0
+
+        for i in range(1, len_a + 1):
+            for j in range(1, len_b + 1):
+                if a[i - 1] == b[j - 1]:
+                    dp[i][j] = dp[i - 1][j - 1] + 1
+                    if dp[i][j] > max_len:
+                        max_len = dp[i][j]
+                        end_a = i
+                        end_b = j
+
+        start_a = end_a - max_len
+        start_b = end_b - max_len
+        sublist = a[start_a:end_a]
+        return sublist, (start_a, end_a - 1), (start_b, end_b - 1)
+
     def slice_alignment_by_shared_elements(self, alignment, genes_on_read):
+        # get the mappings of path gene to alignment gene
+        higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
+        genes_in_higher_coverage_path = [a[0] for a in alignment if not a[0] == "*"]
+        genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
+        # get the longest common sublist between the read and the low coverage path
+        longest_sublist, read_indices, path_indices = self.longest_common_sublist(genes_on_read, genes_in_lower_coverage_path)
+        if read_indices[1] == -1 or path_indices[1] == -1:
+            return [], None, None
+        return (
+            alignment[lower_mapping[path_indices[0]] : lower_mapping[path_indices[1]] + 1],
+            read_indices[0],
+            read_indices[-1],
+        )
+
+    def old_slice_alignment_by_shared_elements(self, alignment, genes_on_read):
         # get the mappings of path gene to alignment gene
         higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
         # get the indices of all genes on the read that are shared with the alignment
@@ -2130,7 +2179,7 @@ class GeneMerGraph:
         unique_paths = set()
         seen_pairs = set()
         # iterate through the bubble nodes
-        for start_hash, start_direction in potential_bubble_starts_component:
+        for start_hash, start_direction in tqdm(potential_bubble_starts_component):
             for stop_hash, stop_direction in potential_bubble_starts_component:
                 if start_hash == stop_hash:
                     continue
@@ -2244,7 +2293,7 @@ class GeneMerGraph:
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
         for path_tuple in tqdm(batch):
             for node_hash in path_tuple:
-                path_minimizers[path_tuple].update(node_minhashes[node_hash].hashes)
+                path_minimizers[path_tuple].append(node_minhashes[node_hash])
 
     def get_minhashes_for_paths(self, sorted_filtered_paths, fastq_data, cores):
         path_minimizers = defaultdict(set)
@@ -2256,7 +2305,7 @@ class GeneMerGraph:
                 if node_hash not in node_minhashes:
                     node_minhashes[node_hash] = None
 
-            path_minimizers[tuple(path)] = set()
+            path_minimizers[tuple(path)] = []
 
         # Parallel computation of node minhashes
         keys = list(node_minhashes.keys())
@@ -2303,6 +2352,7 @@ class GeneMerGraph:
                 continue
             potential_bubble_starts_component = potential_bubble_starts[component]
             # get all the paths of length <= max distance between all pairs of junctions
+            sys.stderr.write("\nPATHS\n")
             unique_paths = self.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, cores
             )

@@ -75,8 +75,8 @@ def write_modified_fastq(fastq_content, read_path, output_dir):
             output_dir, os.path.splitext(os.path.splitext(os.path.basename(read_path))[0])[0]
         )
     read_fastq_path += ".fastq.gz"
-    write_fastq(
-        read_fastq_path,
-        fastq_content,
-    )
+    #write_fastq(
+    #    read_fastq_path,
+    #    fastq_content,
+    #)
     return read_fastq_path, fastq_content
