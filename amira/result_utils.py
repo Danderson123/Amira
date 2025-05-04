@@ -1050,8 +1050,12 @@ def estimate_overall_read_depth(full_reads, k, threads, debug, outdir):
     cutoff = kmer_cutoff_estimation(kmer_counts)
     sys.stderr.write(f"\nAmira: filtering k-mers with count below cutoff ({cutoff}).\n")
     jf_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".filtered.jf")
-    histo_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".filtered.histo")
-    kmers_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".filtered.kmers.txt")
+    histo_out = os.path.join(outdir, os.path.basename(full_reads)).replace(
+        ".fastq.gz", ".filtered.histo"
+    )
+    kmers_out = os.path.join(outdir, os.path.basename(full_reads)).replace(
+        ".fastq.gz", ".filtered.kmers.txt"
+    )
     command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
     command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
