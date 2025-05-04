@@ -3,6 +3,7 @@ import os
 import random
 import re
 import subprocess
+import sys
 
 import matplotlib.pyplot as plt
 import pysam
@@ -65,18 +66,9 @@ def downsample_reads(fastq_content, read_path, output_dir, max_reads=100000):
 
 
 def write_modified_fastq(fastq_content, read_path, output_dir):
-    # remove underscores in read names
-    fastq_content = {re.sub(r"[\W_]+", "", r): fastq_content[r] for r in fastq_content}
-    # write the modified fastq data to the output directoy
+    # compress the fastq file
     if ".gz" not in read_path:
-        read_fastq_path = os.path.join(output_dir, os.path.splitext(os.path.basename(read_path))[0])
-    else:
-        read_fastq_path = os.path.join(
-            output_dir, os.path.splitext(os.path.splitext(os.path.basename(read_path))[0])[0]
-        )
-    read_fastq_path += ".fastq.gz"
-    write_fastq(
-        read_fastq_path,
-        fastq_content,
-    )
-    return read_fastq_path, fastq_content
+        sys.stderr.write(f"\nAmira: compressing {read_path}\n")
+        subprocess.run(f"gzip -1 {read_path}", shell=True, check=True)
+        read_path = read_path + ".gz"
+    return read_path, fastq_content
