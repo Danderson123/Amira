@@ -1730,27 +1730,6 @@ class GeneMerGraph:
             return alignment_subset
         return self.needleman_wunsch(true_path, genes_on_read)
 
-    def longest_common_sublist(self, a, b):
-        len_a, len_b = len(a), len(b)
-        dp = [[0] * (len_b + 1) for _ in range(len_a + 1)]
-        max_len = 0
-        end_a = 0
-        end_b = 0
-
-        for i in range(1, len_a + 1):
-            for j in range(1, len_b + 1):
-                if a[i - 1] == b[j - 1]:
-                    dp[i][j] = dp[i - 1][j - 1] + 1
-                    if dp[i][j] > max_len:
-                        max_len = dp[i][j]
-                        end_a = i
-                        end_b = j
-
-        start_a = end_a - max_len
-        start_b = end_b - max_len
-        sublist = a[start_a:end_a]
-        return sublist, (start_a, end_a - 1), (start_b, end_b - 1)
-
     def compare_paths(self, lower_coverage_genes, fw_higher_coverage_genes):
         # get the alignment of this path
         fw_alignment = self.needleman_wunsch(fw_higher_coverage_genes, lower_coverage_genes)
@@ -2028,102 +2007,6 @@ class GeneMerGraph:
         sublist = a[start_a:end_a]
         return sublist, (start_a, end_a - 1), (start_b, end_b - 1)
 
-    def slice_alignment_by_shared_elements(self, alignment, genes_on_read):
-        # get the mappings of path gene to alignment gene
-        higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
-        genes_in_higher_coverage_path = [a[0] for a in alignment if not a[0] == "*"]
-        genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
-        # get the longest common sublist between the read and the low coverage path
-        longest_sublist, read_indices, path_indices = self.longest_common_sublist(genes_on_read, genes_in_lower_coverage_path)
-        if read_indices[1] == -1 or path_indices[1] == -1:
-            return [], None, None
-        return (
-            alignment[lower_mapping[path_indices[0]] : lower_mapping[path_indices[1]] + 1],
-            read_indices[0],
-            read_indices[-1],
-        )
-
-    def old_slice_alignment_by_shared_elements(self, alignment, genes_on_read):
-        # get the mappings of path gene to alignment gene
-        higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
-        # get the indices of all genes on the read that are shared with the alignment
-        genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
-        shared_read_indices_with_lcp = [
-            i for i in range(len(genes_on_read)) if genes_on_read[i] in genes_in_lower_coverage_path
-        ]
-        genes_in_higher_coverage_path = [a[0] for a in alignment if not a[0] == "*"]
-        shared_read_indices_with_hcp = [
-            i
-            for i in range(len(genes_on_read))
-            if genes_on_read[i] in genes_in_higher_coverage_path
-        ]
-        # split the shared gene indices into contiguous chunks
-        read_chunks = self.split_into_contiguous_chunks(
-            shared_read_indices_with_lcp, shared_read_indices_with_hcp
-        )
-        if not len(read_chunks) == 0:
-            if len(read_chunks) > 1 and all(len(c) == 1 for c in read_chunks):
-                return [], None, None
-            current_chunk = []
-            current_sorted_sublist_positions = []
-            for chunk in read_chunks:
-                # get all possible sublist combinations
-                sublist_combinations = self.all_sublist_combinations(chunk)
-                # filter out the sublists that are not found in the path
-                valid_sublists = [
-                    s
-                    for s in sublist_combinations
-                    if self.is_sublist(
-                        genes_in_lower_coverage_path,
-                        [
-                            genes_on_read[i]
-                            for i in s
-                            if genes_on_read[i] in genes_in_lower_coverage_path
-                            and genes_on_read[i] not in genes_in_higher_coverage_path
-                        ],
-                    )
-                ]
-                # get the locations of the sublists in the path
-                sublist_positions = [
-                    (
-                        s,
-                        self.find_sublist_indices(
-                            genes_in_lower_coverage_path,
-                            [
-                                genes_on_read[i]
-                                for i in s
-                                if genes_on_read[i] in genes_in_lower_coverage_path
-                            ],
-                        ),
-                    )
-                    for s in valid_sublists
-                ]
-                # filter sublists that do not occur in the lower coverage path
-                filtered_sublist_positions = [t for t in sublist_positions if len(t[1]) != 0]
-                # sort the sublist positions by length
-                sorted_sublist_positions = sorted(
-                    filtered_sublist_positions,
-                    key=lambda x: max([s[1] - s[0] for s in x[1]]),
-                    reverse=True,
-                )
-                # choose the longest sublist match as the true subset
-                if len(chunk) > len(current_chunk):
-                    current_chunk = chunk
-                    current_sorted_sublist_positions = sorted_sublist_positions
-            if len(current_sorted_sublist_positions[0][1]) == 1:
-                alignment_indices = [
-                    lower_mapping[i] for i in list(current_sorted_sublist_positions[0][1][0])
-                ]
-                return (
-                    alignment[alignment_indices[0] : alignment_indices[-1] + 1],
-                    current_sorted_sublist_positions[0][0][0],
-                    current_sorted_sublist_positions[0][0][-1],
-                )
-            else:
-                return [], None, None
-        else:
-            return [], None, None
-
     def mp_get_all_paths_between_junctions_in_component(
         self, potential_bubble_starts_component, max_distance, cores
     ):
@@ -2318,7 +2201,9 @@ class GeneMerGraph:
         path_coverages = []
         # iterate through the components in the graph
         for component in self.components():
-            sys.stderr.write(f"\n\tAmira: popping bubbles using 1 CPU for component {component} / {len(self.components()) - 1}\n")
+            message = "\n\tAmira: popping bubbles using 1 CPU for component "
+            message += f"{component} / {len(self.components()) - 1}\n"
+            sys.stderr.write(message)
             # skip this component if specified
             if component in components_to_skip:
                 continue

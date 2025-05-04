@@ -28,6 +28,7 @@ def parse_fastq(fastq_file):
             fastq_dict[entry.name] = {"sequence": entry.sequence, "quality": entry.quality}
     return fastq_dict
 
+
 def write_fastq(fastq_file, data):
     # Open the fastq file
     with gzip.open(fastq_file, "wt") as fh:
@@ -75,7 +76,7 @@ def write_modified_fastq(fastq_content, read_path, output_dir):
         )
     read_fastq_path += ".fastq.gz"
     write_fastq(
-       read_fastq_path,
-       fastq_content,
+        read_fastq_path,
+        fastq_content,
     )
     return read_fastq_path, fastq_content
