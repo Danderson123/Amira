@@ -1034,10 +1034,10 @@ def load_kmer_counts(counts_file):
     return abundances
 
 
-def estimate_overall_read_depth(full_reads, k, threads, debug):
+def estimate_overall_read_depth(full_reads, k, threads, debug, outdir):
     # count the k-mers in the full read set
-    jf_out = full_reads.replace(".fastq.gz", ".jf")
-    histo_out = full_reads.replace(".fastq.gz", ".histo")
+    jf_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".jf")
+    histo_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".histo")
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
     command = (
         f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
@@ -1049,9 +1049,9 @@ def estimate_overall_read_depth(full_reads, k, threads, debug):
     # estimate the kmer cutoff
     cutoff = kmer_cutoff_estimation(kmer_counts)
     sys.stderr.write(f"\nAmira: filtering k-mers with count below cutoff ({cutoff}).\n")
-    jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
-    histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
-    kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
+    jf_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".filtered.jf")
+    histo_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".filtered.histo")
+    kmers_out = os.path.join(outdir, os.path.basename(full_reads)).replace(".fastq.gz", ".filtered.kmers.txt")
     command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
     command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
@@ -1075,13 +1075,14 @@ def estimate_copy_numbers(
     path_reads,
     amira_alleles,
     fastq_file,
+    output_dir,
     threads,
     samtools_path,
     raw_read_depth,
     debug,
 ):
     # make the output directory
-    outdir = os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "path_reads")
+    outdir = os.path.join(os.path.dirname(output_dir), "AMR_allele_fastqs", "path_reads")
     # write out the reads for each path
     sys.stderr.write("\nAmira: writing out the reads for each path.\n")
     path_mapping = {}
@@ -1100,7 +1101,7 @@ def estimate_copy_numbers(
     # define k
     k = 15
     # estimate the overall depth
-    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
+    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug, output_dir)
     sys.stderr.write(f"\nAmira: estimated k-mer depth = {read_depth}.\n")
     # get the genomic copy number of each gene
     gene_counts = {}

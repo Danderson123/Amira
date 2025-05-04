@@ -570,6 +570,7 @@ def main() -> None:
         path_reads,
         set(result_df["Amira allele"]),
         read_fastq_path,
+        args.output_dir,
         args.cores,
         args.samtools_path,
         mean_read_depth,
