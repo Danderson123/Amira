@@ -818,7 +818,7 @@ def genotype_promoters(
                 "Cigar string": [],
                 "Amira allele": [],
                 "Number of reads used for polishing": [],
-                "Approximate copy number": [],
+                "Approximate cellular copy number": [],
             }
             if output_components is True:
                 SNPs_present["Component ID"] = []
@@ -904,7 +904,9 @@ def genotype_promoters(
                 SNPs_present["Number of reads used for polishing"].append(
                     closest_reference["Number of reads used for polishing"]
                 )
-                SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
+                SNPs_present["Approximate cellular copy number"].append(
+                    row["Approximate cellular copy number"]
+                )
                 if output_components is True:
                     SNPs_present["Component ID"].append(row["Component ID"])
             # Close the files
@@ -960,7 +962,7 @@ def kmer_cutoff_estimation(kmer_counts):
 
     # Define the likelihood function
     def neg_log_likelihood(params):
-        w, c = params  # w = error proportion, c =coverage mean
+        w, c = params  # w = error proportion, c = coverage mean
         if w < 0 or w > 1 or c <= 0:
             return np.inf
         # compute Poisson probabilities
@@ -1208,3 +1210,35 @@ def write_fastqs_for_genes(
         allele_component_mapping,
         files_to_assemble,
     )
+
+
+def write_empty_result(output_dir):
+    results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
+    results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+    results += "Number of reads used for polishing\tApproximate cellular copy number\n"
+    with open(os.path.join(output_dir, "amira_results.tsv"), "w") as o:
+        o.write(results)
+
+
+def supplement_result_df(
+    result_df, copy_numbers, mean_depth_per_reference, longest_read_lengths, debug
+):
+    estimates = []
+    copy_depths = []
+    read_lengths = []
+    for index, row in result_df.iterrows():
+        estimates.append(copy_numbers[row["Amira allele"]])
+        copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
+        read_lengths.append(longest_read_lengths[row["Amira allele"]])
+    result_df["Mean read depth"] = copy_depths
+    result_df["Approximate cellular copy number"] = estimates
+    if debug:
+        result_df["Longest read length"] = read_lengths
+    return result_df
+
+
+def write_pandora_gene_calls(output_dir, gene_position_dict, annotatedReads, outfile_1, outfile_2):
+    with open(outfile_1, "w") as o:
+        o.write(json.dumps(gene_position_dict))
+    with open(outfile_2, "w") as o:
+        o.write(json.dumps(annotatedReads))

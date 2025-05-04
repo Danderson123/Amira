@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import random
 import statistics
 import subprocess
 import sys
@@ -250,6 +251,7 @@ def convert_pandora_output(
     geneMinCoverage = statistics.mean(geneCounts.values()) * relativeMinGeneThreshold
     # filter genes that do not meet the minimum coverage threshold
     subsettedGenesOfInterest = set()
+    filtered_genes = set()
     for r in tqdm(annotatedReads):
         new_calls = []
         new_positions = []
@@ -262,11 +264,13 @@ def convert_pandora_output(
                     subsettedGenesOfInterest.add(gene[1:])
             else:
                 if gene[1:] in genesOfInterest:
-                    message = f"\nAmira: filtering AMR gene {gene[1:]} "
-                    message += f"due to insufficient frequency ({geneCounts[gene[1:]]}).\n"
-                    sys.stderr.write(message)
+                    filtered_genes.add(gene[1:])
         annotatedReads[r] = new_calls
         gene_position_dict[r] = new_positions
+    for g in filtered_genes:
+        message = f"\nAmira: filtering AMR gene {g} "
+        message += f"due to insufficient frequency ({geneCounts[g]}).\n"
+        sys.stderr.write(message)
     assert not len(annotatedReads) == 0
     return annotatedReads, subsettedGenesOfInterest, gene_position_dict
 
@@ -337,3 +341,33 @@ def get_core_gene_mean_depth(bam_file, core_gene_file, samtools_path):
     os.remove(bam_file)
     os.remove(bam_file + ".bai")
     return statistics.mean(list(mean_depth_per_core_gene.values()))
+
+
+def estimate_mean_core_gene_counts(annotatedReads, core_genes):
+    with open(core_genes) as i:
+        core = set(i.read().split("\n"))
+    counts = {}
+    for r in annotatedReads:
+        for g in annotatedReads[r]:
+            counts[g[1:]] = counts.get(g[1:], 0) + 1
+    mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
+    return mean_read_depth
+
+
+def subsample_reads_and_estimate_read_depth(
+    annotatedReads, sample_size, output_dir, samtools_path, core_genes
+):
+    total_reads = len(annotatedReads)
+    if total_reads > sample_size:
+        # Convert the items to a list before sampling
+        annotatedReads = dict(random.sample(list(annotatedReads.items()), sample_size))
+        # get the mean depth across core genes
+        mean_read_depth = estimate_mean_core_gene_counts(annotatedReads, core_genes)
+    else:
+        # get the mean depth across core genes
+        mean_read_depth = get_core_gene_mean_depth(
+            os.path.join(output_dir, "mapped_to_consensus.bam"),
+            core_genes,
+            samtools_path,
+        )
+    return annotatedReads, mean_read_depth

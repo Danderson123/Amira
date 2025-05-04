@@ -12,9 +12,9 @@ Amira leverages the full length of long read sequences to differentiate multi-co
 
 Amira requires Python and three additional non-Python tools for optimal functionality:
 
-- **Python >=3.9,<3.13**.
+- **Python >=3.10,<3.13**.
 - **Poetry** to manage the Python dependencies.
-- **Pandora** to identify the genes on each sequencing read.
+- **Pandora >=0.12.0** to identify the genes on each sequencing read.
 - **minimap2** for sequence alignment.
 - **samtools** for processing alignments.
 - **racon** for allele polishing.
@@ -24,7 +24,20 @@ Amira requires Python and three additional non-Python tools for optimal function
 
 Follow these steps to install Amira and its dependencies.
 
-### With Singularity (preferred method)
+### With Conda (preferred method)
+
+Amira and its dependencies can installed via conda by running:
+
+```bash
+conda install bioconda:amira
+```
+
+You can then run amira with:
+```bash
+amira --help
+```
+
+### With Singularity
 
 Amira and its dependencies can be run through Singularity. First build the container with:
 
@@ -68,7 +81,7 @@ poetry install
 You will need to install the non-Python dependencies separately if you opt for this method.
 
 ### Installing Non-Python Dependencies
-Amira requires Pandora, minimap2 and racon. Follow the links below for instructions on building binaries for each tool:
+Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below for instructions on building binaries for each tool:
 
 - [Pandora installation guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
 - [minimap2 installation guide](https://github.com/lh3/minimap2)
@@ -80,11 +93,13 @@ After installation, make a note of the paths to these binaries as they will be r
 
 ## Pre-built species-specific panRGs
 [Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read (see above for instructions to install Pandora). Click the relevant link below to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
-* [*Escherichia coli*](https://drive.google.com/file/d/13c_bUXnBEs9iEPPobou7-xEgkz_t08YP/view?usp=sharing)
-* [*Klebsiella pneumoniae*](https://drive.google.com/file/d/1DYG3QW3nrQfSckIX9Vjbhbqz5bRd9W3j/view?usp=drive_link)
-* [*Enterococcus faecium*](https://drive.google.com/file/d/1AzzFNRbH6VXPj5CX2txlcxhW8AhL9HSh/view?usp=sharing)
+* [*Escherichia coli*](https://figshare.com/ndownloader/files/53397995)
+* [*Klebsiella pneumoniae*](https://figshare.com/ndownloader/files/53398349)
+* [*Enterococcus faecium*](https://figshare.com/ndownloader/files/53395052)
+* [*Staphylococcus aureus*](https://figshare.com/ndownloader/files/53577833)
+* [*Streptococcus pneumoniae*](https://figshare.com/ndownloader/files/53577887)
 
-**Note**: These panRGs can currently detect all acquired AMR genes in the NCBI Bacterial Antimicrobial Resistance Reference Gene Database as of 21st August 2024.
+**Note**: These panRGs can currently detect all acquired AMR genes in the [NCBI Bacterial Antimicrobial Resistance Reference Gene Database](https://www.ncbi.nlm.nih.gov/bioproject/313047) as of 21st August 2024.
 
 ## Running Amira
 
