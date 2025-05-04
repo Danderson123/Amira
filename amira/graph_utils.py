@@ -162,7 +162,6 @@ def iterative_bubble_popping(
         graph.remove_short_linear_paths(geneMer_size)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
 
-        sys.stderr.write("\n\tAmira: popping bubbles using 1 CPU\n")
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, cores, new_gene_position_dict
         )

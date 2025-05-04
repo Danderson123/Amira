@@ -1866,7 +1866,7 @@ class GeneMerGraph:
         correction_operations = set()
         reads_to_correct = {}
         path_coverages = []
-        for pair in tqdm(bubbles):
+        for pair in bubbles:
             if len(bubbles[pair]) > 1:
                 # sort the paths from highest to lower coverage
                 paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
@@ -1887,7 +1887,7 @@ class GeneMerGraph:
         bw_alignments = {}
         fw_counters = {}
         bw_counters = {}
-        for operation in tqdm(correction_operations):
+        for operation in correction_operations:
             # get the genes in the higher coverage path
             fw_higher_coverage_genes = self.get_genes_in_unitig(list(operation[1]))
             # get the genes in the lower coverage path
@@ -1918,7 +1918,7 @@ class GeneMerGraph:
             fw_counters[operation] = fw_counter
             bw_counters[operation] = bw_counter
         # iterate through the reads
-        for read_id in tqdm(reads_to_correct):
+        for read_id in reads_to_correct:
             if reads_to_correct[read_id] not in fw_alignments:
                 continue
             # get the forward and backward alignments
@@ -2225,7 +2225,7 @@ class GeneMerGraph:
             node_minhashes[node_hash] = minhash
 
     def get_minhash_of_path(self, batch, path_minimizers, node_minhashes):
-        for path_tuple in tqdm(batch):
+        for path_tuple in batch:
             for node_hash in path_tuple:
                 path_minimizers[path_tuple].append(node_minhashes[node_hash])
 
@@ -2279,6 +2279,7 @@ class GeneMerGraph:
         path_coverages = []
         # iterate through the components in the graph
         for component in self.components():
+            sys.stderr.write(f"\n\tAmira: popping bubbles using 1 CPU for component {component} / {len(self.components()) - 1}\n")
             # skip this component if specified
             if component in components_to_skip:
                 continue
@@ -2295,7 +2296,6 @@ class GeneMerGraph:
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # get a minhash object for each path
-            sys.stderr.write("\nMINS\n")
             if use_minimizers:
                 path_minimizers = self.get_minhashes_for_paths(
                     sorted_filtered_paths, fastq_data, cores
@@ -2305,7 +2305,6 @@ class GeneMerGraph:
             # bin the paths based on their terminal nodes
             sorted_filtered_paths = self.separate_paths_by_terminal_nodes(sorted_filtered_paths)
             # clean the paths
-            sys.stderr.write("\nCORREC\n")
             path_coverages += self.correct_bubble_paths(
                 sorted_filtered_paths,
                 fastq_data,
