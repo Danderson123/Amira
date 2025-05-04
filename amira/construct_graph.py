@@ -1816,7 +1816,7 @@ class GeneMerGraph:
         return path_coverages
 
     def get_path_reads_to_correct(self, reads_to_correct, seen_nodes):
-        for n in tqdm(seen_nodes):
+        for n in seen_nodes:
             operation = seen_nodes[n]
             for read in self.get_node_by_hash(n).get_reads():
                 if read not in reads_to_correct:
