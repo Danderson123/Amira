@@ -1119,7 +1119,7 @@ class GeneMerGraph:
         readNodes = self.get_readNodes()  # Retrieve read nodes
         corrected_genes = {}
         corrected_gene_positions = {}
-        for read_id in tqdm(readNodes):
+        for read_id in readNodes:
             list_of_genes = self.correct_single_read(read_id, readNodes, fastq_data)
             if len(list_of_genes) > 0:
                 corrected_genes[read_id] = list_of_genes
