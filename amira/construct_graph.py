@@ -2207,7 +2207,6 @@ class GeneMerGraph:
                 continue
             potential_bubble_starts_component = potential_bubble_starts[component]
             # get all the paths of length <= max distance between all pairs of junctions
-            sys.stderr.write("\nPATHS\n")
             unique_paths = self.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, cores
             )
