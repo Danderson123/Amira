@@ -28,7 +28,6 @@ def parse_fastq(fastq_file):
             fastq_dict[entry.name] = {"sequence": entry.sequence, "quality": entry.quality}
     return fastq_dict
 
-
 def write_fastq(fastq_file, data):
     # Open the fastq file
     with gzip.open(fastq_file, "wt") as fh:

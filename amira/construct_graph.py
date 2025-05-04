@@ -1036,14 +1036,6 @@ class GeneMerGraph:
                 nodeJunctions.add(node_hash)
         return nodeAnchors, nodeJunctions
 
-    def is_sublist(self, long_list, sub_list):
-        """Check if list is a sublist of long_list."""
-        assert isinstance(long_list, list) and isinstance(sub_list, list)
-        len_sub = len(sub_list)
-        return any(
-            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
-        )
-
     def extract_elements(self, lst):
         result = []
         for i in range(len(lst)):
@@ -2012,7 +2004,46 @@ class GeneMerGraph:
                 higher_index += 1
         return higher_mapping, lower_mapping
 
+    def longest_common_sublist(self, a, b):
+        """
+        Returns the longest contiguous common sublist between two lists `a` and `b`.
+        """
+        len_a, len_b = len(a), len(b)
+        dp = [[0] * (len_b + 1) for _ in range(len_a + 1)]
+        max_len = 0
+        end_a = 0
+        end_b = 0
+
+        for i in range(1, len_a + 1):
+            for j in range(1, len_b + 1):
+                if a[i - 1] == b[j - 1]:
+                    dp[i][j] = dp[i - 1][j - 1] + 1
+                    if dp[i][j] > max_len:
+                        max_len = dp[i][j]
+                        end_a = i
+                        end_b = j
+
+        start_a = end_a - max_len
+        start_b = end_b - max_len
+        sublist = a[start_a:end_a]
+        return sublist, (start_a, end_a - 1), (start_b, end_b - 1)
+
     def slice_alignment_by_shared_elements(self, alignment, genes_on_read):
+        # get the mappings of path gene to alignment gene
+        higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
+        genes_in_higher_coverage_path = [a[0] for a in alignment if not a[0] == "*"]
+        genes_in_lower_coverage_path = [a[1] for a in alignment if not a[1] == "*"]
+        # get the longest common sublist between the read and the low coverage path
+        longest_sublist, read_indices, path_indices = self.longest_common_sublist(genes_on_read, genes_in_lower_coverage_path)
+        if read_indices[1] == -1 or path_indices[1] == -1:
+            return [], None, None
+        return (
+            alignment[lower_mapping[path_indices[0]] : lower_mapping[path_indices[1]] + 1],
+            read_indices[0],
+            read_indices[-1],
+        )
+
+    def old_slice_alignment_by_shared_elements(self, alignment, genes_on_read):
         # get the mappings of path gene to alignment gene
         higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(alignment)
         # get the indices of all genes on the read that are shared with the alignment
@@ -2194,6 +2225,14 @@ class GeneMerGraph:
         }
         return sorted_filtered_paths
 
+    def is_sublist(self, long_list, sub_list):
+        """Check if list is a sublist of long_list."""
+        assert isinstance(long_list, list) and isinstance(sub_list, list)
+        len_sub = len(sub_list)
+        return any(
+            sub_list == long_list[i : i + len_sub] for i in range(len(long_list) - len_sub + 1)
+        )
+
     def filter_paths_between_bubble_starts(self, unique_paths):
         tree = Tree({i: p for i, p in enumerate(unique_paths)})
         # sort by ascending length
@@ -2288,6 +2327,7 @@ class GeneMerGraph:
                 continue
             potential_bubble_starts_component = potential_bubble_starts[component]
             # get all the paths of length <= max distance between all pairs of junctions
+            sys.stderr.write("\nPATHS\n")
             unique_paths = self.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, cores
             )
