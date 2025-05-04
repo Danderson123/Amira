@@ -1730,57 +1730,227 @@ class GeneMerGraph:
             return alignment_subset
         return self.needleman_wunsch(true_path, genes_on_read)
 
-    def correct_low_coverage_path(
+    def longest_common_sublist(self, a, b):
+        len_a, len_b = len(a), len(b)
+        dp = [[0] * (len_b + 1) for _ in range(len_a + 1)]
+        max_len = 0
+        end_a = 0
+        end_b = 0
+
+        for i in range(1, len_a + 1):
+            for j in range(1, len_b + 1):
+                if a[i - 1] == b[j - 1]:
+                    dp[i][j] = dp[i - 1][j - 1] + 1
+                    if dp[i][j] > max_len:
+                        max_len = dp[i][j]
+                        end_a = i
+                        end_b = j
+
+        start_a = end_a - max_len
+        start_b = end_b - max_len
+        sublist = a[start_a:end_a]
+        return sublist, (start_a, end_a - 1), (start_b, end_b - 1)
+
+    def compare_paths(self, lower_coverage_genes, fw_higher_coverage_genes):
+        # get the alignment of this path
+        fw_alignment = self.needleman_wunsch(fw_higher_coverage_genes, lower_coverage_genes)
+        rv_alignment = self.reverse_gene_alignment(fw_alignment)
+        # get the SNP differences
+        SNP_count = self.count_snps_in_alignment(fw_alignment)
+        # get the INDEL differences
+        INDEL_count = self.count_indels_in_alignment(fw_alignment)
+        return fw_alignment, rv_alignment, SNP_count, INDEL_count
+
+    def get_minimizers_from_minhashes(self, path, path_minimizers):
+        path_minimizer_set = set()
+        for minHash in path_minimizers[tuple(path)]:
+            path_minimizer_set.update(minHash.hashes)
+        return path_minimizer_set
+
+    def define_correction_operations(
         self,
-        lower_coverage_path,
-        fw_gene_mer_counter,
-        bw_gene_mer_counter,
-        fw_alignment,
-        rv_alignment,
-        fastq_data,
-        corrected_reads,
+        paths,
+        path_coverages,
+        reads_to_correct,
+        correction_operations,
+        path_minimizers,
+        seen_nodes,
+        threshold,
     ):
-        # get the reads in the path
-        nodes_to_correct = lower_coverage_path[1:-1]
-        reads_in_path = self.collect_reads_in_path(nodes_to_correct)
-        for read_id in reads_in_path:
+        # initialise a set to keep track of the paths we have already corrected
+        corrected_paths = set()
+        # iterate through the paths
+        for p in paths:
+            path_coverages.append(p[1])
+        for i in range(len(paths)):
+            # split the path tuple
+            higher_coverage_path, higher_coverage = paths[i]
+            # get the nodes in the path
+            higher_coverage_path = [n[0] for n in higher_coverage_path]
+            higher_coverage_path_set = set(higher_coverage_path)
+            higher_coverage_path_tuple = tuple(higher_coverage_path)
+            # check if the current high coverage path has been corrected
+            if higher_coverage_path_tuple not in corrected_paths:
+                if any(n in seen_nodes for n in higher_coverage_path):
+                    continue
+                # get the genes in the higher coverage path
+                high_coverage_minimizers = self.get_minimizers_from_minhashes(
+                    higher_coverage_path, path_minimizers
+                )
+                # iterate through the remaining paths
+                for lower_coverage_path, lower_coverage in paths[i + 1 :]:
+                    # get the nodes in the path
+                    lower_coverage_path = [n[0] for n in lower_coverage_path]
+                    lower_coverage_path_tuple = tuple(lower_coverage_path)
+                    # skip the correction if we have already corrected this path
+                    if lower_coverage_path_tuple in corrected_paths:
+                        continue
+                    if any(n in seen_nodes for n in lower_coverage_path):
+                        continue
+                    low_coverage_minimizers = self.get_minimizers_from_minhashes(
+                        lower_coverage_path, path_minimizers
+                    )
+                    # see how similar the paths are based on their minimizers
+                    containment = max(
+                        [
+                            len(high_coverage_minimizers & low_coverage_minimizers)
+                            / len(low_coverage_minimizers),
+                            len(high_coverage_minimizers & low_coverage_minimizers)
+                            / len(high_coverage_minimizers),
+                        ]
+                    )
+                    # if the containment is greater than the threshold
+                    correct_path = False
+                    if containment > threshold:
+                        correct_path = True
+                    if correct_path is True:
+                        # define the operation
+                        operation = (
+                            lower_coverage_path_tuple,
+                            higher_coverage_path_tuple,
+                        )
+                        # store the correction operation
+                        correction_operations.add(operation)
+                        corrected_paths.add(lower_coverage_path_tuple)
+                        # store the nodes we haave seen
+                        for n in lower_coverage_path:
+                            if n not in higher_coverage_path_set:
+                                seen_nodes[n] = operation
+        return path_coverages
+
+    def get_path_reads_to_correct(self, reads_to_correct, seen_nodes):
+        for n in tqdm(seen_nodes):
+            operation = seen_nodes[n]
+            for read in self.get_node_by_hash(n).get_reads():
+                if read not in reads_to_correct:
+                    reads_to_correct[read] = operation
+
+    def correct_bubble_paths(
+        self,
+        bubbles,
+        fastq_data,
+        path_minimizers,
+        genesOfInterest,
+        min_path_coverage,
+        threshold=0.80,
+    ):
+        seen_nodes = {}
+        correction_operations = set()
+        reads_to_correct = {}
+        path_coverages = []
+        for pair in bubbles:
+            if len(bubbles[pair]) > 1:
+                # sort the paths from highest to lower coverage
+                paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
+                # look through the lower coverage paths in this cluster
+                path_coverages = self.define_correction_operations(
+                    paths,
+                    path_coverages,
+                    reads_to_correct,
+                    correction_operations,
+                    path_minimizers,
+                    seen_nodes,
+                    threshold,
+                )
+        # get the reads to correct and the operations
+        self.get_path_reads_to_correct(reads_to_correct, seen_nodes)
+        # align the paths
+        fw_alignments = {}
+        bw_alignments = {}
+        fw_counters = {}
+        bw_counters = {}
+        for operation in correction_operations:
+            # get the genes in the higher coverage path
+            fw_higher_coverage_genes = self.get_genes_in_unitig(list(operation[1]))
+            # get the genes in the lower coverage path
+            lower_coverage_genes = self.get_genes_in_unitig(list(operation[0]))
+            # get the alignment of the high coverage and low coverage path
+            fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(
+                lower_coverage_genes, fw_higher_coverage_genes
+            )
+            # make sure that we do not delete AMR genes
+            if any(
+                c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest
+                for c in fw_alignment
+            ):
+                continue
+            fw_alignments[operation] = fw_alignment
+            bw_alignments[operation] = rv_alignment
+            # get the k-mers in the low coverage path
+            gene_mers = []
+            reverse_gene_mers = []
+            for i in range(len(lower_coverage_genes) - (self.get_kmerSize() - 1)):
+                # take a slice of the list of Genes from index i to i + kmerSize
+                gene_mer = lower_coverage_genes[i : i + self.get_kmerSize()]
+                gene_mers.append(tuple(gene_mer))
+                reverse_gene_mers.append(tuple(self.reverse_list_of_genes(gene_mer)))
+            # make counters for the gene-mer tuples
+            fw_counter = Counter(gene_mers)
+            bw_counter = Counter(reverse_gene_mers)
+            fw_counters[operation] = fw_counter
+            bw_counters[operation] = bw_counter
+        # iterate through the reads
+        for read_id in reads_to_correct:
+            if reads_to_correct[read_id] not in fw_alignments:
+                continue
+            # get the forward and backward alignments
+            fw_alignment = fw_alignments[reads_to_correct[read_id]]
+            rv_alignment = bw_alignments[reads_to_correct[read_id]]
             # get the list of genes on this read
             genes_on_read = self.get_reads()[read_id][:]
             # get the gene-mers on the read
             gene_mers_on_read = self.get_gene_mer_strings(genes_on_read)
             # Determine which replacement dict to use based on shared counts
-            alignment = self.reorient_alignment(
+            read_alignment = self.reorient_alignment(
                 gene_mers_on_read,
-                fw_gene_mer_counter,
-                bw_gene_mer_counter,
+                fw_counters[reads_to_correct[read_id]],
+                bw_counters[reads_to_correct[read_id]],
                 fw_alignment,
                 rv_alignment,
             )
-            if alignment is None:
+            if read_alignment is None:
                 continue
-            # get the alignment columns for the first and last elements
+            # get the mappings of path gene to alignment gene
+            higher_mapping, lower_mapping = self.get_path_to_alignment_mapping(read_alignment)
+            # get the genes in the lower coverage path
+            genes_in_lower_coverage_path = [a[1] for a in read_alignment if not a[1] == "*"]
+            # get the longest common sublist
             (
+                common_sublist,
+                (start_path, end_path),
+                (first_shared_read_index, last_shared_read_index),
+            ) = self.longest_common_sublist(genes_in_lower_coverage_path, genes_on_read)
+            # get the alignment columns for the first and last elements
+            alignment_subset = read_alignment[
+                lower_mapping[start_path] : lower_mapping[end_path] + 1
+            ]
+            # modify the alignment subset
+            alignment_subset = self.modify_alignment_subset(
                 alignment_subset,
-                first_shared_read_index,
-                last_shared_read_index,
-            ) = self.slice_alignment_by_shared_elements(alignment, genes_on_read)
+                genes_on_read[first_shared_read_index : last_shared_read_index + 1],
+            )
             # Correct the read using the alignment subset
             if len(alignment_subset) != 0:
-                # modify the alignment subset
-                alignment_subset = self.modify_alignment_subset(
-                    alignment_subset,
-                    genes_on_read[first_shared_read_index : last_shared_read_index + 1],
-                )
-                # add the read to the corrected reads dictionary
-                if read_id not in corrected_reads:
-                    corrected_reads[read_id] = set()
-                # get the gene-mers in the low coverage path
-                gene_mers_on_lcp = self.get_gene_mer_strings(
-                    [col[1] for col in alignment_subset if col[1] != "*"]
-                )
-                # skip the correction if the path we are correcting comes from a previous correction
-                if len(corrected_reads[read_id].intersection(gene_mers_on_lcp)) > 0:
-                    continue
                 # correct the genes on the read
                 self.correct_genes_on_read(
                     genes_on_read,
@@ -1797,175 +1967,7 @@ class GeneMerGraph:
                     read_id,
                     fastq_data,
                 )
-                # get the k-mers in the high coverage path
-                gene_mers_on_hcp = self.get_gene_mer_strings(
-                    [col[0] for col in alignment_subset if col[0] != "*"]
-                )
-                # prevent correcting a correct path
-                corrected_reads[read_id].update(gene_mers_on_hcp)
-                # check that the number of genes and number of gene positions are equal
-                assert len(self.get_reads()[read_id]) == len(self.get_gene_positions()[read_id])
-            else:
-                pass
-            assert None not in self.get_reads()[read_id]
-        return corrected_reads
-
-    def compare_paths(self, lower_coverage_genes, fw_higher_coverage_genes):
-        # get the alignment of this path
-        fw_alignment = self.needleman_wunsch(fw_higher_coverage_genes, lower_coverage_genes)
-        rv_alignment = self.reverse_gene_alignment(fw_alignment)
-        # get the SNP differences
-        SNP_count = self.count_snps_in_alignment(fw_alignment)
-        # get the INDEL differences
-        INDEL_count = self.count_indels_in_alignment(fw_alignment)
-        return fw_alignment, rv_alignment, SNP_count, INDEL_count
-
-    def correct_bubble_paths(
-        self,
-        bubbles,
-        fastq_data,
-        path_minimizers,
-        genesOfInterest,
-        min_path_coverage,
-        threshold=0.80,
-    ):
-        corrected_reads = {}
-        # iterate through the path terminals
-        path_coverages = []
-        all_containments = []
-        count = 0
-        for pair in tqdm(bubbles):
-            if count > 2:
-                sys.exit(0)
-            if len(bubbles[pair]) > 1:
-                count += 1
-                # sort the paths from highest to lowest coverage
-                paths = sorted(list(bubbles[pair]), key=lambda x: x[1], reverse=True)
-                # initialise a set to keep track of the paths we have already corrected
-                corrected_paths = set()
-                # iterate through the paths
-                for p in paths:
-                    path_coverages.append(p[1])
-                for i in range(len(paths)):
-                    # split the path tuple
-                    higher_coverage_path, higher_coverage = paths[i]
-                    # get the nodes in the path
-                    higher_coverage_path = [n[0] for n in higher_coverage_path]
-                    # check if the current high coverage path has been corrected
-                    if not tuple(higher_coverage_path) in corrected_paths:
-                        # get the genes in the higher coverage path
-                        fw_higher_coverage_genes = self.get_genes_in_unitig(higher_coverage_path)
-                        # get the minimzers if this is the final round of bubble popping
-                        if path_minimizers is not None:
-#                            high_coverage_minimizers = path_minimizers[tuple(higher_coverage_path)]
-                            high_coverage_minimizers = set()
-                            for minHash in path_minimizers[tuple(higher_coverage_path)]:
-                                high_coverage_minimizers.update(minHash.hashes)
-                        # iterate through the remaining paths
-                        for lower_coverage_path, lower_coverage in paths[i + 1 :]:
-                            # skip the correction if we have already corrected this path
-                            if tuple(lower_coverage_path) in corrected_paths:
-                                continue
-                            # get the nodes in the path
-                            lower_coverage_path = [n[0] for n in lower_coverage_path]
-                            # see if this is the final round of correction
-                            if path_minimizers is None:
-                                if all(
-                                    self.get_node_by_hash(n).get_node_coverage()
-                                    >= min_path_coverage
-                                    for n in lower_coverage_path
-                                ):
-                                    continue
-                            else:
-                                # if so, get the minimizers of the lower coverage path
-                                #low_coverage_minimizers = path_minimizers[
-                                #    tuple(lower_coverage_path)
-                                #]
-                                low_coverage_minimizers = set()
-                                for minHash in path_minimizers[tuple(lower_coverage_path)]:
-                                    low_coverage_minimizers.update(minHash.hashes)
-                            # get the genes in the lower coverage path
-                            lower_coverage_genes = self.get_genes_in_unitig(lower_coverage_path)
-                            # get the k-mers in the low coverage path
-                            gene_mers = []
-                            reverse_gene_mers = []
-                            for i in range(len(lower_coverage_genes) - (self.get_kmerSize() - 1)):
-                                # take a slice of the list of Genes from index i to i + kmerSize
-                                gene_mer = lower_coverage_genes[i : i + self.get_kmerSize()]
-                                gene_mers.append(tuple(gene_mer))
-                                reverse_gene_mers.append(
-                                    tuple(self.reverse_list_of_genes(gene_mer))
-                                )
-                            # make counters for the gene-mer tuples
-                            fw_counter = Counter(gene_mers)
-                            bw_counter = Counter(reverse_gene_mers)
-                            # get the alignment of the high coverage and low coverage path
-                            fw_alignment, rv_alignment, SNP_count, INDEL_count = self.compare_paths(
-                                lower_coverage_genes, fw_higher_coverage_genes
-                            )
-                            # placeholder to decide if we are correcting this low coverage path
-                            correct_path = False
-                            # see if we are using the minimizers to decide on correction
-                            if path_minimizers is None:
-                                # correct the lower coverage path
-                                if SNP_count <= 2 and INDEL_count <= 2:
-                                    correct_path = True
-                            else:
-                                # see how similar the paths are based on their minimizers
-                                inter = high_coverage_minimizers & low_coverage_minimizers
-                                denom1 = len(high_coverage_minimizers)
-                                denom2 = len(low_coverage_minimizers)
-                                containment = max(len(inter) / denom1, len(inter) / denom2)
-                                all_containments.append(str(containment))
-                                # if the containment is greater than the threshold
-                                if containment > threshold:
-                                    correct_path = True
-                            if correct_path is True:
-                                # make sure that we do not delete AMR genes
-                                if any(
-                                    c[1][1:] in genesOfInterest and c[0][1:] not in genesOfInterest
-                                    for c in fw_alignment
-                                ):
-                                    continue
-                                # correct the lower coverage path to the higher coverage path
-                                corrected_reads = self.correct_low_coverage_path(
-                                    lower_coverage_path,
-                                    fw_counter,
-                                    bw_counter,
-                                    fw_alignment,
-                                    rv_alignment,
-                                    fastq_data,
-                                    corrected_reads,
-                                )
-        # with open("all_containments.txt", "w") as o:
-        #     o.write("\n".join(sorted(all_containments)))
         return path_coverages
-
-    def split_into_contiguous_chunks(
-        self, shared_read_indices_with_lcp, shared_read_indices_with_hcp
-    ):
-        if not shared_read_indices_with_lcp:
-            return []
-        # Initialize the list of chunks with the first number
-        chunks = []
-        current_chunk = [shared_read_indices_with_lcp[0]]
-        # Iterate through the numbers starting from the second element
-        for i in range(1, len(shared_read_indices_with_lcp)):
-            # Check if the current number is contiguous with the last number in the current chunk
-            if shared_read_indices_with_lcp[i] == shared_read_indices_with_lcp[i - 1] + 1:
-                current_chunk.append(shared_read_indices_with_lcp[i])
-            else:
-                if shared_read_indices_with_lcp[i] - 1 in shared_read_indices_with_hcp:
-                    current_chunk += [
-                        shared_read_indices_with_lcp[i] - 1,
-                        shared_read_indices_with_lcp[i],
-                    ]
-                else:
-                    chunks.append(current_chunk)
-                    current_chunk = [shared_read_indices_with_lcp[i]]
-        # Add the last chunk to the list
-        chunks.append(current_chunk)
-        return chunks
 
     def find_sublist_indices(self, main_list, sublist):
         indices = []
@@ -2232,32 +2234,18 @@ class GeneMerGraph:
         )
 
     def filter_paths_between_bubble_starts(self, unique_paths):
+        tree = Tree({i: p for i, p in enumerate(unique_paths)})
         # sort by ascending length
         unique_paths = sorted(list(unique_paths), key=len)
         filtered_paths = []
-        # convert each path to a set
-        path_sets = [set(p) for p in unique_paths]
-        # get the number of unique paths
-        n = len(unique_paths)
         for i in range(len(unique_paths)):
             p = unique_paths[i]
             p_list = list(p)
             rev_p_list = list(reversed(p_list))
-            p_set = path_sets[i]
-            is_sub = False
-            # compare to longest paths first
-            for j in reversed(range(i + 1, n)):
-                # skip if no nodes intersect
-                if not len(p_set & path_sets[j]) == len(p_set):
-                    continue
-                q = unique_paths[j]
-                # Check if `p` is a subpath of `q` or its reverse
-                if self.is_sublist(list(q), p_list) or self.is_sublist(list(q), rev_p_list):
-                    is_sub = True
-                    break
-            if not is_sub and len(p) > 2:
+            res = [path_id for path_id, path in tree.find_all(p_list)]
+            rv_res = [path_id for path_id, path in tree.find_all(rev_p_list)]
+            if len(res) == 1 and len(rv_res) == 0 and len(p) > 2:
                 filtered_paths.append((p, self.calculate_path_coverage(p)))
-
         return filtered_paths
 
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
@@ -2328,7 +2316,9 @@ class GeneMerGraph:
         max_distance = self.get_kmerSize() * 3
         # iterate through the components
         path_coverages = []
+        # iterate through the components in the graph
         for component in self.components():
+            sys.stderr.write(f"\n\tAmira: popping bubbles using 1 CPU for component {component} / {len(self.components()) - 1}\n")
             # skip this component if specified
             if component in components_to_skip:
                 continue
