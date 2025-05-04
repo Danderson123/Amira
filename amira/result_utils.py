@@ -99,19 +99,22 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
     read_subset = {}
     for r in reads_for_allele:
         underscore_split = r.split("_")
-        fastq_data = fastq_content[underscore_split[0]].copy()
+        read_name = "_".join(underscore_split[:-2])
+        start = int(underscore_split[-2])
+        end = int(underscore_split[-1])
+        fastq_data = fastq_content[read_name].copy()
         fastq_data["sequence"] = fastq_data["sequence"][
-            max([0, int(underscore_split[1]) - 250]) : min(
-                [len(fastq_data["sequence"]) - 1, int(underscore_split[2]) + 250]
+            max([0, start - 250]) : min(
+                [len(fastq_data["sequence"]) - 1, end + 250]
             )
         ]
         fastq_data["quality"] = fastq_data["quality"][
-            max([0, int(underscore_split[1]) - 250]) : min(
-                [len(fastq_data["quality"]) - 1, int(underscore_split[2]) + 250]
+            max([0, start - 250]) : min(
+                [len(fastq_data["quality"]) - 1, end + 250]
             )
         ]
         if fastq_data["sequence"] != "":
-            read_subset[underscore_split[0]] = fastq_data
+            read_subset[read_name] = fastq_data
     if not os.path.exists(os.path.join(output_dir, "AMR_allele_fastqs", allele_name)):
         os.mkdir(os.path.join(output_dir, "AMR_allele_fastqs", allele_name))
     write_fastq(
@@ -182,7 +185,7 @@ def filter_results(
         # remove alleles where all of the reads just contain AMR genes
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
-            all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
+            all(g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])])
             for r in reads
         ):
             flags.append("Potential contaminant.")
@@ -231,7 +234,7 @@ def write_reads_per_AMR_gene(output_dir, supplemented_clusters_of_interest):
         new_name = f"{allele};{reference_allele_name}"
         new_reads = set()
         for r in supplemented_clusters_of_interest[allele]:
-            new_reads.add(r.split("_")[0])
+            new_reads.add("_".join(r.split("_")[:-2]))
         final_clusters_of_interest[new_name] = list(new_reads)
     with open(os.path.join(output_dir, "reads_per_amr_gene.json"), "w") as o:
         o.write(json.dumps(final_clusters_of_interest))
@@ -717,7 +720,7 @@ def get_alleles(
     threads,
     output_dir,
     reference_genes,
-    fastqContent,
+    pandora_consensus,
     phenotypes_path,
     debug,
     minimap2_path,
@@ -738,7 +741,7 @@ def get_alleles(
                 output_dir,
                 reference_genes,
                 racon_path,
-                fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
+                pandora_consensus.get("_".join(os.path.basename(r).split("_")[:-1]), None),
                 phenotypes,
                 debug,
                 minimap2_path,

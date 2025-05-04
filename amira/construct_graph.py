@@ -1541,7 +1541,7 @@ class GeneMerGraph:
         if not shared_node_indices:
             return None
         # get the sequence of the read
-        entire_read_sequence = fastq_data[read_id.split("_")[0]]["sequence"]
+        entire_read_sequence = fastq_data[read_id]["sequence"]
         first_index, last_index = shared_node_indices[0], shared_node_indices[-1]
         start_pos = self.get_readNodePositions()[read_id][first_index][0]
         if start_pos is None:
@@ -1674,8 +1674,6 @@ class GeneMerGraph:
                 if prev_end is not None and next_start is not None:
                     new_positions[i] = (prev_end, next_start)
                 elif next_start is None and prev_end is not None:
-                    if "_" in read_id:
-                        read_id = "_".join(read_id.split("_")[:-1])
                     new_positions[i] = (
                         prev_end,
                         len(fastq_data[read_id]["sequence"]) - 1,
@@ -2138,10 +2136,7 @@ class GeneMerGraph:
             for read in node.get_reads():
                 indices = [i for i, n in enumerate(self.get_readNodes()[read]) if n == node_hash]
                 positions = [self.get_readNodePositions()[read][i] for i in indices]
-                if read.count("_") > 0:
-                    entire_read_sequence = fastq_data["_".join(read.split("_"))[:-1]]["sequence"]
-                else:
-                    entire_read_sequence = fastq_data[read]["sequence"]
+                entire_read_sequence = fastq_data[read]["sequence"]
                 for p in positions:
                     minhash.add_sequence(entire_read_sequence[p[0] : p[1] + 1], force=True)
             node_minhashes[node_hash] = minhash
@@ -2451,7 +2446,9 @@ class GeneMerGraph:
             minhash = sourmash.MinHash(n=0, ksize=9, scaled=1)
             for read_id in pathsOfInterest[path]:
                 # split the read identifier
-                read, start, end = read_id.split("_")
+                read = "_".join(read.split("_")[:-2])
+                start = read_id.split("_")[-2]
+                end = read_id.split("_")[-1]
                 # get the sequence of the path
                 read_sequence = fastq_dict[read]["sequence"][int(start) : int(end) + 1]
                 # add the sequence to the minhash object
