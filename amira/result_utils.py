@@ -104,14 +104,10 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
         end = int(underscore_split[-1])
         fastq_data = fastq_content[read_name].copy()
         fastq_data["sequence"] = fastq_data["sequence"][
-            max([0, start - 250]) : min(
-                [len(fastq_data["sequence"]) - 1, end + 250]
-            )
+            max([0, start - 250]) : min([len(fastq_data["sequence"]) - 1, end + 250])
         ]
         fastq_data["quality"] = fastq_data["quality"][
-            max([0, start - 250]) : min(
-                [len(fastq_data["quality"]) - 1, end + 250]
-            )
+            max([0, start - 250]) : min([len(fastq_data["quality"]) - 1, end + 250])
         ]
         if fastq_data["sequence"] != "":
             read_subset[read_name] = fastq_data
@@ -185,7 +181,9 @@ def filter_results(
         # remove alleles where all of the reads just contain AMR genes
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
-            all(g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])])
+            all(
+                g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])]
+            )
             for r in reads
         ):
             flags.append("Potential contaminant.")

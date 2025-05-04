@@ -2446,7 +2446,7 @@ class GeneMerGraph:
             minhash = sourmash.MinHash(n=0, ksize=9, scaled=1)
             for read_id in pathsOfInterest[path]:
                 # split the read identifier
-                read = "_".join(read.split("_")[:-2])
+                read = "_".join(read_id.split("_")[:-2])
                 start = read_id.split("_")[-2]
                 end = read_id.split("_")[-1]
                 # get the sequence of the path
