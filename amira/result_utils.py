@@ -1088,7 +1088,7 @@ def estimate_copy_numbers(
     # make the output directory
     outdir = os.path.join(os.path.dirname(output_dir), "AMR_allele_fastqs", "path_reads")
     if not os.path.exists(outdir):
-        os.makedir(outdir)
+        os.mkdir(outdir)
     # write out the reads for each path
     sys.stderr.write("\nAmira: writing out the reads for each path.\n")
     path_mapping = {}
