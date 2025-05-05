@@ -1087,6 +1087,8 @@ def estimate_copy_numbers(
 ):
     # make the output directory
     outdir = os.path.join(os.path.dirname(output_dir), "AMR_allele_fastqs", "path_reads")
+    if not os.path.exists(outdir):
+        os.makedir(outdir)
     # write out the reads for each path
     sys.stderr.write("\nAmira: writing out the reads for each path.\n")
     path_mapping = {}
@@ -1245,6 +1247,6 @@ def supplement_result_df(
 
 def write_pandora_gene_calls(output_dir, gene_position_dict, annotatedReads, outfile_1, outfile_2):
     with open(outfile_1, "w") as o:
-        o.write(json.dumps(gene_position_dict))
-    with open(outfile_2, "w") as o:
         o.write(json.dumps(annotatedReads))
+    with open(outfile_2, "w") as o:
+        o.write(json.dumps(gene_position_dict))
