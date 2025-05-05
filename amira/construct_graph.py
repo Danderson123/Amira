@@ -2197,7 +2197,7 @@ class GeneMerGraph:
         # iterate through the components in the graph
         for component in self.components():
             message = "\n\tAmira: popping bubbles using 1 CPU for component "
-            message += f"{component} / {len(self.components()) - 1}\n"
+            message += f"{component} / {len(self.components())}\n"
             sys.stderr.write(message)
             # skip this component if specified
             if component in components_to_skip:
