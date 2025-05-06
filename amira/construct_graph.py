@@ -1774,12 +1774,10 @@ class GeneMerGraph:
                 high_coverage_minimizers = self.get_minimizers_from_minhashes(
                     higher_coverage_path, path_minimizers
                 )
-                print("\n", self.get_genes_in_unitig(higher_coverage_path), higher_coverage)
                 # iterate through the remaining paths
                 for lower_coverage_path, lower_coverage in paths[i + 1 :]:
                     # get the nodes in the path
                     lower_coverage_path = [n[0] for n in lower_coverage_path]
-                    print(self.get_genes_in_unitig(lower_coverage_path), lower_coverage)
                     lower_coverage_path_tuple = tuple(lower_coverage_path)
                     # skip the correction if we have already corrected this path
                     if lower_coverage_path_tuple in corrected_paths:
@@ -2325,7 +2323,6 @@ class GeneMerGraph:
                 paths.extend(newpaths)  # Add the new paths found to the paths list
 
         path.pop()  # Remove the last element added to path before returning to the caller
-        print([len(p) for p in paths])
         return paths
 
     def reverse_complement(self, seq):

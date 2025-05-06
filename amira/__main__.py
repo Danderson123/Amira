@@ -421,13 +421,6 @@ def main() -> None:
 
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
-    write_pandora_gene_calls(
-            args.output_dir,
-            new_gene_position_dict,
-            new_annotatedReads,
-            os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"),
-            os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"),
-        )
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
@@ -507,7 +500,6 @@ def main() -> None:
     # assign reads to AMR genes by path
     if not args.quiet:
         sys.stderr.write("\nAmira: clustering reads.\n")
-    ssss
     (clusters_to_add, clusters_of_interest, path_reads) = process_reads(
         graph,
         sample_genesOfInterest,
