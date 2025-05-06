@@ -362,8 +362,8 @@ def main() -> None:
             args.output_dir,
             gene_position_dict,
             annotatedReads,
-            os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"),
             os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"),
+            os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json")
         )
         sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # terminate if no AMR genes were found
