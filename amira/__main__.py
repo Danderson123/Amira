@@ -379,7 +379,7 @@ def main() -> None:
     # build the gene-mer graph
     if not args.quiet:
         sys.stderr.write("\nAmira: building intitial gene-mer graph.\n")
-    graph = build_multiprocessed_graph(annotatedReads, 3, args.cores, gene_position_dict)
+    graph = build_multiprocessed_graph(annotatedReads, 3, 1, gene_position_dict)
     # get the mean node coverages at different k-mer lengths
     overall_mean_node_coverages = get_overall_mean_node_coverages(graph)
     # collect the reads that have fewer than k genes
@@ -421,6 +421,13 @@ def main() -> None:
 
     # rebuild the graph
     graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
+    write_pandora_gene_calls(
+            args.output_dir,
+            new_gene_position_dict,
+            new_annotatedReads,
+            os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"),
+            os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"),
+        )
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
@@ -473,8 +480,8 @@ def main() -> None:
         args.output_dir,
         new_gene_position_dict,
         new_annotatedReads,
-        os.path.join(args.output_dir, "corrected_gene_calls_after_filtering.json"),
-        os.path.join(args.output_dir, "corrected_gene_positions_after_filtering.json"),
+        os.path.join(args.output_dir, "corrected_gene_calls.json"),
+        os.path.join(args.output_dir, "corrected_gene_positions.json"),
     )
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
@@ -500,6 +507,7 @@ def main() -> None:
     # assign reads to AMR genes by path
     if not args.quiet:
         sys.stderr.write("\nAmira: clustering reads.\n")
+    ssss
     (clusters_to_add, clusters_of_interest, path_reads) = process_reads(
         graph,
         sample_genesOfInterest,

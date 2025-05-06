@@ -1119,7 +1119,7 @@ class GeneMerGraph:
         readNodes = self.get_readNodes()  # Retrieve read nodes
         corrected_genes = {}
         corrected_gene_positions = {}
-        for read_id in readNodes:
+        for read_id in tqdm(readNodes):
             list_of_genes = self.correct_single_read(read_id, readNodes, fastq_data)
             if len(list_of_genes) > 0:
                 corrected_genes[read_id] = list_of_genes
@@ -1774,10 +1774,12 @@ class GeneMerGraph:
                 high_coverage_minimizers = self.get_minimizers_from_minhashes(
                     higher_coverage_path, path_minimizers
                 )
+                print("\n", self.get_genes_in_unitig(higher_coverage_path), higher_coverage)
                 # iterate through the remaining paths
                 for lower_coverage_path, lower_coverage in paths[i + 1 :]:
                     # get the nodes in the path
                     lower_coverage_path = [n[0] for n in lower_coverage_path]
+                    print(self.get_genes_in_unitig(lower_coverage_path), lower_coverage)
                     lower_coverage_path_tuple = tuple(lower_coverage_path)
                     # skip the correction if we have already corrected this path
                     if lower_coverage_path_tuple in corrected_paths:
@@ -2191,7 +2193,7 @@ class GeneMerGraph:
         # get the potential start nodes
         potential_bubble_starts = self.identify_potential_bubble_starts()
         # define a maximum distance
-        max_distance = self.get_kmerSize() * 3
+        max_distance = self.get_kmerSize() * 5
         # iterate through the components
         path_coverages = []
         # iterate through the components in the graph
@@ -2286,7 +2288,7 @@ class GeneMerGraph:
         )  # Append the current node and direction to the path
         seen_nodes.add(start_hash)  # Add the current node to the seen nodes to avoid revisiting
         # Check if we've reached the end node or if end_hash is None
-        if (end_hash and start_hash == end_hash and len(path) - 1 <= distance) or (
+        if (end_hash and start_hash == end_hash and len(path) <= distance) or (
             end_hash is None and len(path) - 1 == distance
         ):
             path_copy = path.copy()  # Make a copy of the path to return
@@ -2323,6 +2325,7 @@ class GeneMerGraph:
                 paths.extend(newpaths)  # Add the new paths found to the paths list
 
         path.pop()  # Remove the last element added to path before returning to the caller
+        print([len(p) for p in paths])
         return paths
 
     def reverse_complement(self, seq):
@@ -2925,7 +2928,7 @@ class GeneMerGraph:
     def remove_non_AMR_associated_nodes(self, genesOfInterest):
         # get the reads containing AMR genes
         readsOfInterest = set()
-        for geneOfInterest in tqdm(genesOfInterest):
+        for geneOfInterest in genesOfInterest:
             # get the graph nodes containing this gene
             nodesOfInterest = self.get_nodes_containing(geneOfInterest)
             # get the reads containing this gene
