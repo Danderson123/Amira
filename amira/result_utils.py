@@ -963,7 +963,7 @@ def kmer_cutoff_estimation(kmer_counts):
 
     # Define the likelihood function
     def neg_log_likelihood(params):
-        w, c = params  # w = error proportion, c = coverage mean
+        w, c = params  # w = error proportion, c =coverage mean
         if w < 0 or w > 1 or c <= 0:
             return np.inf
         # compute Poisson probabilities
@@ -978,9 +978,7 @@ def kmer_cutoff_estimation(kmer_counts):
     # initial parameters
     init_params = [0.1, 10]
     # optimise parameters using BFGS
-    result = minimize(
-        neg_log_likelihood, init_params, method="L-BFGS-B", bounds=[(0, 1), (1e-5, None)]
-    )
+    result = minimize(neg_log_likelihood, init_params, method="BFGS")
     # get optimised parameters
     w_opt, c_opt = result.x
     for i in i_values:
