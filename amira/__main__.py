@@ -122,8 +122,8 @@ def get_options() -> argparse.Namespace:
         "--sample-size",
         dest="sample_size",
         type=int,
-        default=100000,
-        help="Number of reads to subsample to (default=100,000).",
+        default=500000,
+        help="Number of reads to subsample to (default=500,000).",
     )
     parser.add_argument(
         "--promoter-mutations",
