@@ -68,6 +68,6 @@ def write_modified_fastq(fastq_content, read_path, output_dir):
     # compress the fastq file
     if ".gz" not in read_path:
         sys.stderr.write(f"\nAmira: compressing {read_path}\n")
-        subprocess.run(f"gzip -1 {read_path}", shell=True, check=True)
+        subprocess.run(f"gzip -k -1 {read_path}", shell=True, check=True)
         read_path = read_path + ".gz"
     return read_path, fastq_content
