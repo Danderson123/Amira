@@ -99,19 +99,18 @@ def write_allele_fastq(reads_for_allele, fastq_content, output_dir, allele_name)
     read_subset = {}
     for r in reads_for_allele:
         underscore_split = r.split("_")
-        fastq_data = fastq_content[underscore_split[0]].copy()
+        read_name = "_".join(underscore_split[:-2])
+        start = int(underscore_split[-2])
+        end = int(underscore_split[-1])
+        fastq_data = fastq_content[read_name].copy()
         fastq_data["sequence"] = fastq_data["sequence"][
-            max([0, int(underscore_split[1]) - 250]) : min(
-                [len(fastq_data["sequence"]) - 1, int(underscore_split[2]) + 250]
-            )
+            max([0, start - 250]) : min([len(fastq_data["sequence"]) - 1, end + 250])
         ]
         fastq_data["quality"] = fastq_data["quality"][
-            max([0, int(underscore_split[1]) - 250]) : min(
-                [len(fastq_data["quality"]) - 1, int(underscore_split[2]) + 250]
-            )
+            max([0, start - 250]) : min([len(fastq_data["quality"]) - 1, end + 250])
         ]
         if fastq_data["sequence"] != "":
-            read_subset[underscore_split[0]] = fastq_data
+            read_subset[read_name] = fastq_data
     if not os.path.exists(os.path.join(output_dir, "AMR_allele_fastqs", allele_name)):
         os.mkdir(os.path.join(output_dir, "AMR_allele_fastqs", allele_name))
     write_fastq(
@@ -182,7 +181,9 @@ def filter_results(
         # remove alleles where all of the reads just contain AMR genes
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
-            all(g[1:] in sample_genesOfInterest for g in annotatedReads[r.split("_")[0]])
+            all(
+                g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])]
+            )
             for r in reads
         ):
             flags.append("Potential contaminant.")
@@ -231,7 +232,7 @@ def write_reads_per_AMR_gene(output_dir, supplemented_clusters_of_interest):
         new_name = f"{allele};{reference_allele_name}"
         new_reads = set()
         for r in supplemented_clusters_of_interest[allele]:
-            new_reads.add(r.split("_")[0])
+            new_reads.add("_".join(r.split("_")[:-2]))
         final_clusters_of_interest[new_name] = list(new_reads)
     with open(os.path.join(output_dir, "reads_per_amr_gene.json"), "w") as o:
         o.write(json.dumps(final_clusters_of_interest))
@@ -717,7 +718,7 @@ def get_alleles(
     threads,
     output_dir,
     reference_genes,
-    fastqContent,
+    pandora_consensus,
     phenotypes_path,
     debug,
     minimap2_path,
@@ -738,7 +739,7 @@ def get_alleles(
                 output_dir,
                 reference_genes,
                 racon_path,
-                fastqContent.get("_".join(os.path.basename(r).split("_")[:-1]), None),
+                pandora_consensus.get("_".join(os.path.basename(r).split("_")[:-1]), None),
                 phenotypes,
                 debug,
                 minimap2_path,
@@ -818,7 +819,7 @@ def genotype_promoters(
                 "Cigar string": [],
                 "Amira allele": [],
                 "Number of reads used for polishing": [],
-                "Approximate copy number": [],
+                "Approximate cellular copy number": [],
             }
             if output_components is True:
                 SNPs_present["Component ID"] = []
@@ -904,7 +905,9 @@ def genotype_promoters(
                 SNPs_present["Number of reads used for polishing"].append(
                     closest_reference["Number of reads used for polishing"]
                 )
-                SNPs_present["Approximate copy number"].append(row["Approximate copy number"])
+                SNPs_present["Approximate cellular copy number"].append(
+                    row["Approximate cellular copy number"]
+                )
                 if output_components is True:
                     SNPs_present["Component ID"].append(row["Component ID"])
             # Close the files
@@ -975,9 +978,7 @@ def kmer_cutoff_estimation(kmer_counts):
     # initial parameters
     init_params = [0.1, 10]
     # optimise parameters using BFGS
-    result = minimize(
-        neg_log_likelihood, init_params, method="L-BFGS-B", bounds=[(0, 1), (1e-5, None)]
-    )
+    result = minimize(neg_log_likelihood, init_params, method="BFGS")
     # get optimised parameters
     w_opt, c_opt = result.x
     for i in i_values:
@@ -1031,10 +1032,13 @@ def load_kmer_counts(counts_file):
     return abundances
 
 
-def estimate_overall_read_depth(full_reads, k, threads, debug):
+def estimate_overall_read_depth(full_reads, k, threads, debug, outdir):
     # count the k-mers in the full read set
-    jf_out = full_reads.replace(".fastq.gz", ".jf")
-    histo_out = full_reads.replace(".fastq.gz", ".histo")
+    fastq_basename = os.path.basename(
+        os.path.splitext(os.path.splitext(os.path.basename(full_reads))[0])[0]
+    )
+    jf_out = os.path.join(outdir, fastq_basename) + ".jf"
+    histo_out = os.path.join(outdir, fastq_basename) + ".histo"
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
     command = (
         f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
@@ -1046,9 +1050,9 @@ def estimate_overall_read_depth(full_reads, k, threads, debug):
     # estimate the kmer cutoff
     cutoff = kmer_cutoff_estimation(kmer_counts)
     sys.stderr.write(f"\nAmira: filtering k-mers with count below cutoff ({cutoff}).\n")
-    jf_out = full_reads.replace(".fastq.gz", ".filtered.jf")
-    histo_out = full_reads.replace(".fastq.gz", ".filtered.histo")
-    kmers_out = full_reads.replace(".fastq.gz", ".filtered.kmers.txt")
+    jf_out = os.path.join(outdir, fastq_basename) + ".filtered.jf"
+    histo_out = os.path.join(outdir, fastq_basename) + ".filtered.histo"
+    kmers_out = os.path.join(outdir, fastq_basename) + ".filtered.kmers.txt"
     command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
     command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
@@ -1072,13 +1076,16 @@ def estimate_copy_numbers(
     path_reads,
     amira_alleles,
     fastq_file,
+    output_dir,
     threads,
     samtools_path,
     raw_read_depth,
     debug,
 ):
     # make the output directory
-    outdir = os.path.join(os.path.dirname(fastq_file), "AMR_allele_fastqs", "path_reads")
+    outdir = os.path.join(output_dir, "AMR_allele_fastqs", "path_reads")
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
     # write out the reads for each path
     sys.stderr.write("\nAmira: writing out the reads for each path.\n")
     path_mapping = {}
@@ -1097,7 +1104,7 @@ def estimate_copy_numbers(
     # define k
     k = 15
     # estimate the overall depth
-    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug)
+    read_depth, full_jf_out = estimate_overall_read_depth(fastq_file, k, threads, debug, output_dir)
     sys.stderr.write(f"\nAmira: estimated k-mer depth = {read_depth}.\n")
     # get the genomic copy number of each gene
     gene_counts = {}
@@ -1208,3 +1215,35 @@ def write_fastqs_for_genes(
         allele_component_mapping,
         files_to_assemble,
     )
+
+
+def write_empty_result(output_dir):
+    results = "Determinant name\tSequence name\tClosest reference\tReference length\t"
+    results += "Identity (%)\tCoverage (%)\tAmira allele\t"
+    results += "Number of reads used for polishing\tApproximate cellular copy number\n"
+    with open(os.path.join(output_dir, "amira_results.tsv"), "w") as o:
+        o.write(results)
+
+
+def supplement_result_df(
+    result_df, copy_numbers, mean_depth_per_reference, longest_read_lengths, debug
+):
+    estimates = []
+    copy_depths = []
+    read_lengths = []
+    for index, row in result_df.iterrows():
+        estimates.append(copy_numbers[row["Amira allele"]])
+        copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
+        read_lengths.append(longest_read_lengths[row["Amira allele"]])
+    result_df["Mean read depth"] = copy_depths
+    result_df["Approximate cellular copy number"] = estimates
+    if debug:
+        result_df["Longest read length"] = read_lengths
+    return result_df
+
+
+def write_pandora_gene_calls(output_dir, gene_position_dict, annotatedReads, outfile_1, outfile_2):
+    with open(outfile_1, "w") as o:
+        o.write(json.dumps(annotatedReads))
+    with open(outfile_2, "w") as o:
+        o.write(json.dumps(gene_position_dict))

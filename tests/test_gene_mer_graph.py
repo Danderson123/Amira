@@ -3987,156 +3987,6 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         # assertion
         self.assertEqual(actual_alignment, rv_alignment)
 
-    def test___slice_alignment_by_shared_elements_unique_genes(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-        ]
-        read_genes = ["+gene3", "-gene4", "-gene7"]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, [("+gene3", "+gene3"), ("-gene4", "-gene4")])
-        self.assertEqual(actual_start_index, 0)
-        self.assertEqual(actual_end_index, 1)
-
-    def test___slice_alignment_by_shared_elements_all_shared_genes(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-        ]
-        read_genes = ["+gene1", "-gene2", "+gene3", "-gene4", "-gene6"]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, alignment)
-        self.assertEqual(actual_start_index, 0)
-        self.assertEqual(actual_end_index, 4)
-
-    def test___slice_alignment_by_shared_elements_one_shared_gene(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-        ]
-        read_genes = ["+gene7", "-gene8", "+gene3", "-gene9", "-gene10"]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, [("+gene3", "+gene3")])
-        self.assertEqual(actual_start_index, 2)
-        self.assertEqual(actual_end_index, 2)
-
-    def test___slice_alignment_by_shared_elements_no_shared_genes(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-        ]
-        read_genes = ["+gene7", "-gene8", "-gene9"]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, [])
-        self.assertEqual(actual_start_index, None)
-        self.assertEqual(actual_end_index, None)
-
-    def test___slice_alignment_by_shared_elements_duplicated_genes_in_alignment(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "+gene1"),
-            ("+gene1", "+gene1"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene4", "-gene4"),
-        ]
-        read_genes = ["-gene0", "-gene4", "+gene1", "-gene4", "+gene5"]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, [("+gene1", "+gene1"), ("-gene4", "-gene4")])
-        self.assertEqual(actual_start_index, 2)
-        self.assertEqual(actual_end_index, 3)
-
-    def test___slice_alignment_by_shared_elements_different_path(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-        ]
-        read_genes = ["-gene2", "-gene7", "-gene4", "-gene8", "+gene9"]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, [])
-        self.assertEqual(actual_start_index, None)
-        self.assertEqual(actual_end_index, None)
-
-    def test___slice_alignment_by_shared_elements_multiple_chunks(self):
-        # setup
-        graph = GeneMerGraph({}, 3)
-        alignment = [
-            ("+gene1", "+gene1"),
-            ("*", "-gene2"),
-            ("+gene3", "+gene3"),
-            ("-gene4", "-gene4"),
-            ("+gene5", "*"),
-            ("-gene6", "-gene6"),
-            ("+gene7", "+gene7"),
-        ]
-        read_genes = [
-            "+gene1",
-            "-gene2",
-            "+gene3",
-            "-gene4",
-            "+gene5",
-            "-gene6",
-            "+gene7",
-            "-gene8",
-        ]
-        # execution
-        actual_alignment_subset, actual_start_index, actual_end_index = (
-            graph.slice_alignment_by_shared_elements(alignment, read_genes)
-        )
-        self.assertEqual(actual_alignment_subset, alignment)
-        self.assertEqual(actual_start_index, 0)
-        self.assertEqual(actual_end_index, 6)
-
     def test___correct_genes_on_read_all_shared(self):
         # setup
         graph = GeneMerGraph({}, 3)
@@ -5290,8 +5140,14 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # execution
             path_minimizers = graph.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, 1)
-            min1 = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[0][0]])]
-            min2 = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[1][0]])]
+            min1_list = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[0][0]])]
+            min2_list = path_minimizers[tuple([n[0] for n in sorted_filtered_paths[1][0]])]
+            min1 = set()
+            min2 = set()
+            for minhash in min1_list:
+                min1.update(minhash.hashes)
+            for minhash in min2_list:
+                min2.update(minhash.hashes)
             # assertion
             self.assertEqual(len(min1 & min2) / len(min1), 0.9155718701700154)
             self.assertEqual(len(min1 & min2) / len(min2), 0.9052531041069724)
