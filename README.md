@@ -52,7 +52,7 @@ singularity exec amira.img amira --help
 
 ### With Docker
 
-Amira and its dependencies can be run through Singularity. First build the container with:
+Amira and its dependencies can be run through docker. First build the container with:
 
 ```bash
 sudo singularity build amira.img Singularity.def
