@@ -2191,7 +2191,7 @@ class GeneMerGraph:
         # get the potential start nodes
         potential_bubble_starts = self.identify_potential_bubble_starts()
         # define a maximum distance
-        max_distance = self.get_kmerSize() * 5
+        max_distance = self.get_kmerSize() * 4
         # iterate through the components
         path_coverages = []
         # iterate through the components in the graph
