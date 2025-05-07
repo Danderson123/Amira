@@ -26,7 +26,7 @@ Follow these steps to install Amira and its dependencies.
 
 ### With Conda (preferred method)
 
-Amira and its dependencies can installed via conda by running:
+Amira and all depdendencies, other than Pandora, can installed via conda by running the command below. **NOTE: Amira requires Pandora v0.12.0 that cannot be installed via conda at this time. You will need to build Pandora from source or run Amira through a container.**
 
 ```bash
 conda install bioconda:amira
@@ -37,7 +37,7 @@ You can then run amira with:
 amira --help
 ```
 
-### With Singularity
+### With Singularity (preferred method)
 
 Amira and its dependencies can be run through Singularity. First build the container with:
 
@@ -49,6 +49,20 @@ You can then run amira with:
 ```bash
 singularity exec amira.img amira --help
 ```
+
+### With Docker
+
+Amira and its dependencies can be run through Singularity. First build the container with:
+
+```bash
+sudo singularity build amira.img Singularity.def
+```
+
+You can then run amira with:
+```bash
+singularity exec amira.img amira --help
+```
+
 ### With PyPI
 
 Amira can be installed from PyPI. You will need to install the non-Python dependencies separately if you opt for this method.
