@@ -379,7 +379,7 @@ def main() -> None:
     # build the gene-mer graph
     if not args.quiet:
         sys.stderr.write("\nAmira: building intitial gene-mer graph.\n")
-    graph = build_multiprocessed_graph(annotatedReads, 3, 1, gene_position_dict)
+    graph = build_multiprocessed_graph(annotatedReads, 3, args.cores, gene_position_dict)
     # get the mean node coverages at different k-mer lengths
     overall_mean_node_coverages = get_overall_mean_node_coverages(graph)
     # collect the reads that have fewer than k genes
@@ -438,7 +438,7 @@ def main() -> None:
     geneMer_size = choose_kmer_size(
         overall_mean_node_coverages[3],
         new_annotatedReads,
-        args.cores,
+        1,
         new_gene_position_dict,
         sample_genesOfInterest,
     )

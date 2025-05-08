@@ -37,6 +37,19 @@ You can then run amira with:
 singularity exec amira.img amira --help
 ```
 
+### With Conda
+
+Amira and all depdendencies, other than Pandora, can installed via conda by running the command below. **NOTE: Amira requires Pandora v0.12.0 and this cannot be installed via conda at this time. You will need to build Pandora from source and specify the path to the binary with `--pandora-path`, or run Amira through a container.**
+
+```bash
+conda install bioconda:amira
+```
+
+You can then run amira with:
+```bash
+amira --help
+```
+
 ### With PyPI
 
 Amira can be installed from PyPI. **NOTE: You will need to install the non-Python dependencies separately if you opt for this method.**
@@ -81,7 +94,7 @@ After installation, make a note of the paths to these binaries as they will be r
 
 ## Pre-built species-specific panRGs
 [Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read (see above for instructions to install Pandora). Click the relevant link below to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
-* [*Escherichia coli*](https://figshare.com/ndownloader/files/53397995)
+* [*Escherichia coli*](https://figshare.com/ndownloader/files/54318899)
 * [*Klebsiella pneumoniae*](https://figshare.com/ndownloader/files/53398349)
 * [*Enterococcus faecium*](https://figshare.com/ndownloader/files/53395052)
 * [*Staphylococcus aureus*](https://figshare.com/ndownloader/files/53577833)
