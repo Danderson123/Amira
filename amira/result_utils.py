@@ -801,6 +801,8 @@ def genotype_promoters(
                 phenotypes,
                 debug,
                 minimap2_path,
+                0.9,
+                0.9,
                 samtools_path,
             )
             # skip if no allele was similar
