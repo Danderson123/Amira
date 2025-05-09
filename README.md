@@ -26,7 +26,7 @@ Follow these steps to install Amira and its dependencies.
 
 ### With Singularity (preferred method)
 
-Amira and its dependencies can be run through Singularity. First build the container with:
+Amira and its dependencies can be run through Singularity. A prebuilt singularity container can be found with each Release. Run this to build the container:
 
 ```bash
 sudo singularity build amira.img Singularity.def

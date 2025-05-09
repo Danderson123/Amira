@@ -42,7 +42,7 @@ class GeneMerGraph:
         self._shortReads = {}
         self._readsToCorrect = set()
         # initialise the graph
-        for readId in tqdm(self.get_reads()):
+        for readId in self.get_reads():
             if self.get_gene_positions():
                 read = Read(readId, self.get_reads()[readId], self.get_gene_positions()[readId])
             else:
@@ -2132,7 +2132,7 @@ class GeneMerGraph:
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
         for node_hash in batch:
             node = self.get_node_by_hash(node_hash)
-            minhash = sourmash.MinHash(n=0, ksize=13, scaled=10)
+            minhash = sourmash.MinHash(n=0, ksize=11, scaled=10)
             for read in node.get_reads():
                 indices = [i for i, n in enumerate(self.get_readNodes()[read]) if n == node_hash]
                 positions = [self.get_readNodePositions()[read][i] for i in indices]
