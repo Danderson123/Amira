@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.1](https://github.com/Danderson123/Amira/compare/v0.9.0...v0.9.1) (2025-05-09)
+
+
+### Documentation
+
+* update E. coli panRG link ([d1199d8](https://github.com/Danderson123/Amira/commit/d1199d8a41429d57db7e6c9cf0e5f41f24ade83c))
+
+
+### Bug Fixes
+
+* limit graph building to 1 CPU to bypass slow runtimes across multiple CPUs, and update README with new E. coli panRG ([c93cabe](https://github.com/Danderson123/Amira/commit/c93cabe0c3c162503f0845121b2578518a838563))
+
+
+### Styles
+
+* pre-commit reformatting ([6abd6df](https://github.com/Danderson123/Amira/commit/6abd6dfb089c66e0632cdf00c59ea36af2d88f09))
+
 ## [0.9.0](https://github.com/Danderson123/Amira/compare/v0.8.0...v0.9.0) (2025-05-07)
 
 
