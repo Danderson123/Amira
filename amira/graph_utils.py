@@ -8,6 +8,7 @@ from scipy.signal import find_peaks, savgol_filter
 
 from amira.construct_graph import GeneMerGraph
 
+
 def build_graph(read_dict, kmer_size, gene_positions=None):
     graph = GeneMerGraph(read_dict, kmer_size, gene_positions)
     return graph

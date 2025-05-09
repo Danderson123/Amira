@@ -389,9 +389,7 @@ def main() -> None:
     if not args.no_trim:
         graph.remove_non_AMR_associated_nodes(sample_genesOfInterest)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-        graph = build_multiprocessed_graph(
-            new_annotatedReads, 3, 1, new_gene_position_dict
-        )
+        graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
     try:
         min_path_coverage = plot_node_coverages(
             graph.get_all_node_coverages(),
@@ -464,9 +462,7 @@ def main() -> None:
     # build the corrected gene-mer graph
     if not args.quiet:
         sys.stderr.write("\nAmira: building corrected gene-mer graph.\n")
-    graph = build_multiprocessed_graph(
-        new_annotatedReads, geneMer_size, 1, new_gene_position_dict
-    )
+    graph = build_multiprocessed_graph(new_annotatedReads, geneMer_size, 1, new_gene_position_dict)
     # write out the corrected gene calls
     write_pandora_gene_calls(
         args.output_dir,
