@@ -253,7 +253,7 @@ def write_debug_files(
     cores: int,
 ) -> GeneMerGraph:
     sys.stderr.write("\nAmira: building pre-correction gene-mer graph.\n")
-    raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, cores)
+    raw_graph = build_multiprocessed_graph(annotatedReads, geneMer_size, 1)
     # color nodes in the graph
     for node in raw_graph.all_nodes():
         node.color_node(genesOfInterest)
@@ -389,9 +389,7 @@ def main() -> None:
     if not args.no_trim:
         graph.remove_non_AMR_associated_nodes(sample_genesOfInterest)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-        graph = build_multiprocessed_graph(
-            new_annotatedReads, 3, args.cores, new_gene_position_dict
-        )
+        graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
     try:
         min_path_coverage = plot_node_coverages(
             graph.get_all_node_coverages(),
@@ -404,14 +402,13 @@ def main() -> None:
     new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
         graph.remove_junk_reads(0.80)
     )
-
     node_min_coverage = args.node_min_coverage
     if not args.quiet:
         message = "\nAmira: removing low coverage components "
         message += f"and nodes with coverage < {node_min_coverage}.\n"
         sys.stderr.write(message)
     # rebuild the graph
-    graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
@@ -420,7 +417,7 @@ def main() -> None:
     new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
 
     # rebuild the graph
-    graph = build_multiprocessed_graph(new_annotatedReads, 3, args.cores, new_gene_position_dict)
+    graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
     # collect the reads that have fewer than k genes
     short_reads.update(graph.get_short_read_annotations())
     short_read_gene_positions.update(graph.get_short_read_gene_positions())
@@ -438,7 +435,7 @@ def main() -> None:
     geneMer_size = choose_kmer_size(
         overall_mean_node_coverages[3],
         new_annotatedReads,
-        args.cores,
+        1,
         new_gene_position_dict,
         sample_genesOfInterest,
     )
@@ -465,9 +462,7 @@ def main() -> None:
     # build the corrected gene-mer graph
     if not args.quiet:
         sys.stderr.write("\nAmira: building corrected gene-mer graph.\n")
-    graph = build_multiprocessed_graph(
-        new_annotatedReads, geneMer_size, args.cores, new_gene_position_dict
-    )
+    graph = build_multiprocessed_graph(new_annotatedReads, geneMer_size, 1, new_gene_position_dict)
     # write out the corrected gene calls
     write_pandora_gene_calls(
         args.output_dir,

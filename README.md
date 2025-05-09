@@ -69,7 +69,7 @@ poetry install
 You will need to install the non-Python dependencies separately if you opt for this method.
 
 ### Installing Non-Python Dependencies
-Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below for instructions on building binaries for each tool:
+Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below for instructions on building binaries for each tool. **The easiest way to run Pandora is through a binary that is precompiled for Linux, available from [here](https://github.com/iqbal-lab-org/pandora/releases/download/0.12.0-alpha.0/pandora-linux-precompiled-v0.12.0-alpha.0).**
 
 - [Pandora installation guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
 - [minimap2 installation guide](https://github.com/lh3/minimap2)
@@ -81,7 +81,7 @@ After installation, make a note of the paths to these binaries as they will be r
 
 ## Pre-built species-specific panRGs
 [Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read (see above for instructions to install Pandora). Click the relevant link below to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
-* [*Escherichia coli*](https://figshare.com/ndownloader/files/53397995)
+* [*Escherichia coli*](https://figshare.com/ndownloader/files/54318899)
 * [*Klebsiella pneumoniae*](https://figshare.com/ndownloader/files/53398349)
 * [*Enterococcus faecium*](https://figshare.com/ndownloader/files/53395052)
 * [*Staphylococcus aureus*](https://figshare.com/ndownloader/files/53577833)

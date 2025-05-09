@@ -42,7 +42,7 @@ class GeneMerGraph:
         self._shortReads = {}
         self._readsToCorrect = set()
         # initialise the graph
-        for readId in self.get_reads():
+        for readId in tqdm(self.get_reads()):
             if self.get_gene_positions():
                 read = Read(readId, self.get_reads()[readId], self.get_gene_positions()[readId])
             else:
