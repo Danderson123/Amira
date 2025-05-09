@@ -37,19 +37,6 @@ You can then run amira with:
 singularity exec amira.img amira --help
 ```
 
-### With Conda
-
-Amira and all depdendencies, other than Pandora, can installed via conda by running the command below. **NOTE: Amira requires Pandora v0.12.0 and this cannot be installed via conda at this time. You will need to build Pandora from source and specify the path to the binary with `--pandora-path`, or run Amira through a container.**
-
-```bash
-conda install bioconda:amira
-```
-
-You can then run amira with:
-```bash
-amira --help
-```
-
 ### With PyPI
 
 Amira can be installed from PyPI. **NOTE: You will need to install the non-Python dependencies separately if you opt for this method.**
@@ -82,7 +69,7 @@ poetry install
 You will need to install the non-Python dependencies separately if you opt for this method.
 
 ### Installing Non-Python Dependencies
-Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below for instructions on building binaries for each tool:
+Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below for instructions on building binaries for each tool. **The easiest way to run Pandora is through a binary that is precompiled for Linux, available from [here](https://github.com/iqbal-lab-org/pandora/releases/download/0.12.0-alpha.0/pandora-linux-precompiled-v0.12.0-alpha.0).**
 
 - [Pandora installation guide](https://github.com/iqbal-lab-org/pandora?tab=readme-ov-file#installation)
 - [minimap2 installation guide](https://github.com/lh3/minimap2)
