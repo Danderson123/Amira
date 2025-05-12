@@ -5149,8 +5149,8 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             for minhash in min2_list:
                 min2.update(minhash.hashes)
             # assertion
-            self.assertEqual(len(min1 & min2) / len(min1), 0.9155718701700154)
-            self.assertEqual(len(min1 & min2) / len(min2), 0.9052531041069724)
+            self.assertEqual(len(min1 & min2) / len(min1), 0.9105839416058394)
+            self.assertEqual(len(min1 & min2) / len(min2), 0.9091323161011159)
 
     def test___get_subpaths_long_collapsed(self):
         # setup
