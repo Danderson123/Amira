@@ -445,6 +445,13 @@ def main() -> None:
         sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}.\n")
     # correct the graph
     cleaning_iterations = 30
+    write_pandora_gene_calls(
+        args.output_dir,
+        new_gene_position_dict,
+        new_annotatedReads,
+        os.path.join(args.output_dir, "gene_calls_with_gene_filtering.json"),
+        os.path.join(args.output_dir, "gene_positions_with_gene_filtering.json"),
+    )
     new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
         new_annotatedReads,
         new_gene_position_dict,
