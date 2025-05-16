@@ -143,12 +143,12 @@ def iterative_bubble_popping(
     for this_iteration in range(cleaning_iterations):
         sys.stderr.write(f"\nAmira: running graph cleaning iteration {this_iteration+1}\n")
         graph = build_multiprocessed_graph(
-            new_annotatedReads, geneMer_size, cores, new_gene_position_dict
+            new_annotatedReads, geneMer_size, 1, new_gene_position_dict
         )
         graph.filter_graph(node_min_coverage, 1)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         graph = build_multiprocessed_graph(
-            new_annotatedReads, geneMer_size, cores, new_gene_position_dict
+            new_annotatedReads, geneMer_size, 1, new_gene_position_dict
         )
         # check if the current number of nodes is equal to the previous number of nodes
         if len(graph.get_nodes()) == prev_nodes:
@@ -163,7 +163,7 @@ def iterative_bubble_popping(
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
 
         graph = build_multiprocessed_graph(
-            new_annotatedReads, geneMer_size, cores, new_gene_position_dict
+            new_annotatedReads, geneMer_size, 1, new_gene_position_dict
         )
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
