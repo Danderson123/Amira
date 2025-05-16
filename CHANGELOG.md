@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.2](https://github.com/Danderson123/Amira/compare/v0.9.1...v0.9.2) (2025-05-16)
+
+
+### Bug Fixes
+
+* correct shortest paths first ([eeb77b5](https://github.com/Danderson123/Amira/commit/eeb77b51c9a64f7cb5599c98cd1734f0547be1f4))
+* missing arguements when genotyping promoters ([f47e5e8](https://github.com/Danderson123/Amira/commit/f47e5e8df1baaa92105a7178da18cf1402efb952))
+* reduce sourmash k to marginally improve precision ([94fc4ef](https://github.com/Danderson123/Amira/commit/94fc4ef55b77c8d9df111c0e2a0d8192b3709618))
+* remove overwriting of JSON annotations ([6e71c13](https://github.com/Danderson123/Amira/commit/6e71c1329e420fc937fb74509e5aeecc7a48b0a9))
+* update unittests for new sourmash params ([b0d951e](https://github.com/Danderson123/Amira/commit/b0d951e10fe2a7f2f21d2d282b24cbdf7e44db0c))
+* use a single core to build the graph in the graph correction stage ([06cf34d](https://github.com/Danderson123/Amira/commit/06cf34dce6f492dd74f7d35fbf36c5c49ec5cdf5))
+
 ## [0.9.1](https://github.com/Danderson123/Amira/compare/v0.9.0...v0.9.1) (2025-05-09)
 
 
