@@ -168,7 +168,7 @@ def filter_results(
                 continue
             else:
                 if skip_depth_filtering is False:
-                    relative_depth = row["Mean read depth"] / mean_read_depth
+                    relative_depth = row["Relative mean read depth"]
                     if relative_depth < min_relative_depth:
                         message = f"\nAmira: allele {row['Amira allele']} removed "
                         message += "due to insufficient relative read depth "
@@ -1142,7 +1142,7 @@ def estimate_copy_numbers(
             normalised_depths[allele_name] = depth_estimate / (
                 read_depth * gene_counts[path_id][gene]
             )
-            mean_depth_per_reference[allele_name] = depth_estimate
+            mean_depth_per_reference[allele_name] = depth_estimate / read_depth
     return normalised_depths, mean_depth_per_reference
 
 
@@ -1237,7 +1237,7 @@ def supplement_result_df(
         estimates.append(copy_numbers[row["Amira allele"]])
         copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
         read_lengths.append(longest_read_lengths[row["Amira allele"]])
-    result_df["Mean read depth"] = copy_depths
+    result_df["Relative mean read depth"] = copy_depths
     result_df["Approximate cellular copy number"] = estimates
     if debug:
         result_df["Longest read length"] = read_lengths
