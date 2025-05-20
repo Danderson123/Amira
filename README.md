@@ -32,7 +32,7 @@ Amira and its dependencies can be run through Singularity. A prebuilt singularit
 sudo singularity build amira.img Singularity.def
 ```
 
-You can then run amira with:
+You can then run amira with the command below. **NOTE: If you use the singularity container you do not need to specify the paths to any of the non-python dependencies. Amira will find them in the container automatically.**
 ```bash
 singularity exec amira.img amira --help
 ```
