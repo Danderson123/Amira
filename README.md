@@ -37,6 +37,19 @@ You can then run amira with the command below. **NOTE: If you use the singularit
 singularity exec amira.img amira --help
 ```
 
+### With Conda
+
+Amira and all depdendencies, other than Pandora, can installed via conda by running the command below. **NOTE: Amira requires Pandora v0.12.0 and this cannot be installed via conda at this time. You will need to build Pandora from source and specify the path to the binary with `--pandora-path`, or run Amira through a container.**
+
+```bash
+conda install amira -c bioconda
+```
+
+You can then run amira with:
+```bash
+amira --help
+```
+
 ### With PyPI
 
 Amira can be installed from PyPI. **NOTE: You will need to install the non-Python dependencies separately if you opt for this method.**
