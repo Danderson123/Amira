@@ -439,6 +439,7 @@ def get_longest_covered_region(depth_list):
             last_index = len(depth_list) - 1
     return first_index, last_index
 
+
 def get_ref_allele_pileups(bam_file, output_dir):
     read_depths = []
     ref_allele_positions = {}
@@ -464,7 +465,9 @@ def get_ref_allele_pileups(bam_file, output_dir):
             # get the first and last non-zero element of continugous blocks
             first_index, last_index = get_longest_covered_region(depth_list)
             ref_allele_positions[ref] = (first_index, last_index)
-            cov_proportion[ref] = (last_index - first_index + 1) / len(depth_list) if first_index is not None else 0
+            cov_proportion[ref] = (
+                (last_index - first_index + 1) / len(depth_list) if first_index is not None else 0
+            )
     # Write the read depths to the output file
     output_file_path = os.path.join(output_dir, "reference_allele_coverages.txt")
     with open(output_file_path, "w") as output_file:
@@ -508,10 +511,6 @@ def compare_reads_to_references(
     validity, references, unique_reads = get_closest_allele(
         bam_file, "reads", required_identity, required_coverage, ref_cov_proportion
     )
-    if "sat4_1" in allele_name:
-        print(ref_cov_proportion)
-        print(references)
-        sss
     if validity is True:
         (
             valid_allele,
