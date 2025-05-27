@@ -129,6 +129,7 @@ def filter_results(
     required_identity,
     required_coverage,
     mean_read_depth,
+    plasmid_genes
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
@@ -142,6 +143,7 @@ def filter_results(
         skip_depth_filtering = False
     # modify required coverage to make a percentage
     required_coverage = required_coverage * 100
+    required_identity = required_identity * 100
     for index, row in result_df.iterrows():
         # store comments about this allele
         flags = []
@@ -182,7 +184,7 @@ def filter_results(
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
             all(
-                g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])]
+                g[1:] in sample_genesOfInterest or g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])]
             )
             for r in reads
         ):
@@ -518,29 +520,7 @@ def compare_reads_to_references(
                     samtools_path,
                 )
             except subprocess.CalledProcessError:
-                try:
-                    gene_name = valid_allele.split(".")[0]
-                    closest_ref = valid_allele.split(".")[1]
-                except IndexError:
-                    gene_name = "_".join(allele_name.split("_")[:-1])
-                    closest_ref = valid_allele
-                # report the phenotype if there is one
-                if valid_allele in phenotypes:
-                    phenotype = phenotypes[valid_allele]
-                else:
-                    phenotype = ""
-                # return the result
-                return {
-                    "Determinant name": gene_name,
-                    "Sequence name": phenotype,
-                    "Closest reference": closest_ref,
-                    "Reference length": match_length,
-                    "Identity (%)": 0,
-                    "Coverage (%)": 0,
-                    "Cigar string": "",
-                    "Amira allele": allele_name,
-                    "Number of reads used for polishing": len(unique_reads),
-                }
+                sys,stderr.write("\nAmira: Error running racon. Please submit a GitHub issue.\n")
         bam_file = map_reads(
             output_dir,
             os.path.join(output_dir, "01.reference_alleles.fasta"),
