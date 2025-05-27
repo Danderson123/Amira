@@ -1,5 +1,118 @@
 # Changelog
 
+## [0.9.2](https://github.com/Danderson123/Amira/compare/v0.9.1...v0.9.2) (2025-05-16)
+
+
+### Bug Fixes
+
+* correct shortest paths first ([eeb77b5](https://github.com/Danderson123/Amira/commit/eeb77b51c9a64f7cb5599c98cd1734f0547be1f4))
+* missing arguements when genotyping promoters ([f47e5e8](https://github.com/Danderson123/Amira/commit/f47e5e8df1baaa92105a7178da18cf1402efb952))
+* reduce sourmash k to marginally improve precision ([94fc4ef](https://github.com/Danderson123/Amira/commit/94fc4ef55b77c8d9df111c0e2a0d8192b3709618))
+* remove overwriting of JSON annotations ([6e71c13](https://github.com/Danderson123/Amira/commit/6e71c1329e420fc937fb74509e5aeecc7a48b0a9))
+* update unittests for new sourmash params ([b0d951e](https://github.com/Danderson123/Amira/commit/b0d951e10fe2a7f2f21d2d282b24cbdf7e44db0c))
+* use a single core to build the graph in the graph correction stage ([06cf34d](https://github.com/Danderson123/Amira/commit/06cf34dce6f492dd74f7d35fbf36c5c49ec5cdf5))
+
+## [0.9.1](https://github.com/Danderson123/Amira/compare/v0.9.0...v0.9.1) (2025-05-09)
+
+
+### Documentation
+
+* update E. coli panRG link ([d1199d8](https://github.com/Danderson123/Amira/commit/d1199d8a41429d57db7e6c9cf0e5f41f24ade83c))
+
+
+### Bug Fixes
+
+* limit graph building to 1 CPU to bypass slow runtimes across multiple CPUs, and update README with new E. coli panRG ([c93cabe](https://github.com/Danderson123/Amira/commit/c93cabe0c3c162503f0845121b2578518a838563))
+
+
+### Styles
+
+* pre-commit reformatting ([6abd6df](https://github.com/Danderson123/Amira/commit/6abd6dfb089c66e0632cdf00c59ea36af2d88f09))
+
+## [0.9.0](https://github.com/Danderson123/Amira/compare/v0.8.0...v0.9.0) (2025-05-07)
+
+
+### Continuous Integration
+
+* do not test on python 3.9 ([ae1de18](https://github.com/Danderson123/Amira/commit/ae1de18cbc2f791417ff71ff63a21816157ec75a))
+* do not test on python 3.9 ([d33391e](https://github.com/Danderson123/Amira/commit/d33391e1e13313dbbff7e26cc81bc20474664796))
+* test on python 3.12 ([a6dc2c1](https://github.com/Danderson123/Amira/commit/a6dc2c149a5feada6d9fe77c57819fdac8951901))
+
+
+### Miscellaneous Chores
+
+* support S. pneumoniae and S. aureus ([31e0b0a](https://github.com/Danderson123/Amira/commit/31e0b0a81b2f394e189876b3c25f0d70e45a9aa4))
+* support S. pneumoniae and S. aureus ([44eebb8](https://github.com/Danderson123/Amira/commit/44eebb84a5dee9d7c5659a51d4be3ad726224106))
+* version bump ([93418c5](https://github.com/Danderson123/Amira/commit/93418c5fdd9cc4ccc60ff19fc69603ba8dc98d7c))
+* version bump ([d9ffa24](https://github.com/Danderson123/Amira/commit/d9ffa2419fb93ecdff8052d46ddadbd57e44dcda))
+
+
+### Documentation
+
+* fix README ([03d6f40](https://github.com/Danderson123/Amira/commit/03d6f40818c8877867da1bb41b73a76e8d5dcc54))
+* specify pandora version ([9fd68ab](https://github.com/Danderson123/Amira/commit/9fd68abd0b32c681b383a15380eba1d10fdd7e12))
+* update download links in README ([20f278a](https://github.com/Danderson123/Amira/commit/20f278a7704abdc5043588ea7f99ad2510a878b9))
+* update README ([46a2058](https://github.com/Danderson123/Amira/commit/46a2058c1a39bacdbc7bf9dcafa53dff587592bc))
+* update README ([17c555b](https://github.com/Danderson123/Amira/commit/17c555b06b1046a0169072e29dfbf679a0c00bd0))
+* update README ([27a6c37](https://github.com/Danderson123/Amira/commit/27a6c372b2d3424b3976aebde06314251da018b4))
+* update README ([f630555](https://github.com/Danderson123/Amira/commit/f6305557365028424949e885f32aebe1fe6c6332))
+* update README ([84af8be](https://github.com/Danderson123/Amira/commit/84af8be75cd2f8c8f5aa8bbe6b15eccdb85547a1))
+
+
+### Features
+
+* add SA and SP files ([fe041ef](https://github.com/Danderson123/Amira/commit/fe041ef5d372f082276e5d2fda0710cc037f98f3))
+* increase subsample size ([0f0e353](https://github.com/Danderson123/Amira/commit/0f0e353927a30efd2c7562ef3999f141fe93b975))
+* refactor graph correction to massively improve runtime ([70a8d66](https://github.com/Danderson123/Amira/commit/70a8d66e27cbf54aea58a3ed62b47fcdf325c1be))
+
+
+### Bug Fixes
+
+* allow reads with .fq extension ([38cf4db](https://github.com/Danderson123/Amira/commit/38cf4dba0e24771ca2895ad9131a5c7eede0b99b))
+* allow reads with .fq extension ([8c3ac75](https://github.com/Danderson123/Amira/commit/8c3ac75a91fb5f3758c0cb0b96cb7912652ea1e1))
+* allow underscores in read identifiers ([d2a3826](https://github.com/Danderson123/Amira/commit/d2a3826af38c328397fad3a3ed029f89b1e9af09))
+* allow underscores in read identifiers ([d135d96](https://github.com/Danderson123/Amira/commit/d135d968ddd2a29a62d088c8e00d31e30a4328bd))
+* attempt optimisation ([61cae8f](https://github.com/Danderson123/Amira/commit/61cae8f5887d6d81939e509648d27f7d38a7111c))
+* bring up to speed with dev ([d50bb5f](https://github.com/Danderson123/Amira/commit/d50bb5f6117b2f892a53def33070aff578e18914))
+* do not delete uncompressed fastq ([ea151b6](https://github.com/Danderson123/Amira/commit/ea151b6185e8752cb9c514498badc9a956699aee))
+* do not write a modified fastq file ([59c013c](https://github.com/Danderson123/Amira/commit/59c013c28c57400d3d86732f57c4d21c50a85136))
+* extend bubble popping path length ([6978c20](https://github.com/Danderson123/Amira/commit/6978c20ee283c54fb33671fdc491fc42e6851722))
+* file path fix ([0a94737](https://github.com/Danderson123/Amira/commit/0a9473710c13996c3a4c2cec7f5c33df5cb5ba2c))
+* fix bug in modifying read identifiers ([d309f47](https://github.com/Danderson123/Amira/commit/d309f473eebb0b92d759f2701b4de01e22d8a967))
+* fix parsing of non-gzipped fastq ([4760b2c](https://github.com/Danderson123/Amira/commit/4760b2cbe0b23d402f92662237ee486dba2f45b0))
+* fix unittests ([6610dc9](https://github.com/Danderson123/Amira/commit/6610dc962a5c192e26b14c32a66a7fec5699b0c8))
+* further attempts to optimise bubble popping ([e43b0b5](https://github.com/Danderson123/Amira/commit/e43b0b55b787f726b59d89c3c1e8c39fb7d351ed))
+* missing output dir ([b3d62d1](https://github.com/Danderson123/Amira/commit/b3d62d19d3a7d16da86d7c85c47fdc88ef407f24))
+* missing output dir ([ffa58c0](https://github.com/Danderson123/Amira/commit/ffa58c0ad9b5d04517470461a3a4853dec76db97))
+* new fastq path ([2de66e7](https://github.com/Danderson123/Amira/commit/2de66e7558a9ec733a9c9f06834dfd4ba84f60f6))
+* new fastq path ([c3c4574](https://github.com/Danderson123/Amira/commit/c3c4574051539953ef8ab0e26e88db744e69a261))
+* optimise path correction filtering ([be6dd67](https://github.com/Danderson123/Amira/commit/be6dd67e310bd378f9b5ddb834c8b89d9002ce49))
+* optimise path filtering with suffix trees ([dd2a08a](https://github.com/Danderson123/Amira/commit/dd2a08aef097056115a7758ce857c0feb32d3bf6))
+* optimise path filtering, leads to 10x speedup in some cases ([fb2e871](https://github.com/Danderson123/Amira/commit/fb2e8715753b5a5ccc8d8e04c51b6e0d5a496cd4))
+* prevent unnecessary path comparisons ([4af472c](https://github.com/Danderson123/Amira/commit/4af472cc6568126516bd91fda3a390159b659421))
+* progress reporting fix ([2781493](https://github.com/Danderson123/Amira/commit/2781493f267bc3306edd13687f7f5a732671ea44))
+* reduce bubble popping path length slightly ([18caf38](https://github.com/Danderson123/Amira/commit/18caf38ca4c8210d964503868585ea75682a3472))
+* reduce sourmash version ([2199d35](https://github.com/Danderson123/Amira/commit/2199d35b94da58abdaf963a6e5a1c782552e9c24))
+* remove bounds from k-mer cutoff estimation ([128c8f2](https://github.com/Danderson123/Amira/commit/128c8f20552472ad3b6217583f2fc222d76c2f42))
+* remove debug line ([d0b3c04](https://github.com/Danderson123/Amira/commit/d0b3c043a6bf6be73fbed16b096268b86258e4a0))
+* remove debug message ([85c6713](https://github.com/Danderson123/Amira/commit/85c6713fce0eee352967b497713c22ea970e25f7))
+* remove unnecessary progress report ([18c28d2](https://github.com/Danderson123/Amira/commit/18c28d2b499f31a25eac76cfdb24aa0c77134434))
+* revert optimisation attempt ([22b5ec5](https://github.com/Danderson123/Amira/commit/22b5ec5af0164842595f46485f9eaa1c618c7f82))
+
+
+### Styles
+
+* pre-commit reformatting ([3db9704](https://github.com/Danderson123/Amira/commit/3db9704d6fd8e803c8ffae72a5e07ae129434ebd))
+* pre-commit reformatting ([eab1299](https://github.com/Danderson123/Amira/commit/eab12999a4b7f1bba9639e4b4ba901a9739c35b6))
+* pre-commit reformatting ([9283732](https://github.com/Danderson123/Amira/commit/928373253dd59940ce2caac8c8a9bf94277c7e43))
+* pre-commit reformatting ([01cc43c](https://github.com/Danderson123/Amira/commit/01cc43cc170b78d8aeded6b7943e29bb6d4649fb))
+* pre-commit reformatting ([78bc7fc](https://github.com/Danderson123/Amira/commit/78bc7fc5c6da1ae1c6c55770a7c26285a0ca462f))
+* pre-commit reformatting ([cf0e509](https://github.com/Danderson123/Amira/commit/cf0e5098a22dd83110dda37e68da6a7789f0c8e2))
+* pre-commit reformattng ([e1d7bf0](https://github.com/Danderson123/Amira/commit/e1d7bf01999e9c11ffdebfedd233d0336fbb4805))
+* refactor main function ([e592795](https://github.com/Danderson123/Amira/commit/e59279512cb9933e4f22f9214128a59c1f71abb8))
+* remove redundant reporting ([d1ad5a0](https://github.com/Danderson123/Amira/commit/d1ad5a0cd4843079aa3195b50aec1d74385f963c))
+* rename cellular copy number column ([01adc54](https://github.com/Danderson123/Amira/commit/01adc5442c1220f606b2212b4b7a192b93c459de))
+
 ## [0.8.0](https://github.com/Danderson123/Amira/compare/v0.7.0...v0.8.0) (2025-03-25)
 
 
