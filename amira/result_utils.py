@@ -129,7 +129,7 @@ def filter_results(
     required_identity,
     required_coverage,
     mean_read_depth,
-    plasmid_genes
+    plasmid_genes,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
@@ -184,7 +184,8 @@ def filter_results(
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
             all(
-                g[1:] in sample_genesOfInterest or g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])]
+                g[1:] in sample_genesOfInterest or g[1:] in sample_genesOfInterest
+                for g in annotatedReads["_".join(r.split("_")[:-2])]
             )
             for r in reads
         ):
@@ -520,7 +521,7 @@ def compare_reads_to_references(
                     samtools_path,
                 )
             except subprocess.CalledProcessError:
-                sys,stderr.write("\nAmira: Error running racon. Please submit a GitHub issue.\n")
+                sys.stderr.write("\nAmira: Error running racon. Please submit a GitHub issue.\n")
         bam_file = map_reads(
             output_dir,
             os.path.join(output_dir, "01.reference_alleles.fasta"),

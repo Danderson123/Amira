@@ -92,7 +92,9 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
     return gene_name, strandlessGene
 
 
-def load_species_specific_files(species, AMR_gene_reference_FASTA, sequence_names, core_genes, plasmid_genes):
+def load_species_specific_files(
+    species, AMR_gene_reference_FASTA, sequence_names, core_genes, plasmid_genes
+):
     from pathlib import Path
 
     if AMR_gene_reference_FASTA is None or sequence_names is None or core_genes is None:
