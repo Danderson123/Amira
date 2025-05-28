@@ -462,12 +462,18 @@ def get_ref_allele_pileups(bam_file, output_dir):
             # Convert the depth list to a string format
             depth_list_str = ",".join(map(str, depth_list))
             read_depths.append(f">{ref}\n{depth_list_str}")
-            # get the first and last non-zero element of continugous blocks
-            first_index, last_index = get_longest_covered_region(depth_list)
+            # get the first and last non-zero element
+            try:
+                first_index = depth_list.index(next(x for x in depth_list if x != 0))
+                last_index = (
+                    len(depth_list)
+                    - 1
+                    - depth_list[::-1].index(next(x for x in reversed(depth_list) if x != 0))
+                )
+            except StopIteration:
+                first_index, last_index = None, None
             ref_allele_positions[ref] = (first_index, last_index)
-            cov_proportion[ref] = (
-                (last_index - first_index + 1) / len(depth_list) if first_index is not None else 0
-            )
+            cov_proportion[ref] = len([d for d in depth_list if d != 0]) / len(depth_list)
     # Write the read depths to the output file
     output_file_path = os.path.join(output_dir, "reference_allele_coverages.txt")
     with open(output_file_path, "w") as output_file:
