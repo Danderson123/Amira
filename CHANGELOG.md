@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.9.3](https://github.com/Danderson123/Amira/compare/v0.9.2...v0.9.3) (2025-05-29)
+
+
+### Miscellaneous Chores
+
+* version bump ([f4e38d8](https://github.com/Danderson123/Amira/commit/f4e38d897644b05680ac7e66088a23913bfb62f3))
+
+
+### Documentation
+
+* add citation ([736de7c](https://github.com/Danderson123/Amira/commit/736de7c690544a74a0bf4fc9e09f71249c0adbdc))
+* add conda install commands ([c5a6e6e](https://github.com/Danderson123/Amira/commit/c5a6e6e82b00bc7cc5dd452eb3b059e0f0a664bf))
+* update README ([69a9978](https://github.com/Danderson123/Amira/commit/69a99786fdf6fb7ccf9758d9a6af32cb7a6fe010))
+
+
+### Bug Fixes
+
+* add KP plasmid gene files ([4ca3672](https://github.com/Danderson123/Amira/commit/4ca3672a72acd73ad4d076ef6a2104dd6c012c14))
+* add SA and SP plasmid gene files ([0b8683e](https://github.com/Danderson123/Amira/commit/0b8683ea35ffe48f73a4b2f9d9ddfe0520b6728c))
+* fix for underestimation of relative read depth in some cases ([347e5d4](https://github.com/Danderson123/Amira/commit/347e5d444429b6427955e23ae96619c47b012135))
+* improper filtering of low identity genes ([4a3ddf5](https://github.com/Danderson123/Amira/commit/4a3ddf5333e5d15d514a64690f0d8c90d89b3bd6))
+* pre-commit formatting ([2c2950a](https://github.com/Danderson123/Amira/commit/2c2950a514662ce67172a000d2fe320b02bee700))
+* properly report coverage across genes with no fully covering reads ([2585180](https://github.com/Danderson123/Amira/commit/25851806bd432ba195a0d500690b7e1075a1fa7a))
+* remove debug line ([c67ec67](https://github.com/Danderson123/Amira/commit/c67ec67da1e3bac89ab41767ce6dc7fc79e9aa42))
+* undo coverage check change ([74e85ba](https://github.com/Danderson123/Amira/commit/74e85bab37f49d0d8e651f10c685ea3e663093fd))
+* update setuptools version ([716b405](https://github.com/Danderson123/Amira/commit/716b4051ba8a433d5e50cc87d9a125364e566f09))
+
 ## [0.9.2](https://github.com/Danderson123/Amira/compare/v0.9.1...v0.9.2) (2025-05-16)
 
 
