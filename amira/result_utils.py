@@ -129,6 +129,7 @@ def filter_results(
     required_identity,
     required_coverage,
     mean_read_depth,
+    plasmid_genes,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
@@ -142,6 +143,7 @@ def filter_results(
         skip_depth_filtering = False
     # modify required coverage to make a percentage
     required_coverage = required_coverage * 100
+    required_identity = required_identity * 100
     for index, row in result_df.iterrows():
         # store comments about this allele
         flags = []
@@ -168,7 +170,7 @@ def filter_results(
                 continue
             else:
                 if skip_depth_filtering is False:
-                    relative_depth = row["Mean read depth"] / mean_read_depth
+                    relative_depth = row["Relative mean read depth"]
                     if relative_depth < min_relative_depth:
                         message = f"\nAmira: allele {row['Amira allele']} removed "
                         message += "due to insufficient relative read depth "
@@ -182,7 +184,8 @@ def filter_results(
         reads = supplemented_clusters_of_interest[row["Amira allele"]]
         if all(
             all(
-                g[1:] in sample_genesOfInterest for g in annotatedReads["_".join(r.split("_")[:-2])]
+                g[1:] in sample_genesOfInterest or g[1:] in sample_genesOfInterest
+                for g in annotatedReads["_".join(r.split("_")[:-2])]
             )
             for r in reads
         ):
@@ -411,6 +414,32 @@ def get_closest_allele(
         return False, invalid_references, unique_reads
 
 
+def get_longest_covered_region(depth_list):
+    first_index = None
+    last_index = None
+    max_len = 0
+    current_start = None
+    for i, val in enumerate(depth_list):
+        if val != 0:
+            if current_start is None:
+                current_start = i
+        else:
+            if current_start is not None:
+                current_len = i - current_start
+                if current_len > max_len:
+                    max_len = current_len
+                    first_index = current_start
+                    last_index = i - 1
+                current_start = None
+    # Handle case where list ends with non-zero values
+    if current_start is not None:
+        current_len = len(depth_list) - current_start
+        if current_len > max_len:
+            first_index = current_start
+            last_index = len(depth_list) - 1
+    return first_index, last_index
+
+
 def get_ref_allele_pileups(bam_file, output_dir):
     read_depths = []
     ref_allele_positions = {}
@@ -518,29 +547,7 @@ def compare_reads_to_references(
                     samtools_path,
                 )
             except subprocess.CalledProcessError:
-                try:
-                    gene_name = valid_allele.split(".")[0]
-                    closest_ref = valid_allele.split(".")[1]
-                except IndexError:
-                    gene_name = "_".join(allele_name.split("_")[:-1])
-                    closest_ref = valid_allele
-                # report the phenotype if there is one
-                if valid_allele in phenotypes:
-                    phenotype = phenotypes[valid_allele]
-                else:
-                    phenotype = ""
-                # return the result
-                return {
-                    "Determinant name": gene_name,
-                    "Sequence name": phenotype,
-                    "Closest reference": closest_ref,
-                    "Reference length": match_length,
-                    "Identity (%)": 0,
-                    "Coverage (%)": 0,
-                    "Cigar string": "",
-                    "Amira allele": allele_name,
-                    "Number of reads used for polishing": len(unique_reads),
-                }
+                sys.stderr.write("\nAmira: Error running racon. Please submit a GitHub issue.\n")
         bam_file = map_reads(
             output_dir,
             os.path.join(output_dir, "01.reference_alleles.fasta"),
@@ -1142,7 +1149,7 @@ def estimate_copy_numbers(
             normalised_depths[allele_name] = depth_estimate / (
                 read_depth * gene_counts[path_id][gene]
             )
-            mean_depth_per_reference[allele_name] = depth_estimate
+            mean_depth_per_reference[allele_name] = depth_estimate / read_depth
     return normalised_depths, mean_depth_per_reference
 
 
@@ -1237,7 +1244,7 @@ def supplement_result_df(
         estimates.append(copy_numbers[row["Amira allele"]])
         copy_depths.append(mean_depth_per_reference[row["Amira allele"]])
         read_lengths.append(longest_read_lengths[row["Amira allele"]])
-    result_df["Mean read depth"] = copy_depths
+    result_df["Relative mean read depth"] = copy_depths
     result_df["Approximate cellular copy number"] = estimates
     if debug:
         result_df["Longest read length"] = read_lengths

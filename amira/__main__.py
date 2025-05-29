@@ -238,6 +238,13 @@ def get_options() -> argparse.Namespace:
     parser.add_argument(
         "--core-genes", dest="core_genes", help=argparse.SUPPRESS, required=False, default=None
     )
+    parser.add_argument(
+        "--plasmid-genes",
+        dest="plasmid_genes",
+        help=argparse.SUPPRESS,
+        required=False,
+        default=None,
+    )
     parser.add_argument("--version", action="version", version="%(prog)s v" + __version__)
     args = parser.parse_args()
     if args.pandoraJSON and not args.gene_positions:
@@ -274,8 +281,10 @@ def main() -> None:
     if not os.path.exists(args.output_dir):
         os.mkdir(args.output_dir)
     # get the relevant species-specific files
-    AMR_gene_reference_FASTA, sequence_names, core_genes = load_species_specific_files(
-        args.species, args.amr_fasta, args.amr_calls, args.core_genes
+    AMR_gene_reference_FASTA, sequence_names, core_genes, plasmid_genes = (
+        load_species_specific_files(
+            args.species, args.amr_fasta, args.amr_calls, args.core_genes, args.plasmid_genes
+        )
     )
     # import the list of genes of interest
     reference_alleles, genesOfInterest = process_reference_alleles(
@@ -591,6 +600,7 @@ def main() -> None:
         args.identity,
         args.coverage,
         mean_read_depth,
+        plasmid_genes,
     )
     # genotype promoters if specified
     if args.promoters:

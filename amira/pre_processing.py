@@ -92,7 +92,9 @@ def determine_gene_strand(read: pysam.libcalignedsegment.AlignedSegment) -> tupl
     return gene_name, strandlessGene
 
 
-def load_species_specific_files(species, AMR_gene_reference_FASTA, sequence_names, core_genes):
+def load_species_specific_files(
+    species, AMR_gene_reference_FASTA, sequence_names, core_genes, plasmid_genes
+):
     from pathlib import Path
 
     if AMR_gene_reference_FASTA is None or sequence_names is None or core_genes is None:
@@ -109,9 +111,11 @@ def load_species_specific_files(species, AMR_gene_reference_FASTA, sequence_name
                 sequence_names = os.path.join(f"{species_dir}/{species}", "AMR_calls.json")
             if core_genes is None:
                 core_genes = os.path.join(f"{species_dir}/{species}", "core_genes.txt")
-        return AMR_gene_reference_FASTA, sequence_names, core_genes
+            if plasmid_genes is None:
+                plasmid_genes = os.path.join(f"{species_dir}/{species}", "plasmid_genes.txt")
+        return AMR_gene_reference_FASTA, sequence_names, core_genes, plasmid_genes
     else:
-        return AMR_gene_reference_FASTA, sequence_names, core_genes
+        return AMR_gene_reference_FASTA, sequence_names, core_genes, plasmid_genes
 
 
 def remove_poorly_mapped_genes(

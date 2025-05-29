@@ -32,9 +32,22 @@ Amira and its dependencies can be run through Singularity. A prebuilt singularit
 sudo singularity build amira.img Singularity.def
 ```
 
-You can then run amira with:
+You can then run amira with the command below. **NOTE: If you use the singularity container you do not need to specify the paths to any of the non-python dependencies. Amira will find them in the container automatically.**
 ```bash
 singularity exec amira.img amira --help
+```
+
+### With Conda
+
+Amira and all depdendencies, other than Pandora, can installed via conda by running the command below. **NOTE: Amira requires Pandora v0.12.0 and this cannot be installed via conda at this time. You will need to build Pandora from source and specify the path to the binary with `--pandora-path`, or run Amira through a container.**
+
+```bash
+conda install amira -c bioconda
+```
+
+You can then run amira with:
+```bash
+amira --help
 ```
 
 ### With PyPI
@@ -130,7 +143,20 @@ For additional options and configurations, run:
 amira --help
 ```
 ## Citation
-TBD
+```
+@article {Anderson2025.05.16.654303,
+	author = {Anderson, Daniel and Lima, Leandro and Le, Trieu and Judd, Louise M and Wick, Ryan R and Iqbal, Zamin},
+	title = {Amira: gene-space de Bruijn graphs to improve the detection of AMR genes from bacterial long reads},
+	elocation-id = {2025.05.16.654303},
+	year = {2025},
+	doi = {10.1101/2025.05.16.654303},
+	publisher = {Cold Spring Harbor Laboratory},
+	abstract = {Accurate detection of antimicrobial resistance (AMR) genes is essential for the surveillance, epidemiology and genotypic prediction of AMR. This is typically done by generating an assembly from the sequencing reads of a bacterial isolate and running AMR gene detection tools on the assembly. However, despite advances in long-read sequencing that have greatly improved the quality and completeness of bacterial genome assemblies, assembly tools remain prone to large-scale errors caused by repeats in the genome, leading to inaccurate detection of AMR gene content and consequent impact on resistance prediction. In this work we present Amira, a tool to detect AMR genes directly from unassembled long-read sequencing data. Amira leverages the fact that multiple consecutive genes lie within a single read to construct gene-space de Bruijn graphs where the k-mer alphabet is the set of genes in the pan-genome of the species under study. Through this approach, the reads corresponding to different copies of AMR genes can be effectively separated based on the genomic context of the AMR genes, and used to infer the nucleotide sequence of each copy. Amira achieves significant improvements in genomic copy number recall and nucleotide accuracy, demonstrated through objective simulations and comparison with alternative read and assembly-based methods on samples with manually curated truth assemblies. Applied to a dataset of 32 Escherichia coli samples with diverse AMR gene content, Amira achieves a mean genomic-copy-number recall of 98.4\% with precision 97.9\% and nucleotide accuracy 99.9\%. Finally, we compare the number of fully (\&gt;90\%) present genes with good read support by Amira and Flye with AMRFinderPlus across all E. coli, K. pneumoniae and E. faecium nanopore datasets from the ENA (n=8593, 2469 and 420 respectively), quantifying the improvement in recall when handling heterogeneous data.Competing Interest StatementThe authors have declared no competing interest.},
+	URL = {https://www.biorxiv.org/content/early/2025/05/18/2025.05.16.654303},
+	eprint = {https://www.biorxiv.org/content/early/2025/05/18/2025.05.16.654303.full.pdf},
+	journal = {bioRxiv}
+}
+```
 
 ## Contributing
 If you’d like to contribute to Amira, please follow these steps:
