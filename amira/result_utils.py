@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import shutil
@@ -1256,3 +1257,27 @@ def write_pandora_gene_calls(output_dir, gene_position_dict, annotatedReads, out
         o.write(json.dumps(annotatedReads))
     with open(outfile_2, "w") as o:
         o.write(json.dumps(gene_position_dict))
+
+
+def assemble_full_length_paths(output_dir, cores):
+    # list the fastqs to assemble
+    fastq_files = glob.glob(
+        os.path.join(output_dir, "AMR_allele_fastqs", "path_reads", "*.fastq.gz")
+    )
+    # make the output directory
+    assembly_dir = os.path.join(output_dir, "path_assemblies")
+    if not os.path.exists(assembly_dir):
+        os.mkdir(assembly_dir)
+    # iterate through the fastq files
+    for fastq_file in tqdm(fastq_files):
+        # get the path id
+        path_id = os.path.basename(fastq_file).replace(".fastq.gz", "")
+        # define the output assembly file
+        flye_dir = os.path.join(assembly_dir, f"path_{path_id}")
+        # run flye
+        command = f"flye --nano-raw {fastq_file} --out-dir {flye_dir} --threads {cores}"
+        try:
+            subprocess.run(command, shell=True, check=True)
+        except subprocess.CalledProcessError:
+            sys.stderr.write(f"\nAmira: Error assembling path {path_id}.\n")
+            continue
