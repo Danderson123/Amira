@@ -157,7 +157,7 @@ amira --help
 	journal = {bioRxiv}
 }
 ```
-
+this is note 
 ## Contributing
 If you’d like to contribute to Amira, please follow these steps:
 
