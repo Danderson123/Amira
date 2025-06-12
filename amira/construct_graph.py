@@ -1983,7 +1983,7 @@ class GeneMerGraph:
 
     def longest_common_sublist(self, a, b):
         """
-        Returns the longest contiguous common sublist between two lists `a` and `b`.
+        return the longest contiguous common sublist between two lists `a` and `b`.
         """
         len_a, len_b = len(a), len(b)
         dp = [[0] * (len_b + 1) for _ in range(len_a + 1)]

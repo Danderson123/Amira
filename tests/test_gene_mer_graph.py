@@ -5713,3 +5713,23 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         ]
         # assertion
         self.assertEqual(actual_corrected_reads, expected_corrected_reads)
+
+    def test___longest_common_sublist_1(self):
+        # setup
+        list1 = ["a", "b", "c", "d", "e", "f"]
+        list2 = ["x", "y", "z", "a", "b", "c", "d"]
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_lcs, l1_coords, l2_coords = graph.longest_common_sublist(list1, list2)
+        # assertion
+        self.assertEqual(actual_lcs, ["a", "b", "c", "d"])
+
+    def test___longest_common_sublist_2(self):
+        # setup
+        list1 = ["a", "c", "f", "e", "e", "f"]
+        list2 = ["x", "y", "z", "a", "b", "c", "d"]
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_lcs, l1_coords, l2_coords = graph.longest_common_sublist(list1, list2)
+        # assertion
+        self.assertEqual(actual_lcs, ["a"])
