@@ -2213,7 +2213,7 @@ class GeneMerGraph:
             # filter the paths out if they are subpaths of longer paths
             filtered_paths = self.filter_paths_between_bubble_starts(unique_paths)
             # sort by path length
-            sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
+            sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=False)
             # get a minhash object for each path
             if use_minimizers:
                 path_minimizers = self.get_minhashes_for_paths(
