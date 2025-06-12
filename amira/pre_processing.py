@@ -14,7 +14,7 @@ def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores, seed, ass
     command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 "
     command += (
         f"-o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile} --rng-seed {seed} "
-        )
+    )
     if assembly is None:
         command += "--min-abs-gene-coverage 1"
     else:

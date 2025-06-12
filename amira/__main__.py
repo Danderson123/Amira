@@ -25,10 +25,10 @@ from amira.pre_processing import (
     subsample_reads_and_estimate_read_depth,
 )
 from amira.read_utils import (
-    parse_fastq,
     parse_fasta,
-    write_fastq,
+    parse_fastq,
     plot_read_length_distribution,
+    write_fastq,
     write_modified_fastq,
 )
 from amira.result_utils import (
@@ -65,10 +65,18 @@ def get_options() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
-        "--reads", dest="reads", help="path to FASTQ file of long reads.", default=None, required=False
+        "--reads",
+        dest="reads",
+        help="path to FASTQ file of long reads.",
+        default=None,
+        required=False,
     )
     parser.add_argument(
-        "--assembly", dest="assembly", help="path to FASTA of assembly.", default=None, required=False
+        "--assembly",
+        dest="assembly",
+        help="path to FASTA of assembly.",
+        default=None,
+        required=False,
     )
     parser.add_argument(
         "--species",
@@ -337,7 +345,7 @@ def main() -> None:
             args.output_dir,
             args.cores,
             args.seed,
-            args.assembly
+            args.assembly,
         )
     else:
         pandoraSam = args.pandoraSam
@@ -640,7 +648,7 @@ def main() -> None:
             args.cores,
             args.samtools_path,
             mean_read_depth,
-            args.debug
+            args.debug,
         )
     else:
         copy_numbers, mean_depth_per_reference = {}, {}
