@@ -488,6 +488,13 @@ def main() -> None:
         graph.remove_low_coverage_components(5)
         graph.filter_graph(node_min_coverage, 1)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+        write_pandora_gene_calls(
+            args.output_dir,
+            new_gene_position_dict,
+            new_annotatedReads,
+            os.path.join(args.output_dir, "mid_correction_gene_calls.json"),
+            os.path.join(args.output_dir, "mid_correction_gene_positions.json"),
+        )
         # rebuild the graph
         graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
         # collect the reads that have fewer than k genes
