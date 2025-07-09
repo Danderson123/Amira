@@ -499,9 +499,10 @@ def main() -> None:
             os.path.join(args.output_dir, "mid_correction_gene_calls.json"),
             os.path.join(args.output_dir, "mid_correction_gene_positions.json"),
         )
-        graph.get_unitigs_in_graph(
-            os.path.join(output_dir, "mid_correction_unitigs.txt"),
-        )
+        if args.debug:
+            graph.get_unitigs_in_graph(
+                os.path.join(args.output_dir, "mid_correction_unitigs.txt"),
+            )
         # rebuild the graph
         graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
         # collect the reads that have fewer than k genes
@@ -580,7 +581,7 @@ def main() -> None:
         1,
     )
     # write out the unitigs if specified
-    if ars.debug:
+    if args.debug:
         graph.get_unitigs_in_graph(
             os.path.join(args.output_dir, "post_correction_unitigs.txt"),
         )
