@@ -292,6 +292,10 @@ def write_debug_files(
     raw_graph.generate_gml(
         os.path.join(output_dir, "pre_correction_gene_mer_graph"), geneMer_size, 1, 1
     )
+    # write out the unitigs if specified
+    raw_graph.get_unitigs_in_graph(
+        os.path.join(output_dir, "pre_correction_unitigs.txt"),
+    )
     return raw_graph
 
 
@@ -495,6 +499,9 @@ def main() -> None:
             os.path.join(args.output_dir, "mid_correction_gene_calls.json"),
             os.path.join(args.output_dir, "mid_correction_gene_positions.json"),
         )
+        graph.get_unitigs_in_graph(
+            os.path.join(output_dir, "mid_correction_unitigs.txt"),
+        )
         # rebuild the graph
         graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
         # collect the reads that have fewer than k genes
@@ -572,6 +579,11 @@ def main() -> None:
         node_min_coverage,
         1,
     )
+    # write out the unitigs if specified
+    if ars.debug:
+        graph.get_unitigs_in_graph(
+            os.path.join(args.output_dir, "post_correction_unitigs.txt"),
+        )
     # write out a fastq of the reads in each connected component
     if args.output_components is True:
         output_component_fastqs(args.output_dir, graph, fastq_content)

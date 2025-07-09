@@ -2941,3 +2941,17 @@ class GeneMerGraph:
                 nodes_to_remove.append(node)
         for node in nodes_to_remove:
             self.remove_node(node)
+    
+    def get_unitigs_in_graph(self, outfile):
+        unitigs = set()
+        for node in tqdm(self.all_nodes()):
+            # get the unitig for this node
+            path = self.get_linear_path_for_node(node, True)
+            # choose the canonical
+            path = sorted([path, list(reversed(path))])[0]
+            # get the canonical gene-space representation
+            path_genes = self.get_genes_in_unitig(path)
+            canonical = sorted([path_genes, self.reverse_list_of_genes(path_genes)])[0]
+            unitigs.add((tuple(canonical), len(self.collect_reads_in_path(path))))
+        with open(outfile, "w") as f:
+            f.write("\n".join([f"{','.join(u[0])}\t{u[1]}" for u in unitigs]))
