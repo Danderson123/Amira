@@ -2945,11 +2945,10 @@ class GeneMerGraph:
     def get_unitigs_in_graph(self, outfile):
         unitigs = set()
         for node in tqdm(self.all_nodes()):
+            if len(self.get_all_neighbors(node)) > 2:
+                continue
             # get the unitig for this node
             path = self.get_linear_path_for_node(node, True)
-            # skip if the path goes through a junction
-            if len(path) > 2 and any(len(self.get_all_neighbors(self.get_node_by_hash(n))) > 2 for n in path[1:-1]):
-                continue
             # choose the canonical
             path = sorted([path, list(reversed(path))])[0]
             # get the canonical gene-space representation
