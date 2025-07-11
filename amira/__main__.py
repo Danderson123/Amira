@@ -435,6 +435,7 @@ def main() -> None:
         )
         sys.stderr.write(f"\nAmira: mean read depth = {mean_read_depth}.\n")
     # terminate if no AMR genes were found
+    print(sample_genesOfInterest)
     if len(sample_genesOfInterest) == 0:
         # write an empty dataframe
         write_empty_result(args.output_dir)
