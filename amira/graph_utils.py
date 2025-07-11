@@ -145,6 +145,13 @@ def iterative_bubble_popping(
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, 1, new_gene_position_dict
         )
+        import os
+        graph.generate_gml(
+            os.path.join(output_dir, "mid_correction_graph_iteration_" + str(this_iteration)),
+            geneMer_size,
+            node_min_coverage,
+            1,
+        )
         graph.filter_graph(node_min_coverage, 1)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         graph = build_multiprocessed_graph(

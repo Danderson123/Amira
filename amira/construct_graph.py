@@ -1805,6 +1805,8 @@ class GeneMerGraph:
                         operation = (
                             lower_coverage_path_tuple,
                             higher_coverage_path_tuple,
+                            lower_coverage,
+                            higher_coverage
                         )
                         # store the correction operation
                         correction_operations.add(operation)
@@ -1886,6 +1888,8 @@ class GeneMerGraph:
             bw_counter = Counter(reverse_gene_mers)
             fw_counters[operation] = fw_counter
             bw_counters[operation] = bw_counter
+            if "+blaEC" in fw_higher_coverage_genes or "-blaEC" in fw_higher_coverage_genes:
+                print(fw_alignment, operation[3], operation[2], "\n")
         # iterate through the reads
         for read_id in reads_to_correct:
             if reads_to_correct[read_id] not in fw_alignments:
@@ -2115,17 +2119,25 @@ class GeneMerGraph:
         )
 
     def filter_paths_between_bubble_starts(self, unique_paths):
-        tree = Tree({i: p for i, p in enumerate(unique_paths)})
         # sort by ascending length
         unique_paths = sorted(list(unique_paths), key=len)
+        tree = Tree({i: p for i, p in enumerate(unique_paths)})
         filtered_paths = []
+        targets = set()
         for i in range(len(unique_paths)):
+            if i in targets:
+                continue
             p = unique_paths[i]
             p_list = list(p)
             rev_p_list = list(reversed(p_list))
             res = [path_id for path_id, path in tree.find_all(p_list)]
             rv_res = [path_id for path_id, path in tree.find_all(rev_p_list)]
-            if len(res) == 1 and len(rv_res) == 0 and len(p) > 2:
+            #if len(res) == 1 and len(rv_res) == 0 and 
+            #    filtered_paths.append((p, self.calculate_path_coverage(p)))
+            for j in res + rv_res:
+                if i != j:
+                    targets.add(j)
+            if len(p) > 2:
                 filtered_paths.append((p, self.calculate_path_coverage(p)))
         return filtered_paths
 
@@ -2210,7 +2222,7 @@ class GeneMerGraph:
             unique_paths = self.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, cores
             )
-            # filter the paths out if they are subpaths of longer paths
+            # filter longer paths if they full contain shorter paths
             filtered_paths = self.filter_paths_between_bubble_starts(unique_paths)
             # sort by path length
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=False)

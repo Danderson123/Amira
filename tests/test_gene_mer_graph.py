@@ -5136,7 +5136,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             unique_paths = graph.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, 1
             )
+            print(unique_paths, "\n")
             filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
+            print(filtered_paths)
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # execution
             path_minimizers = graph.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, 1)
