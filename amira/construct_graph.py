@@ -1806,7 +1806,7 @@ class GeneMerGraph:
                             lower_coverage_path_tuple,
                             higher_coverage_path_tuple,
                             lower_coverage,
-                            higher_coverage
+                            higher_coverage,
                         )
                         # store the correction operation
                         correction_operations.add(operation)
@@ -2132,7 +2132,7 @@ class GeneMerGraph:
             rev_p_list = list(reversed(p_list))
             res = [path_id for path_id, path in tree.find_all(p_list)]
             rv_res = [path_id for path_id, path in tree.find_all(rev_p_list)]
-            #if len(res) == 1 and len(rv_res) == 0 and 
+            # if len(res) == 1 and len(rv_res) == 0 and
             #    filtered_paths.append((p, self.calculate_path_coverage(p)))
             for j in res + rv_res:
                 if i != j:
@@ -2953,7 +2953,7 @@ class GeneMerGraph:
                 nodes_to_remove.append(node)
         for node in nodes_to_remove:
             self.remove_node(node)
-    
+
     def get_unitigs_in_graph(self, outfile):
         unitigs = set()
         for node in tqdm(self.all_nodes()):
