@@ -60,15 +60,9 @@ From: ubuntu:20.04
     cd ..
     
     # Install Pandora
-    git clone --single-branch https://github.com/rmcolq/pandora.git --recursive
-    cd pandora
-    git checkout f7e06605d54981edbeebd8935bd1a6fd47a31fbc
-    mkdir -p build
-    cd build
-    cmake -DHUNTER_JOBS_NUMBER=4 -DCMAKE_BUILD_TYPE=Release ..
-    make -j4
-    ctest -VV
-    cd ..
+    wget https://github.com/iqbal-lab-org/pandora/releases/download/0.12.0-alpha.0/pandora-linux-precompiled-v0.12.0-alpha.0
+    mv pandora-linux-precompiled-v0.12.0-alpha.0 pandora
+    chmod +x pandora
 
 %environment
     # Ensure paths are persistent when running the container
