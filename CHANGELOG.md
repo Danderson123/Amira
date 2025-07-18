@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.10.0](https://github.com/Danderson123/Amira/compare/v0.9.3...v0.10.0) (2025-07-18)
+
+
+### Miscellaneous Chores
+
+* output mid correction gene calls for debugging ([7c57776](https://github.com/Danderson123/Amira/commit/7c57776501c39f1ee657a2bcd5d60aec44d2fa13))
+* output unitigs after each correction stage ([2c48be1](https://github.com/Danderson123/Amira/commit/2c48be1ec83b37368fc458bd70e8886c43caab9c))
+* output unitigs after each correction stage ([73976f4](https://github.com/Danderson123/Amira/commit/73976f494eb4110233a9ed2ed891d9a08697d771))
+* output unitigs after each correction stage ([ed2cd22](https://github.com/Danderson123/Amira/commit/ed2cd225f6e0b728560921ee2431a093612ab743))
+* output unitigs after each correction stage ([3b2e652](https://github.com/Danderson123/Amira/commit/3b2e65276263f3fe80761cedc249b645717f4367))
+
+
+### Features
+
+* allows running of Amira from assemblies and the option --assemble-paths can be used to try to assemble the reads in each cluster of genes, to aid epidemiological studies ([0d04b5e](https://github.com/Danderson123/Amira/commit/0d04b5e014384926c136f32291fb891d52dac48f))
+
+
+### Bug Fixes
+
+* filter out longer paths instead of shorter ones in iterative correction ([82b297d](https://github.com/Danderson123/Amira/commit/82b297dc793cf396ba8b845a1be83eccad7cac56))
+* remove mid correction graph output ([aa0ec1e](https://github.com/Danderson123/Amira/commit/aa0ec1e085fefc71b0cbb31f4a3538e4fe301626))
+* undo reverse sort ([87b26aa](https://github.com/Danderson123/Amira/commit/87b26aad38f7873d40b56986091b995507d20928))
+* update E. coli-specific files ([227c15f](https://github.com/Danderson123/Amira/commit/227c15f08c1894472c116841ad08e4f822334ae0))
+
+
+### Styles
+
+* pre-commit reformat ([0a67c15](https://github.com/Danderson123/Amira/commit/0a67c15f8b99ff24b4a9a60a4c6f5457225e075b))
+* pre-commit reformatting ([beea606](https://github.com/Danderson123/Amira/commit/beea60672b661a684dd26bf0ba9a06f0b94b9acf))
+
+
+### Tests
+
+* add lcs test ([0dedb82](https://github.com/Danderson123/Amira/commit/0dedb825b6c404f21bf3e1f994dbba14f41adab2))
+
 ## [0.9.3](https://github.com/Danderson123/Amira/compare/v0.9.2...v0.9.3) (2025-05-29)
 
 
