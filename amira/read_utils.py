@@ -29,6 +29,15 @@ def parse_fastq(fastq_file):
     return fastq_dict
 
 
+def parse_fasta(fasta_file):
+    fasta_dict = {}
+    fasta_content = pysam.FastaFile(fasta_file)
+    for ref in fasta_content.references:
+        sequence = fasta_content[ref]
+        fasta_dict[ref] = {"sequence": sequence, "quality": "".join(["I"] * len(sequence))}
+    return fasta_dict
+
+
 def write_fastq(fastq_file, data):
     # Open the fastq file
     with gzip.open(fastq_file, "wt") as fh:

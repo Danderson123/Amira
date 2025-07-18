@@ -5136,7 +5136,9 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
             unique_paths = graph.get_all_paths_between_junctions_in_component(
                 potential_bubble_starts_component, max_distance, 1
             )
+            print(unique_paths, "\n")
             filtered_paths = graph.filter_paths_between_bubble_starts(unique_paths)
+            print(filtered_paths)
             sorted_filtered_paths = sorted(filtered_paths, key=lambda x: len(x[0]), reverse=True)
             # execution
             path_minimizers = graph.get_minhashes_for_paths(sorted_filtered_paths, fastq_data, 1)
@@ -5713,3 +5715,23 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
         ]
         # assertion
         self.assertEqual(actual_corrected_reads, expected_corrected_reads)
+
+    def test___longest_common_sublist_1(self):
+        # setup
+        list1 = ["a", "b", "c", "d", "e", "f"]
+        list2 = ["x", "y", "z", "a", "b", "c", "d"]
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_lcs, l1_coords, l2_coords = graph.longest_common_sublist(list1, list2)
+        # assertion
+        self.assertEqual(actual_lcs, ["a", "b", "c", "d"])
+
+    def test___longest_common_sublist_2(self):
+        # setup
+        list1 = ["a", "c", "f", "e", "e", "f"]
+        list2 = ["x", "y", "z", "a", "b", "c", "d"]
+        graph = GeneMerGraph({}, 3)
+        # execution
+        actual_lcs, l1_coords, l2_coords = graph.longest_common_sublist(list1, list2)
+        # assertion
+        self.assertEqual(actual_lcs, ["a"])
