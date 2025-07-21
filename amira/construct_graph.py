@@ -678,7 +678,7 @@ class GeneMerGraph:
 
     def remove_short_linear_paths(self, min_length, sample_genesOfInterest={}):
         """remove nodeHashes on reads if on a linear path of length < min_length. \
-            Returns a list of nodeHashes that have bene removed"""
+            Returns a list of nodeHashes that have been removed"""
         paths_to_remove = {}
         for node in self.all_nodes():
             if self.get_degree(node) == 1:
@@ -686,6 +686,8 @@ class GeneMerGraph:
                 if len(path) > 0 and (
                     len(path) < min_length
                 ):  # or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
+                    if len(path) == 1 and self.get_node_by_hash(path[0]).get_node_coverage() > self.get_mean_node_coverage() * 2:
+                        continue
                     if node.get_component() not in paths_to_remove:
                         paths_to_remove[node.get_component()] = []
                     paths_to_remove[node.get_component()].append(path)
