@@ -686,7 +686,7 @@ class GeneMerGraph:
                 if len(path) > 0 and (
                     len(path) < min_length
                 ):  # or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
-                    if all(self.get_node_by_hash(n).get_node_coverage() > self.get_mean_node_coverage() * 2 for n in path):
+                    if all(self.get_node_by_hash(n).get_node_coverage() > self.get_mean_node_coverage() * 1.5 for n in path):
                         continue
                     if node.get_component() not in paths_to_remove:
                         paths_to_remove[node.get_component()] = []
