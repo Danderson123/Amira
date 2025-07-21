@@ -145,7 +145,6 @@ def iterative_bubble_popping(
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, 1, new_gene_position_dict
         )
-        graph.generate_gml(f"{output_dir}/graph_bubbles_{this_iteration}.gml", 3, 1, 1)
         graph.filter_graph(node_min_coverage, 1)
         new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
         graph = build_multiprocessed_graph(
@@ -166,7 +165,6 @@ def iterative_bubble_popping(
         graph = build_multiprocessed_graph(
             new_annotatedReads, geneMer_size, 1, new_gene_position_dict
         )
-        graph.generate_gml(f"{output_dir}/graph_linear_{this_iteration}.gml", 3, 1, 1)
         # collect the reads that have fewer than k genes
         short_reads.update(graph.get_short_read_annotations())
         short_read_gene_positions.update(graph.get_short_read_gene_positions())
