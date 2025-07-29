@@ -87,6 +87,7 @@ def get_options() -> argparse.Namespace:
             "Enterococcus_faecium",
             "Streptococcus_pneumoniae",
             "Staphylococcus_aureus",
+            "metagenome"
         ],
         help="The species you want to run Amira on.",
         required=True,
@@ -350,6 +351,7 @@ def main() -> None:
             args.cores,
             args.seed,
             args.assembly,
+            args.species
         )
     else:
         pandoraSam = args.pandoraSam

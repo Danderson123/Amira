@@ -10,15 +10,15 @@ import pysam
 from tqdm import tqdm
 
 
-def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores, seed, assembly):
+def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores, seed, assembly, species):
     command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 "
     command += (
         f"-o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile} --rng-seed {seed} "
     )
-    if assembly is None:
-        command += "--min-abs-gene-coverage 1"
-    else:
+    if assembly is not None or species == "metagenome":
         command += "--no-gene-coverage-filtering"
+    else:
+        command += "--min-abs-gene-coverage 1"
     # check that the panRG file exists
     if not os.path.exists(panRG_path):
         sys.stderr.write("\nAmira: panRG file does not exist.\n")
