@@ -347,8 +347,10 @@ def get_core_gene_mean_depth(bam_file, core_gene_file, samtools_path):
     mean_depth_per_core_gene = samtools_get_mean_depth(bam_file, core_genes, samtools_path)
     os.remove(bam_file)
     os.remove(bam_file + ".bai")
-    return statistics.mean(list(mean_depth_per_core_gene.values()))
-
+    if len(mean_depth_per_core_gene) > 0:
+        return statistics.mean(list(mean_depth_per_core_gene.values()))
+    else:
+        return 0
 
 def estimate_mean_core_gene_counts(annotatedReads, core_genes):
     with open(core_genes) as i:
