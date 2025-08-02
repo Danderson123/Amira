@@ -727,7 +727,7 @@ def main() -> None:
         sys.exit(0)
     # estimate the copy numbers
     if not args.quiet:
-        if args.meta is False:
+        if args.meta is False and args.assembly is None and args.reads is not None:
             sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
         if args.assembly is not None or args.meta is True:
             sys.stderr.write("\nAmira: skipping cellular copy number estimation.\n")
