@@ -101,7 +101,7 @@ Click the relevant link below to download a panRG to run Amira on your favorite 
 * [*Enterococcus faecium*](https://figshare.com/ndownloader/files/53395052)
 * [*Staphylococcus aureus*](https://figshare.com/ndownloader/files/53577833)
 * [*Streptococcus pneumoniae*](https://figshare.com/ndownloader/files/53577887)
-* [ESKAPE pathogens + *E. coli* and *Salmonella*][https://figshare.com/ndownloader/files/56861591]
+* [ESKAPE pathogens + *E. coli* and *Salmonella*](https://figshare.com/ndownloader/files/56861591)
 
 **Note**: These panRGs can currently detect all acquired AMR genes in the [NCBI Bacterial Antimicrobial Resistance Reference Gene Database](https://www.ncbi.nlm.nih.gov/bioproject/313047) as of 21st August 2024.
 
