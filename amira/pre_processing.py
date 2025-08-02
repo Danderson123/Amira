@@ -10,15 +10,17 @@ import pysam
 from tqdm import tqdm
 
 
-def run_pandora_map(pandora_path, panRG_path, readfile, outdir, cores, seed, assembly):
+def run_pandora_map(
+    pandora_path, panRG_path, readfile, outdir, cores, seed, assembly, species, meta
+):
     command = f"{pandora_path} map -t {cores} --min-gene-coverage-proportion 0.5 --max-covg 10000 "
     command += (
         f"-o {os.path.join(outdir, 'pandora_output')} {panRG_path} {readfile} --rng-seed {seed} "
     )
-    if assembly is None:
-        command += "--min-abs-gene-coverage 1"
-    else:
+    if assembly is not None or meta is True:
         command += "--no-gene-coverage-filtering"
+    else:
+        command += "--min-abs-gene-coverage 1"
     # check that the panRG file exists
     if not os.path.exists(panRG_path):
         sys.stderr.write("\nAmira: panRG file does not exist.\n")
@@ -347,7 +349,10 @@ def get_core_gene_mean_depth(bam_file, core_gene_file, samtools_path):
     mean_depth_per_core_gene = samtools_get_mean_depth(bam_file, core_genes, samtools_path)
     os.remove(bam_file)
     os.remove(bam_file + ".bai")
-    return statistics.mean(list(mean_depth_per_core_gene.values()))
+    if len(mean_depth_per_core_gene) > 0:
+        return statistics.mean(list(mean_depth_per_core_gene.values()))
+    else:
+        return 0
 
 
 def estimate_mean_core_gene_counts(annotatedReads, core_genes):
@@ -357,8 +362,12 @@ def estimate_mean_core_gene_counts(annotatedReads, core_genes):
     for r in annotatedReads:
         for g in annotatedReads[r]:
             counts[g[1:]] = counts.get(g[1:], 0) + 1
-    mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
-    return mean_read_depth
+    core_gene_counts = [counts[g] for g in counts if g in core]
+    if len(core_gene_counts) > 0:
+        mean_read_depth = statistics.mean(core_gene_counts)
+        return mean_read_depth
+    else:
+        return 0
 
 
 def subsample_reads_and_estimate_read_depth(
