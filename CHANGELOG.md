@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.11.0](https://github.com/Danderson123/Amira/compare/v0.10.0...v0.11.0) (2025-08-02)
+
+
+### Miscellaneous Chores
+
+* version bump ([5dccac8](https://github.com/Danderson123/Amira/commit/5dccac8509458decc51fac534df8d308c18c0fd1))
+
+
+### Documentation
+
+* fix ESKAPEES link ([d590eaf](https://github.com/Danderson123/Amira/commit/d590eaf793f60bdcac8ecb3fdc34872c9fb9b73a))
+* update Amira docs to detail assembly and metagenome mode ([6878ced](https://github.com/Danderson123/Amira/commit/6878cedf9ff98805bebcd7c2684953b26283c3c5))
+* update README with latest citation ([cfb585b](https://github.com/Danderson123/Amira/commit/cfb585b4659fe681934d83ef554693d844975897))
+
+
+### Features
+
+* add metagenome-specific files ([33c1c13](https://github.com/Danderson123/Amira/commit/33c1c1369dcdf550e70d635642c6799000bb928f))
+* add metagenome-specific files ([93cb582](https://github.com/Danderson123/Amira/commit/93cb5825ed5955c8467caf6bbf603b026e531533))
+* report NA for copy numbers if this step skipped ([92e96e9](https://github.com/Danderson123/Amira/commit/92e96e9252dbaa8c7db1dc8706033e1b868ebdff))
+
+
+### Bug Fixes
+
+* accounts for an empty core gene set ([e097a63](https://github.com/Danderson123/Amira/commit/e097a633ccae5bb5aca723082c97a4b9e3cbef60))
+* add value for sourmash n ([c7671ba](https://github.com/Danderson123/Amira/commit/c7671ba004e768a9ab773a74cc833f1a1bb798fc))
+* do not assume tandem repeat dead end is of length 1 ([712eb70](https://github.com/Danderson123/Amira/commit/712eb70b35a1c9828ff587f68f42f0b38b99e1ab))
+* do not trim dead ends that are actually tandem repeats ([bb0fd15](https://github.com/Danderson123/Amira/commit/bb0fd15adc4b17fdd16478abf8b95834dd49cdbd))
+* fix path similarity estimates ([4f807e1](https://github.com/Danderson123/Amira/commit/4f807e14d3035c3437998ebb6c223c66c5cb729d))
+* reduce dead end depth threshold ([c1022a0](https://github.com/Danderson123/Amira/commit/c1022a01bdea16ea6880dc194cde579fb6f5aa75))
+* remove redundant output graphs ([1d308b3](https://github.com/Danderson123/Amira/commit/1d308b3698d13acd53d96baa4ff8867c0b820215))
+* rename to ESKAPEES ([5cb2112](https://github.com/Danderson123/Amira/commit/5cb2112d5453be4b91458b4d5f6b0a817a76c278))
+* skip ccn estimation if running from assemblies or in metagenome mode ([cc9bc1f](https://github.com/Danderson123/Amira/commit/cc9bc1f88b1ae2f528059c577e34600477b3128f))
+* skip pandora gene filtering in some circumstances ([187ef87](https://github.com/Danderson123/Amira/commit/187ef87387134c2e6915ed478e4e08ef70523009))
+
+
+### Styles
+
+* minor log improvement ([72018ac](https://github.com/Danderson123/Amira/commit/72018acc8992aeef842f31f2c893dd28ba505d58))
+* pre-commit reformat ([82a7286](https://github.com/Danderson123/Amira/commit/82a72867cd3a4e8909441fc8acd66054997f9ec3))
+
 ## [0.10.0](https://github.com/Danderson123/Amira/compare/v0.9.3...v0.10.0) (2025-07-18)
 
 
