@@ -131,12 +131,17 @@ def filter_results(
     required_coverage,
     mean_read_depth,
     plasmid_genes,
+    meta,
 ):
     # remove genes that do not have sufficient mapping coverage
     alleles_to_delete = []
     comments = []
     # skip filtering by copy number if mean read depth is <20x
-    if mean_read_depth < 20:
+    if meta is True:
+        skip_depth_filtering = True
+        message = "\nAmira: skipping filtering by depth as Amira was run in metagenome mode.\n"
+        sys.stderr.write(message)
+    elif meta is False and mean_read_depth < 20:
         skip_depth_filtering = True
         message = "\nAmira: skipping filtering by depth as read depth <20x.\n"
         sys.stderr.write(message)

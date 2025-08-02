@@ -5119,6 +5119,7 @@ class TestGeneMerGraphConstructor(unittest.TestCase):
     def test___get_minhashes_for_paths_same_path(self):
         # setup
         import json
+
         with open("tests/test_path_calls.json") as i:
             calls = json.load(i)
         with open("tests/test_path_positions.json") as i:

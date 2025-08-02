@@ -93,21 +93,39 @@ Amira requires Pandora, minimap2, racon and Jellyfish. Follow the links below fo
 After installation, make a note of the paths to these binaries as they will be required when running Amira.
 
 ## Pre-built species-specific panRGs
-[Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify the genes on each sequencing read (see above for instructions to install Pandora). Click the relevant link below to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
+[Pandora](https://github.com/iqbal-lab-org/pandora) uses species-specific reference pan-genomes (panRGs) to identify species-specific context genes on each sequencing read (see above for instructions to install Pandora). Amira uses these genes to differentiate the occurrences of multi-copy AMR genes in different genomic contexts. However, in theory, if you are only interested in detected AMR gene presence or absence, any reference panRG can be used as they all contain the same AMR genes. 
+
+Click the relevant link below to download a panRG to run Amira on your favorite bacterial species. If we do not currently support a species you are interested in then we are more than happy to build one, please let us know via a GitHub issue!
 * [*Escherichia coli*](https://figshare.com/ndownloader/files/54318899)
 * [*Klebsiella pneumoniae*](https://figshare.com/ndownloader/files/53398349)
 * [*Enterococcus faecium*](https://figshare.com/ndownloader/files/53395052)
 * [*Staphylococcus aureus*](https://figshare.com/ndownloader/files/53577833)
 * [*Streptococcus pneumoniae*](https://figshare.com/ndownloader/files/53577887)
+* [ESKAPE pathogens + *E. coli* and *Salmonella*][]
 
 **Note**: These panRGs can currently detect all acquired AMR genes in the [NCBI Bacterial Antimicrobial Resistance Reference Gene Database](https://www.ncbi.nlm.nih.gov/bioproject/313047) as of 21st August 2024.
 
-## Running Amira
+## Running Amira on single-isolate reads
 
-Once you have installed the Python dependencies, Pandora, Racon and Minimap2, and downloaded the panRG for the species you interested in, Amira can be run with this command.
+Once you have installed the Python dependencies and added Pandora, Racon, Minimap2 and Jellyfish to your `$PATH`, and downloaded the panRG for the bacterial species you interested in, Amira can be run with this command:
 
 ```bash
-amira --reads <PATH TO READ FASTQ> --output <OUTPUT_DIR> --species <SPECIES> --panRG-path <PANRG PATH> --pandora-path <PATH TO PANDORA BINARY --racon-path <PATH TO RACON BINARY> --minimap2-path <PATH TO MINIMAP2 BINARY> --samtools-path <PATH TO SAMTOOLS BINARY> --cores <CPUS>
+amira --reads <PATH TO READ FASTQ> --output <OUTPUT_DIR> --species <SPECIES> --panRG-path <PANRG PATH> --cores <CPUS>
+```
+
+## Running Amira on assemblies
+
+Amira can be run on assemblies using this command:
+```bash
+amira --assembly <PATH TO READ FASTA> --output <OUTPUT_DIR> --species <SPECIES> --panRG-path <PANRG PATH> --cores <CPUS>
+```
+
+## Running Amira in semi-metagenome mode (experimental)
+
+Default Amira assumes that you are running on single-isolate read sets of high depth, like you would use for whole-genome assembly, and AMR genes with a low relative-read depth are filtered from the output. Amira includes an **experimental** `--meta` mode that turns off all filtering of AMR genes. This can be useful if you are expecting AMR genes to occur on a very small number of reads. This can be run with:
+
+```bash
+amira --reads <PATH TO READ FASTQ> --output <OUTPUT_DIR> --species <SPECIES> --panRG-path <PANRG PATH> --cores <CPUS> --meta
 ```
 
 ## For developers

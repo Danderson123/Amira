@@ -87,7 +87,7 @@ def get_options() -> argparse.Namespace:
             "Enterococcus_faecium",
             "Streptococcus_pneumoniae",
             "Staphylococcus_aureus",
-            "metagenome"
+            "ESKAPEES",
         ],
         help="The species you want to run Amira on.",
         required=True,
@@ -245,6 +245,13 @@ def get_options() -> argparse.Namespace:
         help="Use Flye to assemble the full reads assigned to each AMR gene copy (default=False).",
     )
     parser.add_argument(
+        "--meta",
+        dest="meta",
+        action="store_true",
+        default=False,
+        help="Do not apply any filtering of genes based on coverage (default=False).",
+    )
+    parser.add_argument(
         "--output-component-fastqs",
         dest="output_components",
         action="store_true",
@@ -275,6 +282,10 @@ def get_options() -> argparse.Namespace:
         parser.error("Either --reads or --assembly is required.")
     if args.reads and args.assembly:
         parser.error("Only one of --reads or --assembly can be specified at a time.")
+    if args.meta is True or args.assembly is not None:
+        args.node_min_coverage = 1
+        args.gene_min_coverage = 0
+        args.min_relative_depth = 0
     return args
 
 
@@ -300,6 +311,109 @@ def write_debug_files(
     return raw_graph
 
 
+def process_fastq_input(reads, quiet, output_dir):
+    # load the fastq data
+    if not quiet:
+        sys.stderr.write("\nAmira: loading FASTQ file.\n")
+    # load the fastq file
+    fastq_content = parse_fastq(reads)
+    # gzip the fastq file if it is not gzipped
+    read_fastq_path, fastq_content = write_modified_fastq(fastq_content, reads, output_dir)
+    return read_fastq_path, fastq_content
+
+
+def process_fasta_input(assembly, quiet, output_dir):
+    # load the fastq data
+    if not quiet:
+        sys.stderr.write("\nAmira: loading FASTA file.\n")
+    # load the assembly
+    fastq_content = parse_fasta(assembly)
+    # create a pseudo-fastq file
+    read_fastq_path = os.path.join(output_dir, "assembly.fq.gz")
+    write_fastq(read_fastq_path, fastq_content)
+    return read_fastq_path, fastq_content
+
+
+def build_and_correct_graph(
+    new_annotatedReads,
+    new_gene_position_dict,
+    node_min_coverage,
+    fastq_content,
+    output_dir,
+    debug,
+    overall_mean_node_coverages,
+    cores,
+    short_reads,
+    short_read_gene_positions,
+    sample_genesOfInterest,
+    min_path_coverage,
+    quiet,
+):
+    # rebuild the graph
+    graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
+    # collect the reads that have fewer than k genes
+    short_reads.update(graph.get_short_read_annotations())
+    short_read_gene_positions.update(graph.get_short_read_gene_positions())
+    graph.remove_low_coverage_components(5)
+    graph.filter_graph(node_min_coverage, 1)
+    new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
+    if debug:
+        write_pandora_gene_calls(
+            output_dir,
+            new_gene_position_dict,
+            new_annotatedReads,
+            os.path.join(output_dir, "mid_correction_gene_calls.json"),
+            os.path.join(output_dir, "mid_correction_gene_positions.json"),
+        )
+        graph.get_unitigs_in_graph(
+            os.path.join(output_dir, "mid_correction_unitigs.txt"),
+        )
+    # rebuild the graph
+    graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
+    # collect the reads that have fewer than k genes
+    short_reads.update(graph.get_short_read_annotations())
+    short_read_gene_positions.update(graph.get_short_read_gene_positions())
+    graph.filter_graph(node_min_coverage, 1)
+    new_annotatedReads = graph.get_valid_reads_only()
+    # return an empty DF if there are no AMR genes
+    if len(new_annotatedReads) == 0:
+        # write an empty dataframe
+        write_empty_result(output_dir)
+        # exit
+        sys.exit(0)
+    # choose a value for k
+    if not quiet:
+        sys.stderr.write("\nAmira: selecting a gene-mer size (k).\n")
+    geneMer_size = choose_kmer_size(
+        overall_mean_node_coverages[3],
+        new_annotatedReads,
+        1,
+        new_gene_position_dict,
+        sample_genesOfInterest,
+    )
+    overall_mean_node_coverage = overall_mean_node_coverages[geneMer_size]
+    if not quiet:
+        sys.stderr.write(f"\nAmira: selected k={geneMer_size}.\n")
+        sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}.\n")
+    # correct the graph
+    cleaning_iterations = 30
+    new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
+        new_annotatedReads,
+        new_gene_position_dict,
+        cleaning_iterations,
+        geneMer_size,
+        cores,
+        short_reads,
+        short_read_gene_positions,
+        fastq_content,
+        output_dir,
+        node_min_coverage,
+        sample_genesOfInterest,
+        min_path_coverage,
+    )
+    return new_annotatedReads, new_gene_position_dict, geneMer_size, overall_mean_node_coverage
+
+
 def main() -> None:
     # get the runtime
     start_time = time.time()
@@ -321,24 +435,13 @@ def main() -> None:
         AMR_gene_reference_FASTA, args.promoters
     )
     if args.reads is not None:
-        # load the fastq data
-        if not args.quiet:
-            sys.stderr.write("\nAmira: loading FASTQ file.\n")
-        # load the fastq file
-        fastq_content = parse_fastq(args.reads)
-        # gzip the fastq file if it is not gzipped
-        read_fastq_path, fastq_content = write_modified_fastq(
-            fastq_content, args.reads, args.output_dir
+        read_fastq_path, fastq_content = process_fastq_input(
+            args.reads, args.quiet, args.output_dir
         )
     else:
-        # load the fastq data
-        if not args.quiet:
-            sys.stderr.write("\nAmira: loading FASTA file.\n")
-        # load the assembly
-        fastq_content = parse_fasta(args.assembly)
-        # create a pseudo-fastq file
-        read_fastq_path = os.path.join(args.output_dir, "assembly.fq.gz")
-        write_fastq(read_fastq_path, fastq_content)
+        read_fastq_path, fastq_content = process_fasta_input(
+            args.assembly, args.quiet, args.output_dir
+        )
     # run pandora
     if args.pandoraSam is None and args.pandoraJSON is None:
         if not args.quiet:
@@ -351,7 +454,8 @@ def main() -> None:
             args.cores,
             args.seed,
             args.assembly,
-            args.species
+            args.species,
+            args.meta,
         )
     else:
         pandoraSam = args.pandoraSam
@@ -366,14 +470,20 @@ def main() -> None:
                     f"FASTQ file: {os.path.basename(args.reads)}\n"
                     f"Subsample reads: {args.sample_reads}\n"
                     f"Trim graph: {False if args.no_trim else True}\n"
+                    f"Minimum gene coverage: {args.gene_min_coverage}\n"
+                    f"Minimum node coverage: {args.node_min_coverage}\n"
+                    f"Minimum relative depth: {args.min_relative_depth}\n"
                 )
             else:
                 # output sample information
                 sys.stderr.write(
                     f"\nJSON file: {os.path.basename(args.pandoraJSON)}\n"
-                    f"FASTQ file: {os.path.basename(args.assembly)}\n"
+                    f"FASTA file: {os.path.basename(args.assembly)}\n"
                     f"Subsample reads: {args.sample_reads}\n"
                     f"Trim graph: {False if args.no_trim else True}\n"
+                    f"Minimum gene coverage: {args.gene_min_coverage}\n"
+                    f"Minimum node coverage: {args.node_min_coverage}\n"
+                    f"Minimum relative depth: {args.min_relative_depth}\n"
                 )
         annotatedReads, sample_genesOfInterest, gene_position_dict = process_pandora_json(
             args.pandoraJSON, genesOfInterest, args.gene_positions
@@ -394,14 +504,20 @@ def main() -> None:
                     f"FASTQ file: {os.path.basename(args.reads)}\n"
                     f"Subsample reads: {args.sample_reads}\n"
                     f"Trim graph: {False if args.no_trim else True}\n"
+                    f"Minimum gene coverage: {args.gene_min_coverage}\n"
+                    f"Minimum node coverage: {args.node_min_coverage}\n"
+                    f"Minimum relative depth: {args.min_relative_depth}\n"
                 )
             else:
                 # output sample information
                 sys.stderr.write(
                     f"\nSAM file: {os.path.basename(pandoraSam)}\n"
-                    f"FASTQ file: {os.path.basename(args.assembly)}\n"
+                    f"FASTA file: {os.path.basename(args.assembly)}\n"
                     f"Subsample reads: {args.sample_reads}\n"
                     f"Trim graph: {False if args.no_trim else True}\n"
+                    f"Minimum gene coverage: {args.gene_min_coverage}\n"
+                    f"Minimum node coverage: {args.node_min_coverage}\n"
+                    f"Minimum relative depth: {args.min_relative_depth}\n"
                 )
             sys.stderr.write("\nAmira: loading Pandora SAM file.\n")
         # load the pandora consensus
@@ -472,82 +588,35 @@ def main() -> None:
     except (ValueError, IndexError):
         min_path_coverage = 10
     # make the node_min_coverage 1 if running on an assembly
-    if args.reads is not None:
+    node_min_coverage = args.node_min_coverage
+    if args.reads is not None and args.meta is False:
         # filter junk reads
         graph.filter_graph(2, 1)
         new_annotatedReads, new_gene_position_dict, rejected_reads, rejected_read_positions = (
             graph.remove_junk_reads(0.80)
         )
-        node_min_coverage = args.node_min_coverage
-    else:
-        node_min_coverage = 1
     # report status
     if not args.quiet:
         message = "\nAmira: removing low coverage components "
         message += f"and nodes with coverage < {node_min_coverage}.\n"
         sys.stderr.write(message)
     if args.reads is not None:
-        # rebuild the graph
-        graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
-        # collect the reads that have fewer than k genes
-        short_reads.update(graph.get_short_read_annotations())
-        short_read_gene_positions.update(graph.get_short_read_gene_positions())
-        graph.remove_low_coverage_components(5)
-        graph.filter_graph(node_min_coverage, 1)
-        new_annotatedReads, new_gene_position_dict = graph.correct_reads(fastq_content)
-        write_pandora_gene_calls(
-            args.output_dir,
-            new_gene_position_dict,
-            new_annotatedReads,
-            os.path.join(args.output_dir, "mid_correction_gene_calls.json"),
-            os.path.join(args.output_dir, "mid_correction_gene_positions.json"),
-        )
-        if args.debug:
-            graph.get_unitigs_in_graph(
-                os.path.join(args.output_dir, "mid_correction_unitigs.txt"),
+        new_annotatedReads, new_gene_position_dict, geneMer_size, overall_mean_node_coverage = (
+            build_and_correct_graph(
+                new_annotatedReads,
+                new_gene_position_dict,
+                node_min_coverage,
+                fastq_content,
+                args.output_dir,
+                args.debug,
+                overall_mean_node_coverages,
+                args.cores,
+                short_reads,
+                short_read_gene_positions,
+                sample_genesOfInterest,
+                min_path_coverage,
+                args.quiet,
             )
-        # rebuild the graph
-        graph = build_multiprocessed_graph(new_annotatedReads, 3, 1, new_gene_position_dict)
-        # collect the reads that have fewer than k genes
-        short_reads.update(graph.get_short_read_annotations())
-        short_read_gene_positions.update(graph.get_short_read_gene_positions())
-        graph.filter_graph(node_min_coverage, 1)
-        new_annotatedReads = graph.get_valid_reads_only()
-        # return an empty DF if there are no AMR genes
-        if len(new_annotatedReads) == 0:
-            # write an empty dataframe
-            write_empty_result(args.output_dir)
-            # exit
-            sys.exit(0)
-        # choose a value for k
-        if not args.quiet:
-            sys.stderr.write("\nAmira: selecting a gene-mer size (k).\n")
-        geneMer_size = choose_kmer_size(
-            overall_mean_node_coverages[3],
-            new_annotatedReads,
-            1,
-            new_gene_position_dict,
-            sample_genesOfInterest,
-        )
-        overall_mean_node_coverage = overall_mean_node_coverages[geneMer_size]
-        if not args.quiet:
-            sys.stderr.write(f"\nAmira: selected k={geneMer_size}.\n")
-            sys.stderr.write(f"\nAmira: mean node depth = {overall_mean_node_coverage}.\n")
-        # correct the graph
-        cleaning_iterations = 30
-        new_annotatedReads, new_gene_position_dict = iterative_bubble_popping(
-            new_annotatedReads,
-            new_gene_position_dict,
-            cleaning_iterations,
-            geneMer_size,
-            args.cores,
-            short_reads,
-            short_read_gene_positions,
-            fastq_content,
-            args.output_dir,
-            node_min_coverage,
-            sample_genesOfInterest,
-            min_path_coverage,
         )
     else:
         geneMer_size = 3
@@ -660,7 +729,7 @@ def main() -> None:
     if not args.quiet:
         sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
     # decide whether to skip k-mer filtering
-    if args.reads is not None:
+    if args.reads is not None and args.assembly is None:
         # estimate the cellular copy numbers
         copy_numbers, mean_depth_per_reference = estimate_copy_numbers(
             fastq_content,
@@ -673,7 +742,7 @@ def main() -> None:
             mean_read_depth,
             args.debug,
         )
-    else:
+    if args.assembly is not None or args.meta is True:
         copy_numbers, mean_depth_per_reference = {}, {}
         for index, row in result_df.iterrows():
             copy_numbers[row["Amira allele"]] = 1
@@ -702,6 +771,7 @@ def main() -> None:
         args.coverage,
         mean_read_depth,
         plasmid_genes,
+        args.meta,
     )
     # genotype promoters if specified
     if args.promoters:

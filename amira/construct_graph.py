@@ -686,7 +686,11 @@ class GeneMerGraph:
                 if len(path) > 0 and (
                     len(path) < min_length
                 ):  # or all(self.get_node_by_hash(n).get_node_coverage() < 2 for n in path)):
-                    if all(self.get_node_by_hash(n).get_node_coverage() > self.get_mean_node_coverage() * 1.5 for n in path):
+                    if all(
+                        self.get_node_by_hash(n).get_node_coverage()
+                        > self.get_mean_node_coverage() * 1.5
+                        for n in path
+                    ):
                         continue
                     if node.get_component() not in paths_to_remove:
                         paths_to_remove[node.get_component()] = []
@@ -1890,8 +1894,6 @@ class GeneMerGraph:
             bw_counter = Counter(reverse_gene_mers)
             fw_counters[operation] = fw_counter
             bw_counters[operation] = bw_counter
-            if "+blaEC" in fw_higher_coverage_genes or "-blaEC" in fw_higher_coverage_genes:
-                print(fw_alignment, operation[3], operation[2], "\n")
         # iterate through the reads
         for read_id in reads_to_correct:
             if reads_to_correct[read_id] not in fw_alignments:
@@ -2146,7 +2148,7 @@ class GeneMerGraph:
     def get_minhash_of_nodes(self, batch, node_minhashes, fastq_data):
         for node_hash in batch:
             node = self.get_node_by_hash(node_hash)
-            minhash = sourmash.MinHash(n=0, ksize=11, scaled=10)
+            minhash = sourmash.MinHash(n=100, ksize=11)  # , scaled=10)
             for read in node.get_reads():
                 indices = [i for i, n in enumerate(self.get_readNodes()[read]) if n == node_hash]
                 positions = [self.get_readNodePositions()[read][i] for i in indices]
