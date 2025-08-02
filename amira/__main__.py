@@ -727,9 +727,12 @@ def main() -> None:
         sys.exit(0)
     # estimate the copy numbers
     if not args.quiet:
-        sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
+        if args.meta is False:
+            sys.stderr.write("\nAmira: estimating cellular copy numbers.\n")
+        if args.assembly is not None or args.meta is True:
+            sys.stderr.write("\nAmira: skipping cellular copy number estimation.\n")
     # decide whether to skip k-mer filtering
-    if args.reads is not None and args.assembly is None:
+    if args.reads is not None and args.assembly is None and args.meta is False:
         # estimate the cellular copy numbers
         copy_numbers, mean_depth_per_reference = estimate_copy_numbers(
             fastq_content,
