@@ -748,8 +748,8 @@ def main() -> None:
     if args.assembly is not None or args.meta is True:
         copy_numbers, mean_depth_per_reference = {}, {}
         for index, row in result_df.iterrows():
-            copy_numbers[row["Amira allele"]] = 1
-            mean_depth_per_reference[row["Amira allele"]] = 1
+            copy_numbers[row["Amira allele"]] = "N/A"
+            mean_depth_per_reference[row["Amira allele"]] = "N/A"
     # assemble the full length reads if specified
     if args.assemble_paths is True:
         assemble_full_length_paths(args.output_dir, args.cores)
