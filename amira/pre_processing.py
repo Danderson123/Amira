@@ -362,9 +362,12 @@ def estimate_mean_core_gene_counts(annotatedReads, core_genes):
     for r in annotatedReads:
         for g in annotatedReads[r]:
             counts[g[1:]] = counts.get(g[1:], 0) + 1
-    mean_read_depth = statistics.mean([counts[g] for g in counts if g in core])
-    return mean_read_depth
-
+    core_gene_counts = [counts[g] for g in counts if g in core]
+    if len(core_gene_counts) > 0:
+        mean_read_depth = statistics.mean(core_gene_counts)
+        return mean_read_depth
+    else:
+        return 0
 
 def subsample_reads_and_estimate_read_depth(
     annotatedReads, sample_size, output_dir, samtools_path, core_genes
