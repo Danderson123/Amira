@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/compilerla/conventional-pre-commit
-    rev: v4.2.0
+    rev: v4.3.0
     hooks:
       - id: conventional-pre-commit
         stages: [commit-msg]
@@ -10,7 +10,7 @@ repos:
     hooks:
     -   id: seed-isort-config
 -   repo: https://github.com/pycqa/isort
-    rev: 6.0.1
+    rev: 7.0.0
     hooks:
       - id: isort
         name: isort (python)
@@ -21,7 +21,7 @@ repos:
         ]
 
 -   repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 26.1.0
     hooks:
       - id: black
         args: [

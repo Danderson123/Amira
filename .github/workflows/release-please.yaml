@@ -13,11 +13,16 @@ name: release-please
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
-      - uses: google-github-actions/release-please-action@v3
+      - name: Release Please
+        id: rp
+        uses: google-github-actions/release-please-action@v3
         with:
           release-type: python
-          package-name: amira
+          package-name: amira_test
           changelog-types: >
             [
               { "type": "build", "section": "Build System", "hidden": false },
@@ -32,3 +37,48 @@ jobs:
               { "type": "test", "section": "Tests", "hidden": false }
             ]
           token: ${{ secrets.RELEASEPLEASEPAT }}
+
+  build-and-upload-sif:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install Apptainer (Singularity successor) on the runner
+      - name: Setup Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: "1.4.1"
+
+      - name: Build SIF from Singularity.def
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          OUT="amira_${TAG}.sif"
+
+          if [[ ! -f "Singularity.def" ]]; then
+            echo "ERROR: Singularity.def not found at repo root."
+            echo "If it lives elsewhere, update the path in this step."
+            exit 1
+          fi
+
+          # Try unprivileged build first; fallback to sudo if needed.
+          apptainer build "${OUT}" Singularity.def || sudo apptainer build "${OUT}" Singularity.def
+
+          ls -lh "${OUT}"
+
+      - name: Upload SIF to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASEPLEASEPAT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          FILE="amira_${TAG}.sif"
+
+          # Upload and overwrite if re-run
+          gh release upload "${TAG}" "${FILE}" --clobber
