@@ -29,12 +29,12 @@ Follow these steps to install Amira and its dependencies.
 Amira and its dependencies can be run through Singularity. A prebuilt singularity container can be found with each Release. Run this to build the container:
 
 ```bash
-sudo singularity build amira.img Singularity.def
+sudo singularity build amira.sif Singularity.def
 ```
 
 You can then run amira with the command below. **NOTE: If you use the singularity container you do not need to specify the paths to any of the non-python dependencies. Amira will find them in the container automatically.**
 ```bash
-singularity run amira.img amira --help
+singularity run amira.sif amira --help
 ```
 
 ### With Conda

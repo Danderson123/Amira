@@ -616,7 +616,7 @@ def compare_reads_to_references(
                 "Number of reads used for polishing": len(unique_reads),
             }
         if len(references) > 1:
-            (closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings) = (
+            closest_allele, match_proportion, match_length, coverage_proportion, cigarstrings = (
                 [],
                 [],
                 [],
@@ -1055,9 +1055,8 @@ def estimate_overall_read_depth(full_reads, k, threads, debug, outdir):
     jf_out = os.path.join(outdir, fastq_basename) + ".jf"
     histo_out = os.path.join(outdir, fastq_basename) + ".histo"
     sys.stderr.write("\nAmira: counting k-mers using Jellyfish.\n")
-    command = (
-        f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
-    )
+    command = f"bash -c 'jellyfish count -m {k} -s 20M -t {threads} "
+    command += f'-C <(gzip -dc "{full_reads}") -o {jf_out}\''
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
     # import the counts
@@ -1069,7 +1068,7 @@ def estimate_overall_read_depth(full_reads, k, threads, debug, outdir):
     histo_out = os.path.join(outdir, fastq_basename) + ".filtered.histo"
     kmers_out = os.path.join(outdir, fastq_basename) + ".filtered.kmers.txt"
     command = f"bash -c 'jellyfish count -m {k} -s 20M -L {cutoff} "
-    command += f"-t {threads} -C <(zcat {full_reads}) -o {jf_out}'"
+    command += f'-t {threads} -C <(gzip -dc "{full_reads}") -o {jf_out}\''
     command += f" && jellyfish dump -c {jf_out} > {kmers_out}"
     command += f" && jellyfish histo {jf_out} > {histo_out}"
     subprocess.run(command, shell=True, check=True)
@@ -1135,9 +1134,8 @@ def estimate_copy_numbers(
     for locus_reads in tqdm(path_fastqs):
         # query the kmers
         counts_file = locus_reads.replace(".fastq.gz", ".kmer_counts.txt")
-        command = (
-            f"bash -c 'jellyfish query -s <(zcat {locus_reads}) {full_jf_out} > {counts_file}'"
-        )
+        command = f'bash -c \'jellyfish query -s <(gzip -dc "{locus_reads}") '
+        command += f"{full_jf_out} > {counts_file}'"
         subprocess.run(command, shell=True, check=True)
         # get the counts of the requested kmers
         depth_estimate = estimate_depth(counts_file)

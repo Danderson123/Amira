@@ -203,6 +203,13 @@ def get_options() -> argparse.Namespace:
         default="racon",
     )
     parser.add_argument(
+        "--names",
+        dest="names",
+        action="store_true",
+        default=False,
+        help="Output sample name to summary TSV (default=False).",
+    )
+    parser.add_argument(
         "--seed",
         dest="seed",
         type=int,
@@ -663,7 +670,7 @@ def main() -> None:
     # assign reads to AMR genes by path
     if not args.quiet:
         sys.stderr.write("\nAmira: clustering reads.\n")
-    (clusters_to_add, clusters_of_interest, path_reads) = process_reads(
+    clusters_to_add, clusters_of_interest, path_reads = process_reads(
         graph,
         sample_genesOfInterest,
         args.cores,
@@ -796,6 +803,15 @@ def main() -> None:
         write_reads_per_AMR_gene(args.output_dir, supplemented_clusters_of_interest)
     # sort the results
     result_df = result_df.sort_values(by="Determinant name")
+    # add sample name if specified
+    if args.names:
+        sample_name = (
+            os.path.basename(args.reads)
+            if args.reads is not None
+            else os.path.basename(args.assembly)
+        )
+        col = [sample_name] * len(result_df)
+        result_df.insert(0, "Sample", col)
     # write the result tsv
     result_df.to_csv(os.path.join(args.output_dir, "amira_results.tsv"), sep="\t", index=False)
     if not args.quiet:
